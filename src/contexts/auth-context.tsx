@@ -6,10 +6,10 @@ import { supabase } from '@/lib/supabase';
 
 interface UserRole {
   id: string;
-  name: 'simpiller_admin' | 'organization_admin' | 'provider' | 'billing';
+  name: string;
   organization_id?: string;
   facility_id?: string;
-  permissions: Record<string, any>;
+  permissions: Record<string, unknown>;
 }
 
 interface AuthContextType {
@@ -17,7 +17,7 @@ interface AuthContextType {
   session: Session | null;
   userRoles: UserRole[];
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isSimpillerAdmin: boolean;
   isOrganizationAdmin: boolean;

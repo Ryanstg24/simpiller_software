@@ -67,7 +67,13 @@ export function useUsers() {
 
         // Transform the data to flatten the nested structure
         const transformedUsers = data?.map(user => {
-          const userRoles = (user.user_role_assignments as any[])?.map((assignment: any) => ({
+          const userRoles = (user.user_role_assignments as unknown as Array<{
+            user_roles: {
+              name: string;
+              organization_id?: string;
+              organizations?: { name: string; acronym: string };
+            };
+          }>)?.map((assignment) => ({
             name: assignment.user_roles.name,
             organization_id: assignment.user_roles.organization_id,
             organization: assignment.user_roles.organizations

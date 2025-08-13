@@ -80,7 +80,7 @@ export function useFacilities() {
           }
 
           // Get the organization ID from the first role assignment
-          const organizationId = (userRoles[0].user_roles as any)?.organization_id;
+          const organizationId = (userRoles[0].user_roles as { organization_id?: string })?.organization_id;
           
           if (!organizationId) {
             setError('No organization found for user');
