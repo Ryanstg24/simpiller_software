@@ -110,7 +110,7 @@ export function usePatients() {
           console.log('User query succeeded:', userData);
         }
 
-        const { data: _testData, error: testError } = await supabase
+        const { error: testError } = await supabase
           .from('patients')
           .select('id, first_name, last_name')
           .limit(1);

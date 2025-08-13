@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Edit, Save, User, Pill, Calendar } from 'lucide-react';
 import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
@@ -94,24 +94,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit provider assignment
   const canEditProvider = isSimpillerAdmin || isOrganizationAdmin;
 
-  useEffect(() => {
-    if (patient) {
-      setFormData(patient);
-      fetchMedications();
-      if (canEditProvider) {
-        fetchProviders();
-      }
-      
-      // Use patient's time preferences if available, otherwise use defaults
-      setTimePreferences({
-        morning: patient.morning_time || '06:00',
-        afternoon: patient.afternoon_time || '12:00',
-        evening: patient.evening_time || '18:00'
-      });
-    }
-  }, [patient, canEditProvider]);
-
-  const fetchMedications = async () => {
+  const fetchMedications = useCallback(async () => {
     if (!patient) return;
 
     try {
@@ -130,16 +113,16 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     } catch (error) {
       console.error('Error fetching medications:', error);
     }
-  };
+  }, [patient]);
 
-  const fetchProviders = async () => {
+  const fetchProviders = useCallback(async () => {
     if (!canEditProvider) return;
 
     try {
       setLoadingProviders(true);
       
       // First test a simple query to see if we can access users table
-      const { data: testData, error: testError } = await supabase
+      const { data: _testData, error: testError } = await supabase
         .from('users')
         .select('id, first_name, last_name')
         .limit(1);
@@ -200,7 +183,24 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     } finally {
       setLoadingProviders(false);
     }
-  };
+  }, [canEditProvider, isOrganizationAdmin, userOrganizationId]);
+
+  useEffect(() => {
+    if (patient) {
+      setFormData(patient);
+      fetchMedications();
+      if (canEditProvider) {
+        fetchProviders();
+      }
+      
+      // Use patient's time preferences if available, otherwise use defaults
+      setTimePreferences({
+        morning: patient.morning_time || '06:00',
+        afternoon: patient.afternoon_time || '12:00',
+        evening: patient.evening_time || '18:00'
+      });
+    }
+  }, [patient, canEditProvider, fetchMedications, fetchProviders]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
@@ -692,7 +692,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Time Preferences</h3>
                     <p className="text-sm text-gray-600 mb-4">
-                      Define when "morning", "afternoon", and "evening" mean for this patient based on their work schedule.
+                      Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their work schedule.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div>
@@ -1006,7 +1006,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                     <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                       <h4 className="text-sm font-medium text-blue-900 mb-3">Time Preferences</h4>
                       <p className="text-xs text-blue-700 mb-3">
-                        Define when "morning", "afternoon", and "evening" mean for this patient based on their schedule.
+                        Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their schedule.
                       </p>
                       <div className="grid grid-cols-3 gap-3">
                         <div>
