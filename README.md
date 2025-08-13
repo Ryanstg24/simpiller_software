@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Simpiller Dashboard
+
+A modern healthcare medication management dashboard built with Next.js, TypeScript, and Tailwind CSS.
+
+## Overview
+
+Simpiller is a medication management system that helps healthcare facilities manage patient medication schedules, send alerts, and track compliance. This dashboard provides providers and administrators with a comprehensive view of their patients and medication management operations.
+
+## Features
+
+### Current Features
+- **Modern Dashboard**: Clean, responsive design with real-time statistics
+- **Patient Management**: View and manage patient roster with compliance tracking
+- **Navigation**: Intuitive sidebar navigation for different sections
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Component Library**: Reusable UI components for consistent design
+
+### Planned Features
+- **Authentication**: Supabase integration for user authentication
+- **Real-time Data**: Live updates for medication alerts and patient activity
+- **Analytics**: Detailed compliance and medication analytics
+- **Medication Management**: Add, edit, and schedule medications
+- **Alert System**: Configure and manage medication alerts
+- **Facility Management**: Multi-facility support for administrators
+- **Mobile App**: React Native mobile application for patients
+
+## Tech Stack
+
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **UI Components**: Custom component library
+- **Database**: Supabase (planned)
+- **Authentication**: Supabase Auth (planned)
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js app router pages
+│   ├── page.tsx           # Dashboard home page
+│   ├── patients/          # Patient management pages
+│   └── layout.tsx         # Root layout
+├── components/            # Reusable components
+│   ├── ui/               # Base UI components
+│   │   ├── button.tsx
+│   │   └── card.tsx
+│   ├── layout/           # Layout components
+│   │   ├── sidebar.tsx
+│   │   └── header.tsx
+│   └── dashboard/        # Dashboard-specific components
+│       └── stats-card.tsx
+└── lib/                  # Utility functions
+    └── utils.ts
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+ (recommended)
+- npm or yarn
 
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd simpiller_site
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+## Development
 
-To learn more about Next.js, take a look at the following resources:
+### Available Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Adding New Pages
 
-## Deploy on Vercel
+1. Create a new directory in `src/app/` for your route
+2. Add a `page.tsx` file with your component
+3. Import and use the layout components (Sidebar, Header) for consistency
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Component Guidelines
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Use TypeScript interfaces for all props
+- Follow the existing component patterns
+- Use Tailwind CSS for styling
+- Keep components focused and reusable
+
+## Architecture Considerations
+
+### Mobile App Strategy
+The project is designed with future mobile app development in mind:
+- Shared business logic between web and mobile
+- Consistent design system
+- TypeScript for type safety across platforms
+- Component-based architecture for reusability
+
+### Database Design (Planned)
+- **Users**: Providers, administrators, patients
+- **Facilities**: Multi-location support
+- **Patients**: Patient information and medical history
+- **Medications**: Medication details and schedules
+- **Alerts**: Medication reminders and notifications
+- **Compliance**: Patient medication adherence tracking
+
+## Contributing
+
+1. Follow the existing code style and patterns
+2. Add TypeScript types for all new features
+3. Test components across different screen sizes
+4. Update documentation for new features
+
+## License
+
+[Add your license information here]
