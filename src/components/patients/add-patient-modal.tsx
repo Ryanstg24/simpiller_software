@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, Phone, MapPin, Calendar, Shield, Save, X, Stethoscope, Activity, AlertTriangle } from 'lucide-react';
+import { User, Mail, MapPin, Calendar, Shield, Save, X, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useFacilities } from '@/hooks/use-facilities';
 import { useOrganizations } from '@/hooks/use-organizations';

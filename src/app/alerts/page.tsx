@@ -2,9 +2,9 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Bell, AlertTriangle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Search, Filter, Bell, AlertTriangle, Clock, XCircle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 

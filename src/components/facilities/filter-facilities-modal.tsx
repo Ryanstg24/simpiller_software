@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Filter, Building2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { supabase } from "@/lib/supabase";

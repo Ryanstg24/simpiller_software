@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Pill, Calendar, Clock } from 'lucide-react';
+import { X, Save, Pill } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface Medication {
@@ -58,17 +58,23 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
 
   useEffect(() => {
     if (medication) {
+      console.log('Loading medication data:', medication);
+      
       // Handle existing medications that might have single time values
       let timeOfDay = medication.time_of_day;
       if (timeOfDay && !timeOfDay.includes(',') && timeOfDay !== 'custom') {
         // Convert single time to comma-separated format for consistency
         timeOfDay = timeOfDay.trim();
+        console.log('Converting single time to format:', { original: medication.time_of_day, converted: timeOfDay });
       }
       
-      setFormData({
+      const newFormData = {
         ...medication,
         time_of_day: timeOfDay
-      });
+      };
+      
+      console.log('Setting form data:', newFormData);
+      setFormData(newFormData);
       
       // Use patient's time preferences if available, otherwise use defaults
       setTimePreferences({
@@ -131,6 +137,8 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
     const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
     const frequency = formData.frequency || 1;
     
+    console.log('handleTimeSelection:', { time, checked, currentTimes, frequency });
+    
     if (checked) {
       // Don't allow selecting more times than frequency (unless it's custom)
       if (time !== 'custom' && currentTimes.length >= frequency) {
@@ -141,11 +149,13 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
       // Add time if not already selected
       if (!currentTimes.includes(time)) {
         const newTimes = [...currentTimes, time].join(',');
+        console.log('Adding time:', { newTimes });
         setFormData({ ...formData, time_of_day: newTimes });
       }
     } else {
       // Allow deselecting even if it's the only time selected (user can then select a different time)
       const newTimes = currentTimes.filter(t => t !== time).join(',');
+      console.log('Removing time:', { newTimes });
       setFormData({ ...formData, time_of_day: newTimes });
     }
   };
@@ -287,7 +297,14 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={formData.time_of_day?.includes('morning') || false}
+                          checked={(() => {
+                            const isChecked = formData.time_of_day?.includes('morning') || false;
+                            console.log('Morning checkbox state:', { 
+                              time_of_day: formData.time_of_day, 
+                              isChecked 
+                            });
+                            return isChecked;
+                          })()}
                           onChange={(e) => handleTimeSelection('morning', e.target.checked)}
                           className="mr-2"
                         />
@@ -296,7 +313,14 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={formData.time_of_day?.includes('afternoon') || false}
+                          checked={(() => {
+                            const isChecked = formData.time_of_day?.includes('afternoon') || false;
+                            console.log('Afternoon checkbox state:', { 
+                              time_of_day: formData.time_of_day, 
+                              isChecked 
+                            });
+                            return isChecked;
+                          })()}
                           onChange={(e) => handleTimeSelection('afternoon', e.target.checked)}
                           className="mr-2"
                         />
@@ -305,7 +329,14 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={formData.time_of_day?.includes('evening') || false}
+                          checked={(() => {
+                            const isChecked = formData.time_of_day?.includes('evening') || false;
+                            console.log('Evening checkbox state:', { 
+                              time_of_day: formData.time_of_day, 
+                              isChecked 
+                            });
+                            return isChecked;
+                          })()}
                           onChange={(e) => handleTimeSelection('evening', e.target.checked)}
                           className="mr-2"
                         />

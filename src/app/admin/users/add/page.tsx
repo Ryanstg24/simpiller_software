@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Users, Mail, Phone, Shield, Globe } from "lucide-react";
+import { ArrowLeft, Save, Users, Mail, Shield, Globe } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";

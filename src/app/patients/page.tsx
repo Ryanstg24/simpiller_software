@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, User, Phone, Mail, MapPin, Calendar, Tag } from "lucide-react";
+import { Plus, Search, User, Phone, Mail, MapPin, Calendar, Tag } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { usePatients } from "@/hooks/use-patients";
@@ -50,16 +50,6 @@ export default function PatientsPage() {
 
   const getStatusText = (isActive: boolean) => {
     return isActive ? 'Active' : 'Inactive';
-  };
-
-  const getGenderText = (gender: string) => {
-    switch (gender) {
-      case 'M': return 'Male';
-      case 'F': return 'Female';
-      case 'X': return 'Other';
-      case 'U': return 'Unknown';
-      default: return 'Not specified';
-    }
   };
 
   const calculateAge = (dateOfBirth: string) => {

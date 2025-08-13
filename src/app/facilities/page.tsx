@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, Building2, Users, Pill, MapPin, Phone, Tag } from "lucide-react";
+import { Plus, Search, Filter, Building2, MapPin, Phone, Tag } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useFacilities } from "@/hooks/use-facilities";

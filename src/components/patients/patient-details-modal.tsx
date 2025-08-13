@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit, Save, User, Pill, Calendar, Phone, Mail, MapPin } from 'lucide-react';
+import { X, Edit, Save, User, Pill, Calendar } from 'lucide-react';
 import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
