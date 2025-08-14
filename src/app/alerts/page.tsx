@@ -11,14 +11,8 @@ import { useUserDisplay } from "@/hooks/use-user-display";
 export default function AlertsPage() {
   const userInfo = useUserDisplay();
 
-  const alerts = [
-    { id: 1, type: "missed_dose", patient: "Emily Davis", medication: "Amlodipine", message: "Missed dose - 2 hours overdue", time: "2 hours ago", status: "pending", priority: "high" },
-    { id: 2, type: "medication_due", patient: "Sarah Wilson", medication: "Metformin", message: "Medication due in 30 minutes", time: "30 minutes ago", status: "pending", priority: "medium" },
-    { id: 3, type: "low_compliance", patient: "Mike Johnson", medication: "Atorvastatin", message: "Compliance rate below 80%", time: "1 hour ago", status: "acknowledged", priority: "medium" },
-    { id: 4, type: "medication_due", patient: "John Doe", medication: "Lisinopril", message: "Medication due now", time: "5 minutes ago", status: "pending", priority: "high" },
-    { id: 5, type: "system_alert", patient: "System", medication: "N/A", message: "SMS service temporarily unavailable", time: "10 minutes ago", status: "resolved", priority: "low" },
-    { id: 6, type: "missed_dose", patient: "Emily Davis", medication: "Omeprazole", message: "Missed dose - 4 hours overdue", time: "4 hours ago", status: "pending", priority: "high" }
-  ];
+  // Empty alerts array for now - will be populated with real data later
+  const alerts: any[] = [];
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -110,52 +104,61 @@ export default function AlertsPage() {
 
             {/* Alerts List */}
             <div className="space-y-4">
-              {alerts.map((alert) => (
-                <Card key={alert.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0 mt-1">
-                        {getAlertIcon(alert.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {alert.patient !== 'System' ? `${alert.patient} - ${alert.medication}` : alert.message}
-                            </h3>
-                            <p className="text-sm text-gray-800 mt-1">
-                              {alert.patient === 'System' ? alert.message : alert.message}
-                            </p>
+              {alerts.length === 0 ? (
+                <div className="text-center py-12">
+                  <h3 className="text-lg font-semibold text-gray-900">No Alerts Found</h3>
+                  <p className="text-gray-600 mt-2">
+                    You currently have no alerts to display. Check back later for new notifications.
+                  </p>
+                </div>
+              ) : (
+                alerts.map((alert) => (
+                  <Card key={alert.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0 mt-1">
+                          {getAlertIcon(alert.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-900">
+                                {alert.patient !== 'System' ? `${alert.patient} - ${alert.medication}` : alert.message}
+                              </h3>
+                              <p className="text-sm text-gray-800 mt-1">
+                                {alert.patient === 'System' ? alert.message : alert.message}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(alert.status)}`}>
+                                {alert.status}
+                              </span>
+                              <span className={`text-xs font-medium ${getPriorityColor(alert.priority)}`}>
+                                {alert.priority}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(alert.status)}`}>
-                              {alert.status}
-                            </span>
-                            <span className={`text-xs font-medium ${getPriorityColor(alert.priority)}`}>
-                              {alert.priority}
-                            </span>
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                              <span>{getTypeLabel(alert.type)}</span>
+                              <span>•</span>
+                              <span>{alert.time}</span>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button size="sm" variant="outline">
+                                Acknowledge
+                              </Button>
+                              <Button size="sm" variant="outline">
+                                View Details
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>{getTypeLabel(alert.type)}</span>
-                            <span>•</span>
-                            <span>{alert.time}</span>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">
-                              Acknowledge
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              View Details
-                            </Button>
-                          </div>
-                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </main>
         </div>
