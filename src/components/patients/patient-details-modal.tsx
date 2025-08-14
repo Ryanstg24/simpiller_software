@@ -64,6 +64,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
   
   const [showAddMedication, setShowAddMedication] = useState(false);
+  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Form data for editing patient
   const [formData, setFormData] = useState<Partial<Patient>>({});
@@ -213,7 +215,10 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   };
 
   const handleDeleteMedication = async (medicationId: string) => {
-    if (!confirm('Are you sure you want to delete this medication?')) return;
+    const medication = medications.find(m => m.id === medicationId);
+    const medicationName = medication?.name || 'this medication';
+    
+    if (!confirm(`Are you sure you want to delete ${medicationName}? This action cannot be undone.`)) return;
 
     try {
       setLoading(true);
@@ -851,13 +856,24 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteMedication(medication.id!)}
-                          disabled={loading}
-                          className="text-red-600 hover:text-red-700 text-sm"
-                        >
-                          {loading ? 'Deleting...' : 'Delete'}
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              setEditingMedication(medication);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-700 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMedication(medication.id!)}
+                            disabled={loading}
+                            className="text-red-600 hover:text-red-700 text-sm"
+                          >
+                            {loading ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -877,6 +893,24 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                     }}
                     mode="add"
                     selectedPatientId={patient?.id}
+                  />
+                </div>
+              )}
+
+              {/* Edit Medication Modal */}
+              {editingMedication && isEditModalOpen && (
+                <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+                  <MedicationModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSuccess={() => {
+                      setIsEditModalOpen(false);
+                      fetchMedications();
+                      onPatientUpdated();
+                    }}
+                    mode="edit"
+                    selectedPatientId={patient?.id}
+                    medication={editingMedication}
                   />
                 </div>
               )}

@@ -209,6 +209,32 @@ export default function MedicationsPage() {
     setIsEditModalOpen(true);
   };
 
+  const handleDeleteMedication = async (medicationId: string) => {
+    const medication = medications.find(m => m.id === medicationId);
+    const medicationName = medication?.name || 'this medication';
+    const patientName = medication?.patients ? `${medication.patients.first_name} ${medication.patients.last_name}` : 'this patient';
+    
+    if (!confirm(`Are you sure you want to delete ${medicationName} for ${patientName}? This action cannot be undone.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('medications')
+        .update({ status: 'discontinued' })
+        .eq('id', medicationId);
+
+      if (error) {
+        console.error('Error deleting medication:', error);
+        alert('Failed to delete medication. Please try again.');
+      } else {
+        handleMedicationUpdated();
+        alert('Medication deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting medication:', error);
+      alert('Failed to delete medication. Please try again.');
+    }
+  };
+
   const handleMedicationUpdated = () => {
     // Refresh medications data
     const fetchMedications = async () => {
@@ -502,14 +528,24 @@ export default function MedicationsPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleEditMedication(medication)}
-                                className="bg-black text-white border-black hover:bg-gray-800"
-                              >
-                                Edit
-                              </Button>
+                              <div className="flex space-x-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleEditMedication(medication)}
+                                  className="bg-black text-white border-black hover:bg-gray-800"
+                                >
+                                  Edit
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleDeleteMedication(medication.id)}
+                                  className="bg-red-600 text-white border-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                           {expandedRows.has(medication.id) && (
