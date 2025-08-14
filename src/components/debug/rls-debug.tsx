@@ -6,14 +6,26 @@ import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
+interface DebugInfo {
+  currentUser?: unknown;
+  userId?: string;
+  userQuery?: { data: unknown; error: unknown };
+  orgQuery?: { data: unknown; error: unknown };
+  facilityQuery?: { data: unknown; error: unknown };
+  patientQuery?: { data: unknown; error: unknown };
+  roleQuery?: { data: unknown; error: unknown };
+  assignmentQuery?: { data: unknown; error: unknown };
+  exception?: unknown;
+}
+
 export function RLSDebug() {
   const { user } = useAuth();
-  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({});
   const [loading, setLoading] = useState(false);
 
   const runDiagnostics = async () => {
     setLoading(true);
-    const info: any = {};
+    const info: DebugInfo = {};
 
     try {
       // Test 1: Check current user

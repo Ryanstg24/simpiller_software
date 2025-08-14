@@ -10,8 +10,8 @@ import { supabase } from "@/lib/supabase";
 interface FilterFacilitiesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyFilters: (filters: any) => void;
-  currentFilters: any;
+  onApplyFilters: (filters: FacilityFilters) => void;
+  currentFilters: FacilityFilters;
   buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
