@@ -70,13 +70,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Form data for editing patient
   const [formData, setFormData] = useState<Partial<Patient>>({});
 
-  // Time preferences for the patient
-  const [timePreferences, setTimePreferences] = useState({
-    morning: '06:00',
-    afternoon: '12:00',
-    evening: '18:00'
-  });
-
   // Check if user can edit provider assignment
   const canEditProvider = isSimpillerAdmin || isOrganizationAdmin;
 
@@ -180,11 +173,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       }
       
       // Use patient's time preferences if available, otherwise use defaults
-      setTimePreferences({
-        morning: patient.morning_time || '06:00',
-        afternoon: patient.afternoon_time || '12:00',
-        evening: patient.evening_time || '18:00'
-      });
+      // Time preferences are now handled by the MedicationModal component
     }
   }, [patient, canEditProvider, fetchMedications, fetchProviders]);
 

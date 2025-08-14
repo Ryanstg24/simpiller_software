@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Pill, User } from 'lucide-react';
+import { X, Save, Pill } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { usePatients } from '@/hooks/use-patients';
@@ -57,7 +57,6 @@ export function MedicationModal({
   medication, 
   selectedPatientId 
 }: MedicationModalProps) {
-  const { isProvider } = useAuth();
   const { patients } = usePatients();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Medication>>({});
@@ -69,9 +68,6 @@ export function MedicationModal({
     afternoon: '12:00',
     evening: '18:00'
   });
-
-  // Get the current patient's time preferences
-  const currentPatient = patients.find(p => p.id === selectedPatient);
 
   useEffect(() => {
     if (mode === 'edit' && medication) {

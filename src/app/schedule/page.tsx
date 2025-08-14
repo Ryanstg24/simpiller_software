@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { usePatients } from "@/hooks/use-patients";
@@ -24,11 +24,29 @@ interface ScheduleItem {
   medicationId: string;
 }
 
+interface Medication {
+  id: string;
+  patient_id: string;
+  name: string;
+  strength: string;
+  format: string;
+  time_of_day?: string;
+  custom_time?: string;
+  status: string;
+  patients?: {
+    first_name: string;
+    last_name: string;
+    morning_time?: string;
+    afternoon_time?: string;
+    evening_time?: string;
+    timezone?: string;
+  };
+}
+
 export default function SchedulePage() {
   const userInfo = useUserDisplay();
   const { patients, loading: patientsLoading } = usePatients();
-  const { isProvider } = useAuth();
-  const [medications, setMedications] = useState<any[]>([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
   const [medicationsLoading, setMedicationsLoading] = useState(true);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
 

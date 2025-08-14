@@ -8,11 +8,22 @@ import { Search, Filter, Bell, AlertTriangle, Clock, XCircle } from "lucide-reac
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 
+interface Alert {
+  id: number;
+  type: string;
+  patient: string;
+  medication: string;
+  message: string;
+  time: string;
+  status: string;
+  priority: string;
+}
+
 export default function AlertsPage() {
   const userInfo = useUserDisplay();
 
   // Empty alerts array for now - will be populated with real data later
-  const alerts: any[] = [];
+  const alerts: Alert[] = [];
 
   const getAlertIcon = (type: string) => {
     switch (type) {
