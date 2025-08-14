@@ -11,6 +11,7 @@ import { useFacilities } from "@/hooks/use-facilities";
 import { AddFacilityModal } from "@/components/facilities/add-facility-modal";
 import { FilterFacilitiesModal, FacilityFilters } from "@/components/facilities/filter-facilities-modal";
 import { useState, useMemo, useRef } from "react";
+import { Facility } from "@/hooks/use-facilities";
 
 export default function FacilitiesPage() {
   const userInfo = useUserDisplay();
@@ -31,7 +32,7 @@ export default function FacilitiesPage() {
     return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
   };
 
-  const formatAddress = (facility: any) => {
+  const formatAddress = (facility: Facility) => {
     const parts = [
       facility.street1,
       facility.street2,

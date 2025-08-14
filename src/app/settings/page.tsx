@@ -77,7 +77,7 @@ export default function SettingsPage() {
     setSaveMessage("");
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('users')
         .update({
           first_name: formData.firstName,
@@ -86,8 +86,7 @@ export default function SettingsPage() {
           npi: formData.npiNumber,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id)
-        .select(); // Add select() to return the updated data
+        .eq('id', user.id);
 
       if (error) {
         console.error('Error updating user data:', error);

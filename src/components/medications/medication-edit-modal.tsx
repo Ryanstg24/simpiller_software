@@ -153,21 +153,6 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
     }
   };
 
-  const formatTimeDisplay = (timeOfDay: string | undefined) => {
-    if (!timeOfDay) return 'Not specified';
-    
-    if (timeOfDay.includes('(') && timeOfDay.includes(')')) {
-      return timeOfDay; // Already formatted
-    }
-    
-    if (timeOfDay.startsWith('Custom:')) {
-      return timeOfDay;
-    }
-    
-    // For existing medications without time preferences, show as is
-    return timeOfDay;
-  };
-
   if (!isOpen || !medication) return null;
 
   return (

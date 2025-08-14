@@ -122,7 +122,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       setLoadingProviders(true);
       
       // First test a simple query to see if we can access users table
-      const { data: _testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('users')
         .select('id, first_name, last_name')
         .limit(1);

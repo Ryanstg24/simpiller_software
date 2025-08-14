@@ -31,7 +31,7 @@ export function FilterFacilitiesModal({
   buttonRef
 }: FilterFacilitiesModalProps) {
   const { isSimpillerAdmin, user } = useAuth();
-  const { organizations, loading: orgLoading } = useOrganizations();
+  const { organizations } = useOrganizations();
   const [userOrganizationId, setUserOrganizationId] = useState<string | null>(null);
   const [cities, setCities] = useState<string[]>([]);
   const [states, setStates] = useState<string[]>([]);
@@ -79,7 +79,7 @@ export function FilterFacilitiesModal({
             .eq('user_id', user.id);
 
           if (!error && userRoles && userRoles.length > 0) {
-            const orgId = (userRoles[0].user_roles as any)?.organization_id;
+            const orgId = (userRoles[0].user_roles as { organization_id?: string })?.organization_id;
             if (orgId) {
               setUserOrganizationId(orgId);
               setFormData(prev => ({ ...prev, organization_id: orgId }));

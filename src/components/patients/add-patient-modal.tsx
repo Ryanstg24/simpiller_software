@@ -24,7 +24,7 @@ interface Provider {
 }
 
 export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalProps) {
-  const { isSimpillerAdmin, userOrganizationId, user } = useAuth();
+  const { isSimpillerAdmin, userOrganizationId } = useAuth();
   const { facilities } = useFacilities();
   const { organizations } = useOrganizations();
   const [loading, setLoading] = useState(false);
@@ -173,7 +173,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('patients')
         .insert({
           organization_id: formData.organization_id,
@@ -225,9 +225,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           timezone: formData.timezone || null,
           
           is_active: true
-        })
-        .select()
-        .single();
+        });
 
       if (error) {
         console.error('Error creating patient:', error);
@@ -694,7 +692,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-gray-600 mb-4">
-                  Define when "morning", "afternoon", and "evening" mean for this patient based on their work schedule and timezone.
+                  Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their work schedule and timezone.
                 </p>
                 
                 <div>
@@ -788,7 +786,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
 
                 <div className="bg-blue-50 p-3 rounded-md">
                   <p className="text-sm text-blue-800">
-                    <strong>Tip:</strong> Adjust these times based on the patient's work schedule. 
+                    <strong>Tip:</strong> Adjust these times based on the patient&apos;s work schedule. 
                     For example, a night shift worker might set morning to 14:00 (2 PM) and evening to 02:00 (2 AM).
                   </p>
                 </div>

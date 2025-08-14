@@ -57,7 +57,7 @@ export default function AddOrganizationPage() {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('organizations')
         .insert({
           name: formData.name,
@@ -81,9 +81,7 @@ export default function AddOrganizationPage() {
           patient_id_title: formData.patient_id_title,
           clinician_title: formData.clinician_title,
           is_active: true
-        })
-        .select()
-        .single();
+        });
 
       if (error) {
         console.error('Error creating organization:', error);

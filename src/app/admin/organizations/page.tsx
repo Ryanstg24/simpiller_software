@@ -224,7 +224,7 @@ export default function OrganizationsPage() {
                       </div>
                       {organization.tagline && (
                         <div className="flex items-center text-sm text-gray-600">
-                          <span className="truncate italic">"{organization.tagline}"</span>
+                          <span className="truncate italic">&quot;{organization.tagline}&quot;</span>
                         </div>
                       )}
                       {organization.brand_name && (
