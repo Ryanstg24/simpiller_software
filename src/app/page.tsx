@@ -13,11 +13,21 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/contexts/auth-context";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Dashboard() {
   const { isLoading, user } = useAuth();
   const userInfo = useUserDisplay();
   const { stats, loading: statsLoading, error } = useDashboardStats();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [isLoading, user, router]);
 
   const getActivityColor = (type: string) => {
     switch (type) {
@@ -30,19 +40,22 @@ export default function Dashboard() {
   };
 
   // Show loading state while auth is initializing or stats are loading
-  if (isLoading || statsLoading || !user) {
+  if (isLoading || statsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-800">
-            {isLoading ? 'Initializing...' : 
-             statsLoading ? 'Loading dashboard data...' : 
-             !user ? 'Authenticating...' : 'Loading...'}
+            {isLoading ? 'Initializing...' : 'Loading dashboard data...'}
           </p>
         </div>
       </div>
     );
+  }
+
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
   }
 
   // Show error state if there's an error
