@@ -11,12 +11,15 @@ import { useAuth } from "@/contexts/auth-context";
 import { useUsers } from "@/hooks/use-users";
 import Link from "next/link";
 import { useState, useMemo } from "react";
+import { UserDetailsModal } from "@/components/admin/user-details-modal";
 
 export default function UsersPage() {
   const userInfo = useUserDisplay();
   const { isSimpillerAdmin } = useAuth();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
@@ -38,6 +41,18 @@ export default function UsersPage() {
 
   const getStatusText = (isActive: boolean) => {
     return isActive ? 'Active' : 'Inactive';
+  };
+
+  const handleViewUser = (user: any) => {
+    setSelectedUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleUserUpdated = () => {
+    // Refresh users data
+    // The useUsers hook should handle this automatically
+    setIsModalOpen(false);
+    setSelectedUser(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -269,10 +284,20 @@ export default function UsersPage() {
                       )}
                       <div className="pt-3 border-t">
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleViewUser(user)}
+                          >
                             View Details
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleViewUser(user)}
+                          >
                             Edit
                           </Button>
                         </div>
@@ -303,6 +328,17 @@ export default function UsersPage() {
           </main>
         </div>
       </div>
+      
+      {/* User Details Modal */}
+      <UserDetailsModal
+        user={selectedUser}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onUserUpdated={handleUserUpdated}
+      />
     </ProtectedRoute>
   );
 } 
