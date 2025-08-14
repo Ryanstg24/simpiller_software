@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Pill } from 'lucide-react';
+import { X, Save, Pill, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/auth-context';
+import { usePatients } from '@/hooks/use-patients';
 
 interface Medication {
-  id: string;
+  id?: string;
   patient_id: string;
   name: string;
   strength: string;
@@ -38,16 +40,28 @@ interface Medication {
   };
 }
 
-interface MedicationEditModalProps {
-  medication: Medication | null;
+interface MedicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onMedicationUpdated: () => void;
+  onSuccess: () => void;
+  mode: 'add' | 'edit';
+  medication?: Medication | null;
+  selectedPatientId?: string; // For adding medication from patient details
 }
 
-export function MedicationEditModal({ medication, isOpen, onClose, onMedicationUpdated }: MedicationEditModalProps) {
+export function MedicationModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  mode, 
+  medication, 
+  selectedPatientId 
+}: MedicationModalProps) {
+  const { isProvider } = useAuth();
+  const { patients } = usePatients();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Medication>>({});
+  const [selectedPatient, setSelectedPatient] = useState<string>(selectedPatientId || '');
 
   // Time preferences for the patient
   const [timePreferences, setTimePreferences] = useState({
@@ -56,9 +70,11 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
     evening: '18:00'
   });
 
+  // Get the current patient's time preferences
+  const currentPatient = patients.find(p => p.id === selectedPatient);
+
   useEffect(() => {
-    if (medication) {
-      
+    if (mode === 'edit' && medication) {
       // Handle existing medications that might have single time values
       let timeOfDay = medication.time_of_day;
       if (timeOfDay && !timeOfDay.includes(',') && timeOfDay !== 'custom') {
@@ -72,6 +88,7 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
       };
       
       setFormData(newFormData);
+      setSelectedPatient(medication.patient_id);
       
       // Use patient's time preferences if available, otherwise use defaults
       setTimePreferences({
@@ -79,11 +96,59 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
         afternoon: medication.patients?.afternoon_time || '12:00',
         evening: medication.patients?.evening_time || '18:00'
       });
+    } else if (mode === 'add') {
+      // Reset form for adding new medication
+      setFormData({
+        name: '',
+        strength: '',
+        format: 'UNSPECIFIED',
+        dose_count: 1,
+        quantity: 0,
+        frequency: 1,
+        time_of_day: '',
+        custom_time: '',
+        with_food: false,
+        avoid_alcohol: false,
+        impairment_warning: false,
+        special_instructions: '',
+        rx_refills: 0,
+        status: 'active'
+      });
+      
+      if (selectedPatientId) {
+        setSelectedPatient(selectedPatientId);
+        // Set time preferences for the selected patient
+        const patient = patients.find(p => p.id === selectedPatientId);
+        if (patient) {
+          setTimePreferences({
+            morning: patient.morning_time || '06:00',
+            afternoon: patient.afternoon_time || '12:00',
+            evening: patient.evening_time || '18:00'
+          });
+        }
+      }
     }
-  }, [medication]);
+  }, [mode, medication, selectedPatientId, patients]);
+
+  // Update time preferences when patient changes
+  useEffect(() => {
+    if (selectedPatient && mode === 'add') {
+      const patient = patients.find(p => p.id === selectedPatient);
+      if (patient) {
+        setTimePreferences({
+          morning: patient.morning_time || '06:00',
+          afternoon: patient.afternoon_time || '12:00',
+          evening: patient.evening_time || '18:00'
+        });
+      }
+    }
+  }, [selectedPatient, patients, mode]);
 
   const handleSaveMedication = async () => {
-    if (!medication) return;
+    if (!selectedPatient) {
+      alert('Please select a patient.');
+      return;
+    }
 
     // Validate frequency vs selected times
     const selectedTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
@@ -109,22 +174,41 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('medications')
-        .update(formData)
-        .eq('id', medication.id);
+      
+      const medicationData = {
+        ...formData,
+        patient_id: selectedPatient
+      };
 
-      if (error) {
-        console.error('Error updating medication:', error);
-        alert('Failed to update medication. Please try again.');
+      if (mode === 'edit' && medication?.id) {
+        const { error } = await supabase
+          .from('medications')
+          .update(medicationData)
+          .eq('id', medication.id);
+
+        if (error) {
+          console.error('Error updating medication:', error);
+          alert('Failed to update medication. Please try again.');
+          return;
+        }
       } else {
-        onMedicationUpdated();
-        onClose();
-        alert('Medication updated successfully!');
+        const { error } = await supabase
+          .from('medications')
+          .insert(medicationData);
+
+        if (error) {
+          console.error('Error creating medication:', error);
+          alert('Failed to create medication. Please try again.');
+          return;
+        }
       }
+
+      onSuccess();
+      onClose();
+      alert(`Medication ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
     } catch (error) {
-      console.error('Error updating medication:', error);
-      alert('Failed to update medication. Please try again.');
+      console.error('Error saving medication:', error);
+      alert(`Failed to ${mode} medication. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -165,7 +249,7 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
     }
   };
 
-  if (!isOpen || !medication) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -176,11 +260,13 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
             <Pill className="h-6 w-6 text-blue-600" />
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                Edit Medication: {medication.name}
+                {mode === 'edit' ? `Edit Medication: ${medication?.name}` : 'Add New Medication'}
               </h2>
-              <p className="text-sm text-gray-500">
-                Patient: {medication.patients?.first_name} {medication.patients?.last_name}
-              </p>
+              {mode === 'edit' && medication?.patients && (
+                <p className="text-sm text-gray-500">
+                  Patient: {medication.patients.first_name} {medication.patients.last_name}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -195,6 +281,29 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
         <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
           <div className="p-6">
             <div className="space-y-6">
+              {/* Patient Selection (only for add mode and when no patient is pre-selected) */}
+              {mode === 'add' && !selectedPatientId && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Selection</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Patient *</label>
+                    <select
+                      value={selectedPatient}
+                      onChange={(e) => setSelectedPatient(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      required
+                    >
+                      <option value="">Select a patient</option>
+                      {patients.map((patient) => (
+                        <option key={patient.id} value={patient.id}>
+                          {patient.first_name} {patient.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {/* Basic Medication Information */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Medication Information</h3>
@@ -206,6 +315,7 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="e.g., Lisinopril"
                     />
                   </div>
                   <div>
@@ -485,11 +595,11 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
                 </button>
                 <button
                   onClick={handleSaveMedication}
-                  disabled={loading}
+                  disabled={loading || (mode === 'add' && !selectedPatient)}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
-                  <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                  <span>{loading ? 'Saving...' : `${mode === 'edit' ? 'Update' : 'Create'} Medication`}</span>
                 </button>
               </div>
             </div>

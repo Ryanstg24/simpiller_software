@@ -11,7 +11,7 @@ import { usePatients } from "@/hooks/use-patients";
 import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import React from "react";
-import { MedicationEditModal } from "@/components/medications/medication-edit-modal";
+import { MedicationModal } from "@/components/medications/medication-modal";
 
 interface Medication {
   id: string;
@@ -57,6 +57,7 @@ export default function MedicationsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Fetch medications for the filtered patients
   useMemo(() => {
@@ -309,7 +310,7 @@ export default function MedicationsPage() {
               </div>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {/* TODO: Add medication modal */}}
+                onClick={() => setIsAddModalOpen(true)}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Medication
@@ -576,7 +577,7 @@ export default function MedicationsPage() {
                     {!searchTerm && (
                       <Button 
                         className="bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => {/* TODO: Add medication modal */}}
+                        onClick={() => setIsAddModalOpen(true)}
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Add First Medication
@@ -589,11 +590,19 @@ export default function MedicationsPage() {
           </main>
         </div>
       </div>
-      <MedicationEditModal
+      <MedicationModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
+        onSuccess={handleMedicationUpdated}
+        mode="edit"
         medication={editingMedication}
-        onMedicationUpdated={handleMedicationUpdated}
+      />
+      <MedicationModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={handleMedicationUpdated}
+        mode="add"
+        medication={null}
       />
     </ProtectedRoute>
   );

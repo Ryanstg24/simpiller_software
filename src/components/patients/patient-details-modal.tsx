@@ -5,6 +5,7 @@ import { X, Edit, Save, User, Pill, Calendar } from 'lucide-react';
 import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { MedicationModal } from '@/components/medications/medication-modal';
 
 interface PatientDetailsModalProps {
   patient: Patient | null;
@@ -62,23 +63,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const [loadingProviders, setLoadingProviders] = useState(false);
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
   
-  const [newMedication, setNewMedication] = useState<Partial<Medication>>({
-    name: '',
-    strength: '',
-    format: 'UNSPECIFIED',
-    dose_count: 1,
-    max_daily: 1,
-    quantity: 0,
-    frequency: 1,
-    time_of_day: '',
-    custom_time: '',
-    with_food: false,
-    avoid_alcohol: false,
-    impairment_warning: false,
-    special_instructions: '',
-    rx_refills: 0,
-    status: 'active'
-  });
   const [showAddMedication, setShowAddMedication] = useState(false);
 
   // Form data for editing patient
@@ -223,122 +207,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     } catch (error) {
       console.error('Error updating patient:', error);
       alert('Failed to update patient. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddMedication = async () => {
-    if (!patient || !newMedication.name || !newMedication.strength) {
-      alert('Please fill in medication name and strength.');
-      return;
-    }
-
-    // Combine time_of_day with custom_time if applicable
-    let finalTimeOfDay = newMedication.time_of_day;
-    if (newMedication.time_of_day === 'custom' && newMedication.custom_time) {
-      finalTimeOfDay = `Custom: ${newMedication.custom_time}`;
-    } else if (['morning', 'afternoon', 'evening'].includes(newMedication.time_of_day || '')) {
-      const timeMap = {
-        morning: timePreferences.morning,
-        afternoon: timePreferences.afternoon,
-        evening: timePreferences.evening
-      };
-      finalTimeOfDay = `${newMedication.time_of_day} (${timeMap[newMedication.time_of_day as keyof typeof timeMap]})`;
-    }
-
-    try {
-      setLoading(true);
-      
-      // First, save the updated time preferences to the patient's profile
-      const { error: timeError } = await supabase
-        .from('patients')
-        .update({
-          morning_time: timePreferences.morning,
-          afternoon_time: timePreferences.afternoon,
-          evening_time: timePreferences.evening
-        })
-        .eq('id', patient.id);
-
-      if (timeError) {
-        console.error('Error updating time preferences:', timeError);
-        // Continue with medication creation even if time preferences fail
-      }
-
-      // Then add the medication
-      const { error } = await supabase
-        .from('medications')
-        .insert({
-          patient_id: patient.id,
-          name: newMedication.name,
-          strength: newMedication.strength,
-          format: newMedication.format,
-          dose_count: newMedication.dose_count,
-          max_daily: newMedication.max_daily,
-          quantity: newMedication.quantity,
-          frequency: newMedication.frequency,
-          time_of_day: finalTimeOfDay,
-          with_food: newMedication.with_food,
-          avoid_alcohol: newMedication.avoid_alcohol,
-          impairment_warning: newMedication.impairment_warning,
-          special_instructions: newMedication.special_instructions,
-          rx_refills: newMedication.rx_refills,
-          status: newMedication.status
-        });
-
-      if (error) {
-        console.error('Error adding medication:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: JSON.stringify(error, null, 2)
-        });
-        console.error('Attempted to insert:', {
-          patient_id: patient.id,
-          name: newMedication.name,
-          strength: newMedication.strength,
-          format: newMedication.format,
-          dose_count: newMedication.dose_count,
-          max_daily: newMedication.max_daily,
-          quantity: newMedication.quantity,
-          frequency: newMedication.frequency,
-          time_of_day: finalTimeOfDay,
-          with_food: newMedication.with_food,
-          avoid_alcohol: newMedication.avoid_alcohol,
-          impairment_warning: newMedication.impairment_warning,
-          special_instructions: newMedication.special_instructions,
-          rx_refills: newMedication.rx_refills,
-          status: newMedication.status
-        });
-        alert('Failed to add medication. Please try again.');
-      } else {
-        setNewMedication({
-          name: '',
-          strength: '',
-          format: 'UNSPECIFIED',
-          dose_count: 1,
-          max_daily: 1,
-          quantity: 0,
-          frequency: 1,
-          time_of_day: '',
-          custom_time: '',
-          with_food: false,
-          avoid_alcohol: false,
-          impairment_warning: false,
-          special_instructions: '',
-          rx_refills: 0,
-          status: 'active'
-        });
-        setShowAddMedication(false);
-        fetchMedications();
-        onPatientUpdated(); // Refresh patient data to show updated time preferences
-        alert('Medication added successfully!');
-      }
-    } catch (error) {
-      console.error('Error adding medication:', error);
-      alert('Failed to add medication. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -999,186 +867,17 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
               {/* Add Medication Modal */}
               {showAddMedication && (
                 <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Add Medication</h3>
-                    
-                    {/* Time Preferences Section */}
-                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-900 mb-3">Time Preferences</h4>
-                      <p className="text-xs text-blue-700 mb-3">
-                        Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their schedule.
-                      </p>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-blue-800 mb-1">Morning</label>
-                          <input
-                            type="time"
-                            value={timePreferences.morning}
-                            onChange={(e) => setTimePreferences({ ...timePreferences, morning: e.target.value })}
-                            className="w-full px-2 py-1 text-xs border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-blue-800 mb-1">Afternoon</label>
-                          <input
-                            type="time"
-                            value={timePreferences.afternoon}
-                            onChange={(e) => setTimePreferences({ ...timePreferences, afternoon: e.target.value })}
-                            className="w-full px-2 py-1 text-xs border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-blue-800 mb-1">Evening</label>
-                          <input
-                            type="time"
-                            value={timePreferences.evening}
-                            onChange={(e) => setTimePreferences({ ...timePreferences, evening: e.target.value })}
-                            className="w-full px-2 py-1 text-xs border border-blue-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
-                        <input
-                          type="text"
-                          value={newMedication.name}
-                          onChange={(e) => setNewMedication({ ...newMedication, name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          placeholder="e.g., Lisinopril"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Strength</label>
-                        <input
-                          type="text"
-                          value={newMedication.strength}
-                          onChange={(e) => setNewMedication({ ...newMedication, strength: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          placeholder="e.g., 10mg"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
-                        <select
-                          value={newMedication.format}
-                          onChange={(e) => setNewMedication({ ...newMedication, format: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        >
-                          <option value="UNSPECIFIED">Select Format</option>
-                          <option value="TABLET">Tablet</option>
-                          <option value="CAPSULE">Capsule</option>
-                          <option value="LIQUID">Liquid</option>
-                          <option value="INJECTION">Injection</option>
-                          <option value="INHALER">Inhaler</option>
-                          <option value="PATCH">Patch</option>
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Dose Count</label>
-                          <input
-                            type="number"
-                            value={newMedication.dose_count}
-                            onChange={(e) => setNewMedication({ ...newMedication, dose_count: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                            min="1"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Frequency (per day)</label>
-                          <input
-                            type="number"
-                            value={newMedication.frequency}
-                            onChange={(e) => setNewMedication({ ...newMedication, frequency: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                            min="1"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Time of Day</label>
-                        <select
-                          value={newMedication.time_of_day}
-                          onChange={(e) => setNewMedication({ ...newMedication, time_of_day: e.target.value, custom_time: '' })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        >
-                          <option value="">Select Time</option>
-                          <option value="morning">Morning ({timePreferences.morning})</option>
-                          <option value="afternoon">Afternoon ({timePreferences.afternoon})</option>
-                          <option value="evening">Evening ({timePreferences.evening})</option>
-                          <option value="custom">Custom Time</option>
-                        </select>
-                      </div>
-                      {newMedication.time_of_day === 'custom' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Custom Time</label>
-                          <input
-                            type="time"
-                            value={newMedication.custom_time}
-                            onChange={(e) => setNewMedication({ ...newMedication, custom_time: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
-                        <textarea
-                          value={newMedication.special_instructions}
-                          onChange={(e) => setNewMedication({ ...newMedication, special_instructions: e.target.value })}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          placeholder="Special instructions..."
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={newMedication.with_food}
-                            onChange={(e) => setNewMedication({ ...newMedication, with_food: e.target.checked })}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">Take with food</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={newMedication.avoid_alcohol}
-                            onChange={(e) => setNewMedication({ ...newMedication, avoid_alcohol: e.target.checked })}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">Avoid alcohol</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={newMedication.impairment_warning}
-                            onChange={(e) => setNewMedication({ ...newMedication, impairment_warning: e.target.checked })}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">May cause impairment</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                      <button
-                        onClick={() => setShowAddMedication(false)}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleAddMedication}
-                        disabled={loading}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {loading ? 'Adding...' : 'Add Medication'}
-                      </button>
-                    </div>
-                  </div>
+                  <MedicationModal
+                    isOpen={showAddMedication}
+                    onClose={() => setShowAddMedication(false)}
+                    onSuccess={() => {
+                      setShowAddMedication(false);
+                      fetchMedications();
+                      onPatientUpdated();
+                    }}
+                    mode="add"
+                    selectedPatientId={patient?.id}
+                  />
                 </div>
               )}
             </div>
