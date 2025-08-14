@@ -12,13 +12,14 @@ import { useUsers } from "@/hooks/use-users";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { UserDetailsModal } from "@/components/admin/user-details-modal";
+import type { User } from "@/hooks/use-users";
 
 export default function UsersPage() {
   const userInfo = useUserDisplay();
   const { isSimpillerAdmin } = useAuth();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
@@ -43,7 +44,7 @@ export default function UsersPage() {
     return isActive ? 'Active' : 'Inactive';
   };
 
-  const handleViewUser = (user: any) => {
+  const handleViewUser = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
   };

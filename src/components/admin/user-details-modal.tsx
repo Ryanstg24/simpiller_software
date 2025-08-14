@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit, Save, User, Mail, Phone, Shield, Tag, Calendar } from 'lucide-react';
+import { X, Edit, Save, User as UserIcon, Shield, Tag } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import type { User } from '@/hooks/use-users';
 
 interface UserDetailsModalProps {
-  user: any | null;
+  user: User | null;
   isOpen: boolean;
   onClose: () => void;
   onUserUpdated: () => void;
 }
 
 interface UserRole {
-  id: string;
   name: string;
   organization_id?: string;
   organization?: {
@@ -28,68 +27,30 @@ interface Organization {
   acronym: string;
 }
 
+interface FormData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  npi: string;
+  is_active: boolean;
+  user_roles: UserRole[];
+}
+
 export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
-  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
-  const { isSimpillerAdmin } = useAuth();
   
   // Form data for editing user
-  const [formData, setFormData] = useState<any>({});
-
-  // Fetch organizations for role assignment
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        setLoadingOrganizations(true);
-        const { data, error } = await supabase
-          .from('organizations')
-          .select('id, name, acronym')
-          .eq('is_active', true)
-          .order('name');
-
-        if (error) {
-          console.error('Error fetching organizations:', error);
-        } else {
-          setOrganizations(data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching organizations:', error);
-      } finally {
-        setLoadingOrganizations(false);
-      }
-    };
-
-    if (isOpen) {
-      fetchOrganizations();
-    }
-  }, [isOpen]);
-
-  // Fetch available user roles
-  useEffect(() => {
-    const fetchUserRoles = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('id, name, organization_id')
-          .order('name');
-
-        if (error) {
-          console.error('Error fetching user roles:', error);
-        } else {
-          setUserRoles(data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching user roles:', error);
-      }
-    };
-
-    if (isOpen) {
-      fetchUserRoles();
-    }
-  }, [isOpen]);
+  const [formData, setFormData] = useState<FormData>({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    npi: '',
+    is_active: true,
+    user_roles: []
+  });
 
   useEffect(() => {
     if (user) {
@@ -166,7 +127,7 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div className="flex items-center space-x-3">
-            <User className="h-6 w-6 text-blue-600" />
+            <UserIcon className="h-6 w-6 text-blue-600" />
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {user.first_name} {user.last_name}
@@ -327,16 +288,6 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
                       <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
                       <p className="text-gray-900 font-medium">{formatDate(user.created_at)}</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
-                      <p className="text-gray-900 font-medium">{formatDate(user.updated_at)}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Sign In</label>
-                      <p className="text-gray-900 font-medium">
-                        {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}
-                      </p>
-                    </div>
                   </div>
                 </div>
 
@@ -345,7 +296,7 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Roles and Permissions</h3>
                   {user.user_roles && user.user_roles.length > 0 ? (
                     <div className="space-y-3">
-                      {user.user_roles.map((role: any, index: number) => (
+                      {user.user_roles.map((role: UserRole, index: number) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center space-x-3">
                             <Shield className="h-5 w-5 text-blue-500" />

@@ -8,7 +8,6 @@ import { Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { usePatients } from "@/hooks/use-patients";
-import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 
