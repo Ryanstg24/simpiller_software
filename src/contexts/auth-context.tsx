@@ -12,6 +12,12 @@ interface UserRole {
   permissions: Record<string, unknown>;
 }
 
+interface SessionData {
+  data: {
+    session: Session | null;
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -46,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Get initial session with timeout
         const sessionPromise = supabase.auth.getSession();
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as SessionData;
         
         if (mounted) {
           setSession(session);

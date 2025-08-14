@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Pill } from 'lucide-react';
+import { X, Save, User, Pill, Clock, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
 import { usePatients } from '@/hooks/use-patients';
 
 interface Medication {

@@ -21,12 +21,6 @@ interface UserRole {
   };
 }
 
-interface Organization {
-  id: string;
-  name: string;
-  acronym: string;
-}
-
 interface FormData {
   first_name: string;
   last_name: string;
