@@ -8,6 +8,8 @@ export interface User {
   last_name: string;
   phone?: string;
   npi?: string;
+  license_number?: string;
+  specialty?: string;
   is_active: boolean;
   created_at: string;
   organizations?: {
@@ -44,6 +46,8 @@ export function useUsers() {
             last_name,
             phone,
             npi,
+            license_number,
+            specialty,
             is_active,
             created_at,
             user_role_assignments (
@@ -86,6 +90,8 @@ export function useUsers() {
             last_name: user.last_name,
             phone: user.phone,
             npi: user.npi,
+            license_number: user.license_number,
+            specialty: user.specialty,
             is_active: user.is_active,
             created_at: user.created_at,
             user_roles: userRoles

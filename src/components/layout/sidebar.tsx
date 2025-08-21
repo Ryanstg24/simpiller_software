@@ -1,15 +1,18 @@
 'use client';
 
 import {
+  Home,
   Users,
   Pill,
   Bell,
-  BarChart3,
-  Building2,
   Calendar,
+  Settings,
+  Building2,
   Activity,
+  Phone,
   LogOut,
-  Settings
+  TestTube,
+  Eye
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
@@ -22,13 +25,18 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: Activity },
-  { name: 'Patients', href: '/patients', icon: Users },
-  { name: 'Medications', href: '/medications', icon: Pill },
-  { name: 'Alerts', href: '/alerts', icon: Bell },
-  { name: 'Schedule', href: '/schedule', icon: Calendar },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'Patients', href: '/patients', icon: Users, requiredRole: 'provider' },
+  { name: 'Medications', href: '/medications', icon: Pill, requiredRole: 'provider' },
+  { name: 'Schedule', href: '/schedule', icon: Calendar, requiredRole: 'provider' },
+  { name: 'Alerts', href: '/alerts', icon: Bell, requiredRole: 'provider' },
+  { name: 'SMS Alerts', href: '/sms-alerts', icon: Phone, requiredRole: 'organization_admin' },
+  { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'organization_admin' },
+  { name: 'OCR Test', href: '/ocr-test', icon: Eye, requiredRole: 'organization_admin' },
+  { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
   { name: 'Facilities', href: '/facilities', icon: Building2, requiredRole: 'organization_admin' },
+  { name: 'Pharmacies', href: '/pharmacies', icon: Building2, requiredRole: 'organization_admin' },
+  { name: 'Organization Users', href: '/organization-users', icon: Users, requiredRole: 'organization_admin' },
   { name: 'Admin', href: '/admin', icon: Settings, requiredRole: 'simpiller_admin' },
 ];
 
@@ -45,9 +53,13 @@ export function Sidebar({ currentPage = '/' }: SidebarProps) {
 
   // Filter navigation items based on user roles
   const filteredNavigation = navigation.filter(item => {
+    // Simpiller admins can see everything
+    if (isSimpillerAdmin) return true;
+    
+    // For non-Simpiller admins, apply role-based filtering
     if (!item.requiredRole) return true;
-    if (item.requiredRole === 'simpiller_admin') return isSimpillerAdmin;
-    if (item.requiredRole === 'organization_admin') return isSimpillerAdmin || isOrganizationAdmin;
+    if (item.requiredRole === 'simpiller_admin') return false; // Only Simpiller admins
+    if (item.requiredRole === 'organization_admin') return isOrganizationAdmin;
     return true;
   });
 

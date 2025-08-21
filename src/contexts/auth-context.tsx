@@ -45,14 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Add a timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000); // 10 second timeout
-        });
-
-        // Get initial session with timeout
-        const sessionPromise = supabase.auth.getSession();
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as SessionData;
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+        }
         
         if (mounted) {
           setSession(session);
@@ -64,10 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        // Set loading to false even on error so users can access login
-        if (mounted) {
-          setIsLoading(false);
-        }
       } finally {
         if (mounted) {
           setIsLoading(false);
@@ -103,32 +97,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserRoles = async (userId: string) => {
     try {
-      // Get role assignments first
-      const { data: assignments, error: assignmentsError } = await supabase
+      // Get role assignments and role details in a single query
+      const { data: roleDetails, error } = await supabase
         .from('user_role_assignments')
-        .select('role_id')
+        .select(`
+          user_roles (
+            id, 
+            name, 
+            organization_id, 
+            facility_id, 
+            permissions
+          )
+        `)
         .eq('user_id', userId);
 
-      if (assignmentsError) {
-        console.error('Error fetching role assignments:', assignmentsError);
+      if (error) {
+        console.error('Error fetching role assignments:', error);
         return;
       }
 
-      if (assignments && assignments.length > 0) {
-        // Get role details for each assignment
-        const roleIds = assignments.map(a => a.role_id);
-        
-        const { data: roleDetails, error: roleDetailsError } = await supabase
-          .from('user_roles')
-          .select('id, name, organization_id, facility_id, permissions')
-          .in('id', roleIds);
-
-        if (roleDetailsError) {
-          console.error('Error fetching role details:', roleDetailsError);
-          return;
-        }
-
-        const roles = roleDetails || [];
+      if (roleDetails && roleDetails.length > 0) {
+        const roles = roleDetails.map(assignment => assignment.user_roles).filter(Boolean);
         setUserRoles(roles);
       } else {
         setUserRoles([]);

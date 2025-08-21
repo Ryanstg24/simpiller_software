@@ -34,13 +34,6 @@ export function useDashboardStats() {
         return;
       }
 
-      // Add a timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        console.warn('Dashboard stats fetch timed out, setting loading to false');
-        setLoading(false);
-        setError('Request timed out');
-      }, 10000); // 10 second timeout
-
       try {
         setLoading(true);
         setError(null);
@@ -158,13 +151,9 @@ export function useDashboardStats() {
           recentActivity
         });
 
-        // Clear the timeout since we succeeded
-        clearTimeout(timeoutId);
-
       } catch (err) {
         console.error('Error fetching dashboard stats:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch dashboard statistics');
-        clearTimeout(timeoutId);
       } finally {
         setLoading(false);
       }

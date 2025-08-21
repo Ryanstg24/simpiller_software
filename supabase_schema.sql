@@ -73,6 +73,45 @@ CREATE TABLE facilities (
 );
 
 -- =============================================
+-- PHARMACIES (Pharmacy management)
+-- =============================================
+CREATE TABLE pharmacies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  npi VARCHAR(10) UNIQUE, -- National Provider Identifier for pharmacy
+  
+  -- Address
+  street1 VARCHAR(100),
+  street2 VARCHAR(100),
+  city VARCHAR(100),
+  state CHAR(2),
+  postal_code VARCHAR(20),
+  country VARCHAR(10) DEFAULT 'US',
+  
+  -- Contact
+  phone VARCHAR(20),
+  fax VARCHAR(20),
+  email VARCHAR(100),
+  website VARCHAR(255),
+  
+  -- Pharmacy specific
+  pharmacy_type VARCHAR(50) DEFAULT 'retail', -- retail, mail_order, specialty, etc.
+  is_partner BOOLEAN DEFAULT false, -- Partner pharmacy gets priority
+  is_default BOOLEAN DEFAULT false, -- Default pharmacy for organization
+  
+  -- Integration settings
+  api_endpoint VARCHAR(255),
+  api_key VARCHAR(255),
+  integration_enabled BOOLEAN DEFAULT false,
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
 -- USER ROLES (Role-based access control)
 -- =============================================
 CREATE TYPE user_role AS ENUM (
@@ -137,6 +176,7 @@ CREATE TABLE patients (
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   facility_id UUID REFERENCES facilities(id) ON DELETE SET NULL,
   assigned_provider_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  assigned_pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE SET NULL,
   
   -- Patient Info
   patient_id_alt VARCHAR(100) UNIQUE, -- External patient ID
@@ -332,6 +372,7 @@ CREATE TABLE patient_provider_assignments (
 -- Enable RLS on all tables
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_role_assignments ENABLE ROW LEVEL SECURITY;
@@ -354,6 +395,13 @@ CREATE INDEX idx_organizations_active ON organizations(is_active);
 CREATE INDEX idx_facilities_organization ON facilities(organization_id);
 CREATE INDEX idx_facilities_active ON facilities(is_active);
 
+-- Pharmacies
+CREATE INDEX idx_pharmacies_organization ON pharmacies(organization_id);
+CREATE INDEX idx_pharmacies_npi ON pharmacies(npi);
+CREATE INDEX idx_pharmacies_active ON pharmacies(is_active);
+CREATE INDEX idx_pharmacies_partner ON pharmacies(is_partner);
+CREATE INDEX idx_pharmacies_default ON pharmacies(is_default);
+
 -- Users
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_npi ON users(npi);
@@ -363,6 +411,7 @@ CREATE INDEX idx_users_active ON users(is_active);
 CREATE INDEX idx_patients_organization ON patients(organization_id);
 CREATE INDEX idx_patients_facility ON patients(facility_id);
 CREATE INDEX idx_patients_provider ON patients(assigned_provider_id);
+CREATE INDEX idx_patients_pharmacy ON patients(assigned_pharmacy_id);
 CREATE INDEX idx_patients_alt_id ON patients(patient_id_alt);
 CREATE INDEX idx_patients_name ON patients(last_name, first_name);
 CREATE INDEX idx_patients_active ON patients(is_active);
@@ -400,6 +449,7 @@ $$ language 'plpgsql';
 -- Apply updated_at triggers
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_facilities_updated_at BEFORE UPDATE ON facilities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pharmacies_updated_at BEFORE UPDATE ON pharmacies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_patients_updated_at BEFORE UPDATE ON patients FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_medications_updated_at BEFORE UPDATE ON medications FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

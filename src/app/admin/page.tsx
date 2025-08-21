@@ -4,10 +4,11 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Building2, Users, Settings } from "lucide-react";
+import { Plus, Building2, Users, Settings, Shield } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
+import { AccessDenied } from "@/components/auth/access-denied";
 import Link from "next/link";
 
 export default function AdminPage() {
@@ -15,25 +16,7 @@ export default function AdminPage() {
   const { isSimpillerAdmin } = useAuth();
 
   if (!isSimpillerAdmin) {
-    return (
-      <ProtectedRoute requiredRoles={['simpiller_admin']}>
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar currentPage="/admin" />
-          <div className="flex-1 overflow-auto">
-            <Header 
-              title="Admin" 
-              subtitle="System administration and management"
-              user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
-            />
-            <main className="p-6">
-              <div className="flex items-center justify-center h-64">
-                <div className="text-red-500">Access Denied: Simpiller Admin access required</div>
-              </div>
-            </main>
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
+    return <AccessDenied message="Simpiller Admin access required." />;
   }
 
   return (
@@ -149,6 +132,39 @@ export default function AdminPage() {
                         </Button>
                       </Link>
                       <Link href="/admin/users">
+                        <Button variant="outline" size="sm">
+                          View All
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pharmacies Management */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg text-gray-900">Pharmacies</CardTitle>
+                      <p className="text-sm text-gray-600">Manage healthcare pharmacies</p>
+                    </div>
+                    <Shield className="h-8 w-8 text-red-500" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Create and manage healthcare pharmacies.
+                    </p>
+                    <div className="flex space-x-2">
+                      <Link href="/admin/pharmacies">
+                        <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Pharmacy
+                        </Button>
+                      </Link>
+                      <Link href="/admin/pharmacies">
                         <Button variant="outline" size="sm">
                           View All
                         </Button>

@@ -4,29 +4,36 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Users, Mail, Phone, Shield, ArrowLeft, Tag } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Shield, UserPlus, Tag } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
 import { useUsers } from "@/hooks/use-users";
-import Link from "next/link";
 import { useState, useMemo } from "react";
-import { UserDetailsModal } from "@/components/admin/user-details-modal";
-import type { User } from "@/hooks/use-users";
-import { AccessDenied } from "@/components/auth/access-denied";
+import { OrganizationUserModal } from "@/components/organization/organization-user-modal";
 
-export default function UsersPage() {
+export default function OrganizationUsersPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin } = useAuth();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Filter users to only show organization users (providers and billing)
+  const organizationUsers = useMemo(() => {
+    return users.filter(user => 
+      user.user_roles?.some(role => 
+        (role.name === 'provider' || role.name === 'billing') && 
+        role.organization_id === userInfo.organizationId
+      )
+    );
+  }, [users, userInfo.organizationId]);
+
   const filteredUsers = useMemo(() => {
-    if (!searchTerm) return users;
+    if (!searchTerm) return organizationUsers;
     
-    return users.filter(user => {
+    return organizationUsers.filter(user => {
       const searchLower = searchTerm.toLowerCase();
       const nameMatch = `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchLower);
       const emailMatch = user.email.toLowerCase().includes(searchLower);
@@ -35,7 +42,7 @@ export default function UsersPage() {
       );
       return nameMatch || emailMatch || roleMatch;
     });
-  }, [users, searchTerm]);
+  }, [organizationUsers, searchTerm]);
 
   const getStatusColor = (isActive: boolean) => {
     return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
@@ -45,14 +52,13 @@ export default function UsersPage() {
     return isActive ? 'Active' : 'Inactive';
   };
 
-  const handleViewUser = (user: User) => {
+  const handleViewUser = (user: any) => {
     setSelectedUser(user);
     setIsModalOpen(true);
   };
 
   const handleUserUpdated = () => {
     // Refresh users data
-    // The useUsers hook should handle this automatically
     setIsModalOpen(false);
     setSelectedUser(null);
   };
@@ -65,19 +71,37 @@ export default function UsersPage() {
     });
   };
 
-  if (!isSimpillerAdmin) {
-    return <AccessDenied message="Simpiller Admin access required." />;
+  if (!isSimpillerAdmin && !isOrganizationAdmin) {
+    return (
+      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
+        <div className="flex h-screen bg-gray-50">
+          <Sidebar currentPage="/organization-users" />
+          <div className="flex-1 overflow-auto">
+            <Header 
+              title="Organization Users" 
+              subtitle="Manage users in your organization"
+              user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
+            />
+            <main className="p-6">
+              <div className="flex items-center justify-center h-64">
+                <div className="text-red-500">Access Denied: Admin access required</div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
   }
 
   if (loading) {
     return (
-      <ProtectedRoute requiredRoles={['simpiller_admin']}>
+      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
         <div className="flex h-screen bg-gray-50">
-          <Sidebar currentPage="/admin/users" />
+          <Sidebar currentPage="/organization-users" />
           <div className="flex-1 overflow-auto">
             <Header 
-              title="Users" 
-              subtitle="Manage system users"
+              title="Organization Users" 
+              subtitle="Manage users in your organization"
               user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
             />
             <main className="p-6">
@@ -93,13 +117,13 @@ export default function UsersPage() {
 
   if (error) {
     return (
-      <ProtectedRoute requiredRoles={['simpiller_admin']}>
+      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
         <div className="flex h-screen bg-gray-50">
-          <Sidebar currentPage="/admin/users" />
+          <Sidebar currentPage="/organization-users" />
           <div className="flex-1 overflow-auto">
             <Header 
-              title="Users" 
-              subtitle="Manage system users"
+              title="Organization Users" 
+              subtitle="Manage users in your organization"
               user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
             />
             <main className="p-6">
@@ -114,38 +138,34 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute requiredRoles={['simpiller_admin']}>
+    <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
       <div className="flex h-screen bg-gray-50">
-        <Sidebar currentPage="/admin/users" />
+        <Sidebar currentPage="/organization-users" />
 
         <div className="flex-1 overflow-auto">
           <Header 
-            title="Users" 
-            subtitle="Manage system users"
+            title="Organization Users" 
+            subtitle="Manage users in your organization"
             user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
           />
 
           <main className="p-6">
             {/* Page Header */}
             <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center space-x-4">
-                <Link href="/admin">
-                  <Button variant="outline" size="sm">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Admin
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-                  <p className="text-gray-800">Manage system users and their roles</p>
-                </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Organization Users</h1>
+                <p className="text-gray-800">Manage providers and billing users in your organization</p>
               </div>
-              <Link href="/admin/users/add">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add User
-                </Button>
-              </Link>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  setSelectedUser(null);
+                  setIsModalOpen(true);
+                }}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add User
+              </Button>
             </div>
 
             {/* Summary Stats */}
@@ -300,12 +320,16 @@ export default function UsersPage() {
                   {searchTerm ? 'Try adjusting your search terms.' : 'Get started by creating your first user.'}
                 </p>
                 {!searchTerm && (
-                  <Link href="/admin/users/add">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add User
-                    </Button>
-                  </Link>
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setIsModalOpen(true);
+                    }}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Add User
+                  </Button>
                 )}
               </div>
             )}
@@ -313,8 +337,8 @@ export default function UsersPage() {
         </div>
       </div>
       
-      {/* User Details Modal */}
-      <UserDetailsModal
+      {/* Organization User Modal */}
+      <OrganizationUserModal
         user={selectedUser}
         isOpen={isModalOpen}
         onClose={() => {

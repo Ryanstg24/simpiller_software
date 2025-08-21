@@ -1,0 +1,198 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/auth-context';
+
+export interface Pharmacy {
+  id: string;
+  organization_id: string;
+  name: string;
+  npi?: string;
+  street1?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  phone?: string;
+  fax?: string;
+  email?: string;
+  website?: string;
+  pharmacy_type?: string;
+  is_partner: boolean;
+  is_default: boolean;
+  api_endpoint?: string;
+  api_key?: string;
+  integration_enabled: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  organizations?: {
+    name: string;
+    acronym: string;
+  };
+}
+
+export function usePharmacies() {
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
+
+  useEffect(() => {
+    const fetchPharmacies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let query = supabase
+          .from('pharmacies')
+          .select(`
+            *,
+            organizations (
+              name,
+              acronym
+            )
+          `)
+          .eq('is_active', true)
+          .order('name');
+
+        // Apply role-based filtering
+        if (isSimpillerAdmin) {
+          // Simpiller admins can see all pharmacies (including partner pharmacies)
+        } else if (isOrganizationAdmin && userOrganizationId) {
+          // Organization admins can see their organization's pharmacies + partner pharmacies
+          query = query.or(`organization_id.eq.${userOrganizationId},is_partner.eq.true`);
+        } else {
+          // Providers and others can't see pharmacies (they'll see them through patients)
+          setPharmacies([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Error fetching pharmacies:', error);
+          setError('Failed to fetch pharmacies');
+          return;
+        }
+
+        setPharmacies(data || []);
+      } catch (err) {
+        console.error('Error in fetchPharmacies:', err);
+        setError('Failed to fetch pharmacies');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPharmacies();
+  }, [isSimpillerAdmin, isOrganizationAdmin, userOrganizationId]);
+
+  const createPharmacy = async (pharmacyData: Partial<Pharmacy>) => {
+    try {
+      // Only Simpiller admins can create partner pharmacies
+      if (pharmacyData.is_partner && !isSimpillerAdmin) {
+        throw new Error('Only Simpiller admins can create partner pharmacies');
+      }
+
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .insert([pharmacyData])
+        .select(`
+          *,
+          organizations (
+            name,
+            acronym
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error creating pharmacy:', error);
+        throw new Error('Failed to create pharmacy');
+      }
+
+      setPharmacies(prev => [...prev, data]);
+      return data;
+    } catch (err) {
+      console.error('Error in createPharmacy:', err);
+      throw err;
+    }
+  };
+
+  const updatePharmacy = async (id: string, updates: Partial<Pharmacy>) => {
+    try {
+      // Check if trying to update a partner pharmacy
+      const existingPharmacy = pharmacies.find(p => p.id === id);
+      if (existingPharmacy?.is_partner && !isSimpillerAdmin) {
+        throw new Error('Only Simpiller admins can modify partner pharmacies');
+      }
+
+      // Only Simpiller admins can change partner status
+      if (updates.is_partner !== undefined && !isSimpillerAdmin) {
+        throw new Error('Only Simpiller admins can change partner pharmacy status');
+      }
+
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .update(updates)
+        .eq('id', id)
+        .select(`
+          *,
+          organizations (
+            name,
+            acronym
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Error updating pharmacy:', error);
+        throw new Error('Failed to update pharmacy');
+      }
+
+      setPharmacies(prev => prev.map(pharmacy => 
+        pharmacy.id === id ? data : pharmacy
+      ));
+      return data;
+    } catch (err) {
+      console.error('Error in updatePharmacy:', err);
+      throw err;
+    }
+  };
+
+  const deletePharmacy = async (id: string) => {
+    try {
+      // Check if trying to delete a partner pharmacy
+      const existingPharmacy = pharmacies.find(p => p.id === id);
+      if (existingPharmacy?.is_partner) {
+        throw new Error('Partner pharmacies cannot be deleted');
+      }
+
+      const { error } = await supabase
+        .from('pharmacies')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting pharmacy:', error);
+        throw new Error('Failed to delete pharmacy');
+      }
+
+      setPharmacies(prev => prev.filter(pharmacy => pharmacy.id !== id));
+    } catch (err) {
+      console.error('Error in deletePharmacy:', err);
+      throw err;
+    }
+  };
+
+  return {
+    pharmacies,
+    loading,
+    error,
+    createPharmacy,
+    updatePharmacy,
+    deletePharmacy
+  };
+} 

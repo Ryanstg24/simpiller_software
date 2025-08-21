@@ -3,13 +3,25 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export function useUserDisplay() {
-  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuth();
-  const [userInfo, setUserInfo] = useState({ name: "User", initials: "U", role: "User" });
+  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId } = useAuth();
+  const [userInfo, setUserInfo] = useState({ 
+    name: "User", 
+    initials: "U", 
+    role: "User",
+    organizationId: null as string | null,
+    organizationName: null as string | null
+  });
 
   useEffect(() => {
     const fetchUserInfo = async () => {
       if (!user) {
-        setUserInfo({ name: "User", initials: "U", role: "User" });
+        setUserInfo({ 
+          name: "User", 
+          initials: "U", 
+          role: "User",
+          organizationId: null,
+          organizationName: null
+        });
         return;
       }
 
@@ -26,7 +38,13 @@ export function useUserDisplay() {
           // Fallback to email
           const email = user.email || "User";
           const initials = email.charAt(0).toUpperCase();
-          setUserInfo({ name: email, initials, role: "User" });
+          setUserInfo({ 
+            name: email, 
+            initials, 
+            role: "User",
+            organizationId: userOrganizationId,
+            organizationName: null
+          });
           return;
         }
 
@@ -49,12 +67,24 @@ export function useUserDisplay() {
           if (firstName || lastName) {
             const fullName = `${firstName} ${lastName}`.trim();
             const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-            setUserInfo({ name: fullName, initials: initials || "U", role });
+            setUserInfo({ 
+              name: fullName, 
+              initials: initials || "U", 
+              role,
+              organizationId: userOrganizationId,
+              organizationName: null
+            });
           } else {
             // Fallback to email if no name is set
             const email = userData.email || user.email || "User";
             const initials = email.charAt(0).toUpperCase();
-            setUserInfo({ name: email, initials, role });
+            setUserInfo({ 
+              name: email, 
+              initials, 
+              role,
+              organizationId: userOrganizationId,
+              organizationName: null
+            });
           }
         }
       } catch (error) {
@@ -62,12 +92,18 @@ export function useUserDisplay() {
         // Fallback to email
         const email = user.email || "User";
         const initials = email.charAt(0).toUpperCase();
-        setUserInfo({ name: email, initials, role: "User" });
+        setUserInfo({ 
+          name: email, 
+          initials, 
+          role: "User",
+          organizationId: userOrganizationId,
+          organizationName: null
+        });
       }
     };
 
     fetchUserInfo();
-  }, [user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling]);
+  }, [user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId]);
 
   return userInfo;
 } 
