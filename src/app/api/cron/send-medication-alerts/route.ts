@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
     for (const medication of medications || []) {
       try {
-        const patient = medication.patients;
+        const patient = medication.patients?.[0]; // Get first patient from array
         if (!patient || !patient.phone1) continue;
 
         // Parse time_of_day to check if it matches current time
