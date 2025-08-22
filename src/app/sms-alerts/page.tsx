@@ -332,7 +332,7 @@ export default function SMSAlertsPage() {
                             <div className="text-sm text-gray-600 space-y-1">
                               {alert.medications && (
                                 <p>
-                                  <strong>Medications:</strong> {alert.medications.map((m: any) => m.medication_name).join(', ')}
+                                  <strong>Medications:</strong> {alert.medications.map((m: { medication_name: string }) => m.medication_name).join(', ')}
                                 </p>
                               )}
                               <p>

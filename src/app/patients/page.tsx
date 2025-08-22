@@ -7,11 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
 import { usePatients } from "@/hooks/use-patients";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function PatientsPage() {

@@ -350,7 +350,7 @@ export default function OCRTestPage() {
                                 </div>
                                 {isMobile && (
                                   <div className="mt-2 p-1 bg-red-100 rounded text-xs">
-                                    <strong>Quick Fix:</strong> Look for a camera icon in your browser's address bar and tap "Allow"
+                                    <strong>Quick Fix:</strong> Look for a camera icon in your browser&apos;s address bar and tap &quot;Allow&quot;
                                   </div>
                                 )}
                               </div>

@@ -34,20 +34,18 @@ interface ScanSession {
 
 export default function ScanPage({ params }: ScanPageProps) {
   const [scanSession, setScanSession] = useState<ScanSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load session data
   useEffect(() => {
