@@ -23,7 +23,7 @@ interface TimeLog {
   created_at: string;
   
   // Joined data
-  providers?: {
+  users?: {
     first_name: string;
     last_name: string;
     email: string;
@@ -86,7 +86,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           .from('provider_time_logs')
           .select(`
             *,
-            providers (
+            users (
               first_name,
               last_name,
               email
@@ -464,7 +464,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
                         </span>
                         <span className="flex items-center">
                           {/* User icon was removed, so this line is now empty */}
-                          {log.providers ? `${log.providers.first_name} ${log.providers.last_name}` : 'Unknown Provider'}
+                          {log.users ? `${log.users.first_name} ${log.users.last_name}` : 'Unknown Provider'}
                         </span>
                         {log.billing_code && (
                           <span className="bg-gray-100 px-2 py-1 rounded text-xs">

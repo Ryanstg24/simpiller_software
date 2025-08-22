@@ -351,7 +351,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
             }`}
           >
             <Activity className="h-4 w-4" />
-            <span>Compliance Log</span>
+            <span>Adherence Log</span>
           </button>
           <button
             onClick={() => setActiveTab('timeLog')}
@@ -980,7 +980,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
             </div>
           )}
 
-          {/* Compliance Log Tab */}
+          {/* Adherence Log Tab */}
           {activeTab === 'compliance' && (
             <div className="p-6">
               <ComplianceLogTab patient={patient} />

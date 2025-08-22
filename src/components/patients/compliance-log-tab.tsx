@@ -160,7 +160,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading compliance data...</p>
+          <p className="mt-2 text-gray-600">Loading adherence data...</p>
         </div>
       </div>
     );
@@ -171,7 +171,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Medication Compliance</h3>
+          <h3 className="text-lg font-medium text-gray-900">Medication Adherence</h3>
           <p className="text-sm text-gray-600">Track medication adherence and scanning history</p>
         </div>
         <div className="flex items-center space-x-3">
@@ -204,7 +204,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               <div className="text-2xl font-bold text-blue-600">
                 {currentCompliance.compliance_percentage.toFixed(1)}%
               </div>
-              <div className="text-sm text-gray-600">Compliance Rate</div>
+              <div className="text-sm text-gray-600">Adherence Rate</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
@@ -231,7 +231,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       {/* Historical Compliance */}
       {complianceScores.length > 0 && (
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h4 className="text-lg font-medium text-gray-900 mb-4">Historical Compliance</h4>
+          <h4 className="text-lg font-medium text-gray-900 mb-4">Historical Adherence</h4>
           <div className="space-y-3">
             {complianceScores.map((score) => (
               <div key={score.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -256,7 +256,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                   }`}>
                     {score.compliance_percentage.toFixed(1)}%
                   </div>
-                  <div className="text-sm text-gray-600">Compliance</div>
+                  <div className="text-sm text-gray-600">Adherence</div>
                 </div>
               </div>
             ))}
