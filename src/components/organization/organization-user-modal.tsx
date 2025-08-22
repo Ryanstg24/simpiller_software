@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, User } from 'lucide-react';
+import { X, Save, User, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import type { User as UserType } from '@/hooks/use-users';
 import { supabase } from '@/lib/supabase';
@@ -14,20 +14,25 @@ interface OrganizationUserModalProps {
 }
 
 export function OrganizationUserModal({ 
+  user, 
   isOpen, 
   onClose, 
+  onUserUpdated 
 }: OrganizationUserModalProps) {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
-    role: 'provider',
+    phone: '',
+    npi: '',
     license_number: '',
     specialty: '',
+    is_active: true
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
