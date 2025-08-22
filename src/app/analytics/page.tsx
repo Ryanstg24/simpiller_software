@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
     }
   };
 
-  const handleFilterChange = (key: keyof BillingFilters, value: string | undefined) => {
+  const handleFilterChange = (key: keyof BillingFilters, value: string | undefined | { start?: string; end?: string }) => {
     setBillingFilters(prev => ({
       ...prev,
       [key]: value
