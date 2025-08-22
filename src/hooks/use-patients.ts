@@ -38,6 +38,18 @@ export interface Patient {
   updated_at: string;
   last_active_at?: string;
   
+  // Medical Information
+  adherence_score?: number;
+  rtm_status?: string;
+  risk_level?: string;
+  notes?: string;
+  
+  // Time Preferences
+  timezone?: string;
+  morning_time?: string;
+  afternoon_time?: string;
+  evening_time?: string;
+  
   // Joined data
   facilities?: {
     name: string;
@@ -51,6 +63,9 @@ export interface Patient {
   pharmacies?: {
     name: string;
     npi?: string;
+  };
+  organizations?: {
+    name: string;
   };
 }
 
@@ -85,6 +100,9 @@ export function usePatients() {
           pharmacies (
             name,
             npi
+          ),
+          organizations (
+            name
           )
         `)
         .eq('is_active', true)

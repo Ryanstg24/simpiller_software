@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { usePatients } from "@/hooks/use-patients";
+import { usePatients, Patient } from "@/hooks/use-patients";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";

@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePharmacies } from "@/hooks/use-pharmacies";
 import { useState, useMemo } from "react";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
-import { Pharmacy } from "@/types/pharmacy";
+import { Pharmacy } from "@/hooks/use-pharmacies";
 
 export default function PharmaciesPage() {
   const userInfo = useUserDisplay();
@@ -20,15 +20,15 @@ export default function PharmaciesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [setEditingPharmacy] = useState<Pharmacy | null>(null);
-  const [setFormData] = useState({
+  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
+  const [formData, setFormData] = useState({
     name: '',
-    address: '',
+    street1: '',
     phone: '',
     email: '',
-    is_partner_pharmacy: false,
+    is_partner: false,
   });
-  const [setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const filteredPharmacies = useMemo(() => {
     if (!searchTerm) return pharmacies;
@@ -65,10 +65,10 @@ export default function PharmaciesPage() {
     setEditingPharmacy(pharmacy);
     setFormData({
       name: pharmacy.name,
-      address: pharmacy.address || '',
+      street1: pharmacy.street1 || '',
       phone: pharmacy.phone || '',
       email: pharmacy.email || '',
-      is_partner_pharmacy: pharmacy.is_partner_pharmacy || false,
+      is_partner: pharmacy.is_partner || false,
     });
     setShowModal(true);
   };

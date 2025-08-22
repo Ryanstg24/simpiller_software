@@ -9,22 +9,10 @@ import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
-import { useUsers } from "@/hooks/use-users";
+import { useUsers, User } from "@/hooks/use-users";
 import { OrganizationUserModal } from "@/components/organization/organization-user-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
 import { Search } from "lucide-react";
-
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-  license_number?: string;
-  specialty?: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export default function OrganizationUsersPage() {
   const userInfo = useUserDisplay();
@@ -37,7 +25,9 @@ export default function OrganizationUsersPage() {
   // Filter users by organization
   const organizationUsers = useMemo(() => {
     if (!userOrganizationId) return [];
-    return users.filter(user => user.organization_id === userOrganizationId);
+    return users.filter(user => 
+      user.user_roles?.some(role => role.organization_id === userOrganizationId)
+    );
   }, [users, userOrganizationId]);
 
   const filteredUsers = useMemo(() => {
@@ -46,8 +36,7 @@ export default function OrganizationUsersPage() {
     return organizationUsers.filter(user => 
       user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase())
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [organizationUsers, searchTerm]);
 
