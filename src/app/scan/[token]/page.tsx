@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,11 +36,12 @@ export default async function ScanPage({ params }: ScanPageProps) {
   return <ScanPageClient token={token} />;
 }
 
+'use client';
+
 function ScanPageClient({ token }: { token: string }) {
   const [scanSession, setScanSession] = useState<ScanSession | null>(null);
   const [loading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
@@ -91,7 +90,7 @@ function ScanPageClient({ token }: { token: string }) {
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setCameraError('Failed to access camera. Please ensure it is enabled and try again.');
+      setError('Failed to access camera. Please ensure it is enabled and try again.');
     }
   };
 
@@ -191,7 +190,7 @@ function ScanPageClient({ token }: { token: string }) {
     setOcrResult(null);
     setLabelData(null);
     setScanComplete(false);
-    setCameraError(null);
+    setError(null);
     setIsCameraActive(false);
   };
 
@@ -224,6 +223,11 @@ function ScanPageClient({ token }: { token: string }) {
           <p className="text-gray-600 mb-4">
             {error || 'Invalid or expired session'}
           </p>
+          {error && (
+            <p className="text-red-600 mb-4">
+              {error}
+            </p>
+          )}
           <p className="text-sm text-gray-500">
             Please check your medication reminder link or contact your healthcare provider.
           </p>
