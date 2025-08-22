@@ -38,6 +38,9 @@ CREATE TABLE organizations (
   patient_id_title VARCHAR(50) DEFAULT 'Client ID',
   clinician_title VARCHAR(50) DEFAULT 'Clinician',
   
+  -- Billing
+  setup_fee DECIMAL(10,2) DEFAULT 500.00,
+  
   -- Status
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

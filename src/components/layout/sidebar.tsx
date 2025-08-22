@@ -12,7 +12,8 @@ import {
   Phone,
   LogOut,
   TestTube,
-  Eye
+  Eye,
+  DollarSign
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";

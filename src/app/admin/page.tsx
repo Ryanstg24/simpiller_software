@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Building2, Users, Settings, Shield } from "lucide-react";
+import { Plus, Building2, Users, Settings, Shield, DollarSign } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
@@ -68,6 +68,39 @@ export default function AdminPage() {
                       <Link href="/admin/organizations">
                         <Button variant="outline" size="sm">
                           View All
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Billing Management */}
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg text-gray-900">Billing Management</CardTitle>
+                      <p className="text-sm text-gray-600">Revenue tracking and invoicing</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-green-500" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Track revenue, view organization billing, and generate invoices.
+                    </p>
+                    <div className="flex space-x-2">
+                      <Link href="/admin/billing">
+                        <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          View Billing
+                        </Button>
+                      </Link>
+                      <Link href="/admin/billing">
+                        <Button variant="outline" size="sm">
+                          Download Reports
                         </Button>
                       </Link>
                     </div>
