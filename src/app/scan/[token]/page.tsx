@@ -7,9 +7,9 @@ import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
 import Image from 'next/image';
 
 interface ScanPageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 interface ScanSession {
@@ -32,10 +32,17 @@ interface ScanSession {
   };
 }
 
-export default function ScanPage({ params }: ScanPageProps) {
+export default async function ScanPage({ params }: ScanPageProps) {
+  const { token } = await params;
+  
+  return <ScanPageClient token={token} />;
+}
+
+function ScanPageClient({ token }: { token: string }) {
   const [scanSession, setScanSession] = useState<ScanSession | null>(null);
   const [loading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
@@ -51,7 +58,7 @@ export default function ScanPage({ params }: ScanPageProps) {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${params.token}`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${token}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -64,7 +71,7 @@ export default function ScanPage({ params }: ScanPageProps) {
     };
     
     loadSession();
-  }, [params.token]);
+  }, [token]);
 
   // Camera setup
   const startCamera = async () => {
@@ -157,7 +164,7 @@ export default function ScanPage({ params }: ScanPageProps) {
       // Simulate scan submission (replace with actual API call)
       // In a real app, you would send this data to your backend
       console.log('Simulating scan submission:', {
-        sessionToken: params.token,
+        sessionToken: token,
         medicationId: scanSession.medication_id, // Assuming medication_id is available
         imageData,
         scanMethod: 'camera', // Or 'manual' if manual entry is implemented
