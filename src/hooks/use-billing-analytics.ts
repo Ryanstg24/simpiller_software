@@ -251,7 +251,7 @@ export function useBillingAnalytics(filters: BillingFilters = {}) {
 }
 
 // Helper function to generate CSV data for download
-export function generateBillingCSV(organizations: BillingOrganization[], billingMonth?: string): string {
+export function generateBillingCSV(organizations: BillingOrganization[]): string {
   const headers = [
     'Organization Name',
     'Setup Fee ($)',
@@ -372,7 +372,7 @@ export function downloadBillingReport(organizations: BillingOrganization[], form
   let mimeType: string;
 
   if (format === 'csv') {
-    content = generateBillingCSV(organizations, billingMonth);
+    content = generateBillingCSV(organizations);
     mimeType = 'text/csv;charset=utf-8;';
   } else {
     content = generateBillingPDF(organizations, billingMonth);
