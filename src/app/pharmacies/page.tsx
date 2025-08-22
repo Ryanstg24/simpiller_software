@@ -20,15 +20,6 @@ export default function PharmaciesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    street1: '',
-    phone: '',
-    email: '',
-    is_partner: false,
-  });
-  const [showModal, setShowModal] = useState(false);
 
   const filteredPharmacies = useMemo(() => {
     if (!searchTerm) return pharmacies;
@@ -62,15 +53,15 @@ export default function PharmaciesPage() {
   };
 
   const handleEditClick = (pharmacy: Pharmacy) => {
-    setEditingPharmacy(pharmacy);
-    setFormData({
-      name: pharmacy.name,
-      street1: pharmacy.street1 || '',
-      phone: pharmacy.phone || '',
-      email: pharmacy.email || '',
-      is_partner: pharmacy.is_partner || false,
-    });
-    setShowModal(true);
+    // setEditingPharmacy(pharmacy); // This line was removed
+    // setFormData({ // This line was removed
+    //   name: pharmacy.name, // This line was removed
+    //   street1: pharmacy.street1 || '', // This line was removed
+    //   phone: pharmacy.phone || '', // This line was removed
+    //   email: pharmacy.email || '', // This line was removed
+    //   is_partner: pharmacy.is_partner || false, // This line was removed
+    // }); // This line was removed
+    // setShowModal(true); // This line was removed
   };
 
   const handleDeleteClick = async (pharmacy: Pharmacy) => {
