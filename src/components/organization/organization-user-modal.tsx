@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit, Save, User, Mail, Phone, Shield, UserPlus } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { X, Save, User, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User as UserType } from '@/hooks/use-users';
 
@@ -13,14 +16,23 @@ interface OrganizationUserModalProps {
   onUserUpdated: () => void;
 }
 
-export function OrganizationUserModal({ user, isOpen, onClose, onUserUpdated }: OrganizationUserModalProps) {
-  const [isEditing, setIsEditing] = useState(false);
+export function OrganizationUserModal({ 
+  isOpen, 
+  onClose, 
+  onUserCreated, 
+  editingUser = null 
+}: OrganizationUserModalProps) {
+  const { user, userProfile } = useAuth();
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    role: 'provider',
+    license_number: '',
+    specialty: '',
+  });
   const [loading, setLoading] = useState(false);
-  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
-  
-  // Form data for editing user
-  const [formData, setFormData] = useState<Partial<UserType>>({});
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {

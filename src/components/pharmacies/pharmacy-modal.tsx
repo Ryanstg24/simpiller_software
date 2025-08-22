@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit, Save, Building2, Phone, Mail, MapPin, Shield, Globe } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { X, Save, Building2, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
-import type { Pharmacy } from '@/hooks/use-pharmacies';
 import { useOrganizations } from '@/hooks/use-organizations';
 
 interface PharmacyModalProps {
@@ -14,7 +17,12 @@ interface PharmacyModalProps {
   onPharmacyUpdated: () => void;
 }
 
-export function PharmacyModal({ pharmacy, isOpen, onClose, onPharmacyUpdated }: PharmacyModalProps) {
+export function PharmacyModal({ 
+  isOpen, 
+  onClose, 
+  onPharmacyUpdated, 
+  pharmacy 
+}: PharmacyModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();

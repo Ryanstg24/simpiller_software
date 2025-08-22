@@ -1,26 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Bell, 
-  Phone, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  Calendar,
-  Filter,
-  RefreshCw
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useSMSAlerts, type SMSAlert } from "@/hooks/use-sms-alerts";
-import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
+import { useAuth } from "@/contexts/auth-context";
+import { useSMSAlerts } from "@/hooks/use-sms-alerts";
+import { AccessDenied } from "@/components/auth/access-denied";
+import { Search, Send, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+
+interface SMSAlert {
+  id: string;
+  patient_id: string;
+  medication_ids: string[];
+  alert_type: 'sms_reminder' | 'follow_up' | 'compliance_summary';
+  scheduled_time: string;
+  sent_at?: string;
+  status: 'pending' | 'sent' | 'failed';
+  scan_session_id?: string;
+  created_at: string;
+  
+  // Joined data
+  patients?: {
+    first_name: string;
+    last_name: string;
+    phone1: string;
+  };
+  medications?: Array<{
+    medication_name: string;
+    dosage: string;
+  }>;
+}
 
 export default function SMSAlertsPage() {
   const userInfo = useUserDisplay();
@@ -138,20 +152,43 @@ export default function SMSAlertsPage() {
 
             {/* Summary Stats */}
             {loading ? (
-              <StatsSkeleton />
-            ) : (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center">
-                      <Bell className="h-8 w-8 text-blue-500 mr-3" />
+                      <CheckCircle className="h-8 w-8 text-green-500 mr-3" />
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Total Alerts</p>
-                        <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                        <p className="text-sm font-medium text-gray-600">Sent Successfully</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.sent}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center">
+                      <XCircle className="h-8 w-8 text-red-500 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Failed</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.failed}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center">
+                      <AlertTriangle className="h-8 w-8 text-yellow-500 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Success Rate</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.successRate.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center">
@@ -192,7 +229,7 @@ export default function SMSAlertsPage() {
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center space-x-2">
-                  <Filter className="h-4 w-4 text-gray-400" />
+                  <Search className="h-4 w-4 text-gray-400" />
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
@@ -206,7 +243,7 @@ export default function SMSAlertsPage() {
                 </div>
                 
                 <div className="flex items-center space-x-2">
-                  <Bell className="h-4 w-4 text-gray-400" />
+                  <Send className="h-4 w-4 text-gray-400" />
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
@@ -220,7 +257,7 @@ export default function SMSAlertsPage() {
                 </div>
                 
                 <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <RefreshCw className="h-4 w-4 text-gray-400" />
                   <select
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value)}
@@ -237,7 +274,13 @@ export default function SMSAlertsPage() {
 
             {/* Alerts List */}
             {loading ? (
-              <TableSkeleton rows={8} />
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <div className="text-center">
+                  <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Alerts...</h3>
+                  <p className="text-gray-600 mb-4">Please wait while we fetch the alert history.</p>
+                </div>
+              </div>
             ) : error ? (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <div className="text-center">
@@ -252,7 +295,7 @@ export default function SMSAlertsPage() {
             ) : filteredAlerts.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <div className="text-center">
-                  <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No alerts found</h3>
                   <p className="text-gray-600 mb-4">
                     {filterStatus !== 'all' || filterType !== 'all' || dateRange !== 'all'
@@ -275,19 +318,19 @@ export default function SMSAlertsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                           <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Phone className="h-5 w-5 text-blue-600" />
+                            <Send className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
                             <div className="flex items-center space-x-2 mb-1">
                               <h3 className="text-lg font-medium text-gray-900">
                                 {alert.patients ? `${alert.patients.first_name} ${alert.patients.last_name}` : 'Unknown Patient'}
                               </h3>
-                              <Badge className={getStatusColor(alert.status)}>
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(alert.status)}`}>
                                 {alert.status}
-                              </Badge>
-                              <Badge className={getTypeColor(alert.alert_type)}>
+                              </span>
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(alert.alert_type)}`}>
                                 {alert.alert_type.replace('_', ' ')}
-                              </Badge>
+                              </span>
                             </div>
                             <div className="text-sm text-gray-600 space-y-1">
                               {alert.medications && (

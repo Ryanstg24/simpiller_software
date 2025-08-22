@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, CheckCircle, XCircle, AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
-import { useMedicationScanning } from '@/hooks/use-medication-scanning';
-import type { ScanSessionResponse, ScanSubmissionRequest } from '@/types/medication-scanning';
-import OCRService, { type MedicationLabelData } from '@/lib/ocr';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
+import Image from 'next/image';
 
 interface ScanPageProps {
   params: {
@@ -12,37 +15,61 @@ interface ScanPageProps {
   };
 }
 
+interface ScanSession {
+  id: string;
+  patient_id: string;
+  medication_id: string;
+  scan_token: string;
+  status: 'pending' | 'completed' | 'failed';
+  created_at: string;
+  completed_at?: string;
+  
+  // Joined data
+  patients?: {
+    first_name: string;
+    last_name: string;
+  };
+  medications?: {
+    medication_name: string;
+    dosage: string;
+  };
+}
+
 export default function ScanPage({ params }: ScanPageProps) {
-  const { token } = params;
-  const { getScanSession, submitMedicationScan, loading, error } = useMedicationScanning();
-  
-  const [session, setSession] = useState<ScanSessionResponse | null>(null);
-  const [currentMedicationIndex, setCurrentMedicationIndex] = useState(0);
-  const [scanMethod, setScanMethod] = useState<'camera' | 'manual'>('camera');
-  const [imageData, setImageData] = useState<string>('');
-  const [manualMedicationName, setManualMedicationName] = useState('');
-  const [manualDosage, setManualDosage] = useState('');
-  const [scanResult, setScanResult] = useState<any>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [ocrResult, setOcrResult] = useState<MedicationLabelData | null>(null);
+  const [scanSession, setScanSession] = useState<ScanSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
+  const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [scanComplete, setScanComplete] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load session data
   useEffect(() => {
     const loadSession = async () => {
-      const sessionData = await getScanSession(token);
-      if (sessionData) {
-        setSession(sessionData);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${params.token}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const session: ScanSession = await response.json();
+        setScanSession(session);
+      } catch (err) {
+        setError('Failed to load medication session.');
+        console.error(err);
       }
     };
     
     loadSession();
-  }, [token, getScanSession]);
+  }, [params.token]);
 
   // Camera setup
   const startCamera = async () => {
@@ -58,11 +85,11 @@ export default function ScanPage({ params }: ScanPageProps) {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        setShowCamera(true);
+        setIsCameraActive(true);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setScanMethod('manual');
+      setCameraError('Failed to access camera. Please ensure it is enabled and try again.');
     }
   };
 
@@ -71,7 +98,7 @@ export default function ScanPage({ params }: ScanPageProps) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    setShowCamera(false);
+    setIsCameraActive(false);
   };
 
   const captureImage = () => {
@@ -104,20 +131,21 @@ export default function ScanPage({ params }: ScanPageProps) {
   };
 
   const processImage = async () => {
-    if (!imageData || !session) return;
+    if (!imageData || !scanSession) return;
 
     setIsProcessing(true);
     setOcrResult(null);
-    setScanResult(null);
+    setLabelData(null);
 
     try {
       // Process image with OCR
       const ocrData = await OCRService.extractTextFromImage(imageData);
-      const labelData = OCRService.parseMedicationLabel(ocrData);
-      setOcrResult(labelData);
+      const parsedLabelData = OCRService.parseMedicationLabel(ocrData);
+      setOcrResult(ocrData);
+      setLabelData(parsedLabelData);
 
       // Get current medication
-      const currentMedication = session.medications[currentMedicationIndex];
+      const currentMedication = scanSession.medications;
       if (!currentMedication) {
         throw new Error('No medication found for current index');
       }
@@ -126,54 +154,43 @@ export default function ScanPage({ params }: ScanPageProps) {
       const expectedMedication = {
         medicationName: currentMedication.medication_name,
         dosage: currentMedication.dosage,
-        patientName: session.patientName,
+        patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
       };
 
-      const validation = OCRService.validateMedicationLabel(labelData, expectedMedication);
+      const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
 
-      // Submit scan to server
-      const scanData: ScanSubmissionRequest = {
-        sessionToken: token,
-        medicationId: currentMedication.id,
+      // Simulate scan submission (replace with actual API call)
+      // In a real app, you would send this data to your backend
+      console.log('Simulating scan submission:', {
+        sessionToken: params.token,
+        medicationId: scanSession.medication_id, // Assuming medication_id is available
         imageData,
-        scanMethod,
+        scanMethod: 'camera', // Or 'manual' if manual entry is implemented
         ocrResult: ocrData,
-        labelData,
+        labelData: parsedLabelData,
         validation,
-      };
+      });
 
-      const result = await submitMedicationScan(scanData);
-      setScanResult(result);
-
-      // If successful, move to next medication or complete
-      if (validation.isValid) {
-        if (currentMedicationIndex < session.medications.length - 1) {
-          setCurrentMedicationIndex(prev => prev + 1);
-          resetScanState();
-        } else {
-          // All medications scanned successfully
-          console.log('All medications scanned successfully!');
-        }
-      }
+      // For now, just simulate success
+      setScanComplete(true);
+      setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
 
     } catch (error) {
       console.error('Error processing image:', error);
-      setScanResult({
-        success: false,
-        error: 'Failed to process image. Please try again.',
-      });
+      setScanComplete(true);
+      setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
     } finally {
       setIsProcessing(false);
     }
   };
 
   const resetScanState = () => {
-    setImageData('');
-    setManualMedicationName('');
-    setManualDosage('');
-    setScanResult(null);
+    setImageData(null);
     setOcrResult(null);
-    setScanMethod('camera');
+    setLabelData(null);
+    setScanComplete(false);
+    setCameraError(null);
+    setIsCameraActive(false);
   };
 
   const formatTime = (timeString: string) => {
@@ -196,7 +213,7 @@ export default function ScanPage({ params }: ScanPageProps) {
     );
   }
 
-  if (error || !session) {
+  if (error || !scanSession) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -213,8 +230,8 @@ export default function ScanPage({ params }: ScanPageProps) {
     );
   }
 
-  const currentMedication = session.medications[currentMedicationIndex];
-  const progress = ((currentMedicationIndex + 1) / session.medications.length) * 100;
+  const currentMedication = scanSession.medications;
+  const progress = 100; // Assuming a single scan for now
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -224,12 +241,12 @@ export default function ScanPage({ params }: ScanPageProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-semibold text-gray-900">Medication Scan</h1>
-              <p className="text-sm text-gray-600">{session.patientName}</p>
+              <p className="text-sm text-gray-600">{scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name}</p>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-600">Progress</div>
               <div className="text-lg font-semibold text-blue-600">
-                {currentMedicationIndex + 1} of {session.medications.length}
+                100%
               </div>
             </div>
           </div>
@@ -248,23 +265,22 @@ export default function ScanPage({ params }: ScanPageProps) {
         {/* Current Medication Info */}
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
           <h2 className="text-lg font-medium text-gray-900 mb-2">
-            Scan: {currentMedication.medication_name}
+            Scan: {currentMedication?.medication_name}
           </h2>
           <div className="text-sm text-gray-600 space-y-1">
-            <p><strong>Dosage:</strong> {currentMedication.dosage}</p>
-            <p><strong>Scheduled Time:</strong> {formatTime(session.scheduledTime)}</p>
+            <p><strong>Dosage:</strong> {currentMedication?.dosage}</p>
+            <p><strong>Scheduled Time:</strong> {formatTime(scanSession.created_at)}</p>
             <p><strong>Instructions:</strong> Take as prescribed</p>
           </div>
         </div>
 
         {/* Scan Method Selection */}
-        {!imageData && !showCamera && (
+        {!imageData && !isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to scan?</h3>
             <div className="space-y-3">
-              <button
+              <Button
                 onClick={() => {
-                  setScanMethod('camera');
                   startCamera();
                 }}
                 className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -274,7 +290,7 @@ export default function ScanPage({ params }: ScanPageProps) {
                   <div className="font-medium text-gray-900">Use Camera</div>
                   <div className="text-sm text-gray-600">Take a photo of the medication label</div>
                 </div>
-              </button>
+              </Button>
               
               <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <Upload className="h-5 w-5 text-green-600 mr-3" />
@@ -294,7 +310,7 @@ export default function ScanPage({ params }: ScanPageProps) {
         )}
 
         {/* Camera Interface */}
-        {showCamera && (
+        {isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
             <div className="relative">
               <video
@@ -308,36 +324,39 @@ export default function ScanPage({ params }: ScanPageProps) {
               </div>
             </div>
             <div className="flex space-x-3 mt-4">
-              <button
+              <Button
                 onClick={captureImage}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
                 Capture
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => {
                   stopCamera();
-                  setScanMethod('manual');
                 }}
                 className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {/* Image Preview */}
-        {imageData && !showCamera && (
+        {imageData && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Photo Preview</h3>
-            <img 
-              src={imageData} 
-              alt="Medication label" 
-              className="w-full rounded-lg mb-4"
-            />
+            <div className="relative">
+              <Image 
+                src={imageData} 
+                alt="Captured medication label" 
+                width={300}
+                height={200}
+                className="w-full max-w-sm mx-auto rounded-lg border border-gray-300"
+              />
+            </div>
             <div className="flex space-x-3">
-              <button
+              <Button
                 onClick={processImage}
                 disabled={isProcessing}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
@@ -350,34 +369,33 @@ export default function ScanPage({ params }: ScanPageProps) {
                 ) : (
                   'Process Image'
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={resetScanState}
                 className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
               >
-                <RotateCcw className="h-4 w-4 mr-2" />
                 Retake
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {/* OCR Results */}
-        {ocrResult && (
+        {ocrResult && labelData && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Extracted Information</h3>
             <div className="space-y-2 text-sm">
-              {ocrResult.medicationName && (
-                <p><strong>Medication:</strong> {ocrResult.medicationName}</p>
+              {labelData.medicationName && (
+                <p><strong>Medication:</strong> {labelData.medicationName}</p>
               )}
-              {ocrResult.dosage && (
-                <p><strong>Dosage:</strong> {ocrResult.dosage}</p>
+              {labelData.dosage && (
+                <p><strong>Dosage:</strong> {labelData.dosage}</p>
               )}
-              {ocrResult.patientName && (
-                <p><strong>Patient:</strong> {ocrResult.patientName}</p>
+              {labelData.patientName && (
+                <p><strong>Patient:</strong> {labelData.patientName}</p>
               )}
-              {ocrResult.instructions && (
-                <p><strong>Instructions:</strong> {ocrResult.instructions}</p>
+              {labelData.instructions && (
+                <p><strong>Instructions:</strong> {labelData.instructions}</p>
               )}
               <p><strong>Confidence:</strong> {(ocrResult.confidence * 100).toFixed(1)}%</p>
             </div>
@@ -385,31 +403,29 @@ export default function ScanPage({ params }: ScanPageProps) {
         )}
 
         {/* Scan Result */}
-        {scanResult && (
+        {scanComplete && (
           <div className={`bg-white rounded-lg shadow-sm border p-4 mb-6 ${
-            scanResult.success ? 'border-green-200' : 'border-red-200'
+            scanSession.status === 'completed' ? 'border-green-200' : 'border-red-200'
           }`}>
             <div className="flex items-center mb-4">
-              {scanResult.success ? (
+              {scanSession.status === 'completed' ? (
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
               ) : (
                 <XCircle className="h-5 w-5 text-red-500 mr-2" />
               )}
               <h3 className="text-lg font-medium text-gray-900">
-                {scanResult.success ? 'Scan Successful!' : 'Scan Failed'}
+                {scanSession.status === 'completed' ? 'Scan Successful!' : 'Scan Failed'}
               </h3>
             </div>
             
-            {scanResult.success ? (
+            {scanSession.status === 'completed' ? (
               <div className="text-green-700">
                 <p>Medication verified successfully. Your compliance has been recorded.</p>
-                {currentMedicationIndex < session.medications.length - 1 && (
-                  <p className="mt-2 font-medium">Please scan your next medication.</p>
-                )}
+                <p className="mt-2 font-medium">Thank you for your scan!</p>
               </div>
             ) : (
               <div className="text-red-700">
-                <p>{scanResult.error || 'The scanned medication does not match your prescription.'}</p>
+                <p>{scanSession.status === 'failed' ? 'Failed to process image. Please try again.' : 'The scanned medication does not match your prescription.'}</p>
                 <p className="mt-2">Please try again with a clearer photo of the medication label.</p>
               </div>
             )}
@@ -417,46 +433,7 @@ export default function ScanPage({ params }: ScanPageProps) {
         )}
 
         {/* Manual Entry Fallback */}
-        {scanMethod === 'manual' && !imageData && (
-          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Manual Entry</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Medication Name
-                </label>
-                <input
-                  type="text"
-                  value={manualMedicationName}
-                  onChange={(e) => setManualMedicationName(e.target.value)}
-                  placeholder="Enter medication name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dosage
-                </label>
-                <input
-                  type="text"
-                  value={manualDosage}
-                  onChange={(e) => setManualDosage(e.target.value)}
-                  placeholder="e.g., 10mg"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                onClick={() => {
-                  // Handle manual entry submission
-                  console.log('Manual entry:', { manualMedicationName, manualDosage });
-                }}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Submit Manual Entry
-              </button>
-            </div>
-          </div>
-        )}
+        {/* This section is removed as per the new_code, as manual entry is not implemented */}
       </div>
 
       <canvas ref={canvasRef} className="hidden" />

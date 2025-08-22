@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { TwilioService } from '@/lib/twilio';
 import { supabase } from '@/lib/supabase';
-import TwilioService from '@/lib/twilio';
-import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {

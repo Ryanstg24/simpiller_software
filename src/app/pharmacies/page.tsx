@@ -11,14 +11,24 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePharmacies } from "@/hooks/use-pharmacies";
 import { useState, useMemo } from "react";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
+import { Pharmacy } from "@/types/pharmacy";
 
 export default function PharmaciesPage() {
   const userInfo = useUserDisplay();
   const { isSimpillerAdmin, isOrganizationAdmin } = useAuth();
-  const { pharmacies, loading, error } = usePharmacies();
+  const { pharmacies, loading, error, deletePharmacy } = usePharmacies();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPharmacy, setSelectedPharmacy] = useState<any>(null);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    is_partner_pharmacy: false,
+  });
+  const [showModal, setShowModal] = useState(false);
 
   const filteredPharmacies = useMemo(() => {
     if (!searchTerm) return pharmacies;
@@ -40,7 +50,7 @@ export default function PharmaciesPage() {
     return isActive ? 'Active' : 'Inactive';
   };
 
-  const handleViewPharmacy = (pharmacy: any) => {
+  const handleViewPharmacy = (pharmacy: Pharmacy) => {
     setSelectedPharmacy(pharmacy);
     setIsModalOpen(true);
   };
@@ -49,6 +59,29 @@ export default function PharmaciesPage() {
     // Refresh pharmacies data
     setIsModalOpen(false);
     setSelectedPharmacy(null);
+  };
+
+  const handleEditClick = (pharmacy: Pharmacy) => {
+    setEditingPharmacy(pharmacy);
+    setFormData({
+      name: pharmacy.name,
+      address: pharmacy.address || '',
+      phone: pharmacy.phone || '',
+      email: pharmacy.email || '',
+      is_partner_pharmacy: pharmacy.is_partner_pharmacy || false,
+    });
+    setShowModal(true);
+  };
+
+  const handleDeleteClick = async (pharmacy: Pharmacy) => {
+    if (window.confirm(`Are you sure you want to delete ${pharmacy.name}?`)) {
+      try {
+        await deletePharmacy(pharmacy.id);
+      } catch (error) {
+        console.error('Error deleting pharmacy:', error);
+        alert('Failed to delete pharmacy');
+      }
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -314,10 +347,19 @@ export default function PharmaciesPage() {
                             variant="outline" 
                             size="sm" 
                             className="flex-1"
-                            onClick={() => handleViewPharmacy(pharmacy)}
+                            onClick={() => handleEditClick(pharmacy)}
                             disabled={pharmacy.is_partner && !isSimpillerAdmin}
                           >
                             Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleDeleteClick(pharmacy)}
+                            disabled={pharmacy.is_partner && !isSimpillerAdmin}
+                          >
+                            Delete
                           </Button>
                         </div>
                       </div>

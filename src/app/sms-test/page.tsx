@@ -10,12 +10,7 @@ import { Label } from "@/components/ui/label";
 import { 
   Send, 
   CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  Phone,
-  User,
-  Pill,
-  Clock
+  XCircle
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
@@ -25,7 +20,12 @@ interface TestSMSResponse {
   message: string;
   testMode: boolean;
   scanLink: string;
-  reminder: any;
+  reminder: {
+    patientName: string;
+    patientPhone: string;
+    medicationNames: string[];
+    scheduledTime: string;
+  };
 }
 
 export default function SMSTestPage() {

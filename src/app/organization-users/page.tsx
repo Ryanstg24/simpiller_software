@@ -1,64 +1,62 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Users, Mail, Phone, Shield, UserPlus, Tag } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
 import { useUsers } from "@/hooks/use-users";
-import { useState, useMemo } from "react";
 import { OrganizationUserModal } from "@/components/organization/organization-user-modal";
+import { AccessDenied } from "@/components/auth/access-denied";
+import { Search, Edit, Trash2 } from "lucide-react";
+
+interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  license_number?: string;
+  specialty?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function OrganizationUsersPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin, isOrganizationAdmin } = useAuth();
+  const { isOrganizationAdmin, userOrganizationId } = useAuth();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Filter users to only show organization users (providers and billing)
+  // Filter users by organization
   const organizationUsers = useMemo(() => {
-    return users.filter(user => 
-      user.user_roles?.some(role => 
-        (role.name === 'provider' || role.name === 'billing') && 
-        role.organization_id === userInfo.organizationId
-      )
-    );
-  }, [users, userInfo.organizationId]);
+    if (!userOrganizationId) return [];
+    return users.filter(user => user.organization_id === userOrganizationId);
+  }, [users, userOrganizationId]);
 
   const filteredUsers = useMemo(() => {
-    if (!searchTerm) return organizationUsers;
+    if (!searchTerm.trim()) return organizationUsers;
     
-    return organizationUsers.filter(user => {
-      const searchLower = searchTerm.toLowerCase();
-      const nameMatch = `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchLower);
-      const emailMatch = user.email.toLowerCase().includes(searchLower);
-      const roleMatch = user.user_roles?.some(role => 
-        role.name.toLowerCase().includes(searchLower)
-      );
-      return nameMatch || emailMatch || roleMatch;
-    });
+    return organizationUsers.filter(user => 
+      user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.role.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   }, [organizationUsers, searchTerm]);
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusText = (isActive: boolean) => {
-    return isActive ? 'Active' : 'Inactive';
-  };
-
-  const handleViewUser = (user: any) => {
+  const handleViewUser = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
   };
 
   const handleUserUpdated = () => {
-    // Refresh users data
     setIsModalOpen(false);
     setSelectedUser(null);
   };
@@ -71,31 +69,17 @@ export default function OrganizationUsersPage() {
     });
   };
 
-  if (!isSimpillerAdmin && !isOrganizationAdmin) {
+  if (!isOrganizationAdmin) {
     return (
-      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar currentPage="/organization-users" />
-          <div className="flex-1 overflow-auto">
-            <Header 
-              title="Organization Users" 
-              subtitle="Manage users in your organization"
-              user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
-            />
-            <main className="p-6">
-              <div className="flex items-center justify-center h-64">
-                <div className="text-red-500">Access Denied: Admin access required</div>
-              </div>
-            </main>
-          </div>
-        </div>
+      <ProtectedRoute requiredRoles={['organization_admin']}>
+        <AccessDenied />
       </ProtectedRoute>
     );
   }
 
   if (loading) {
     return (
-      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
+      <ProtectedRoute requiredRoles={['organization_admin']}>
         <div className="flex h-screen bg-gray-50">
           <Sidebar currentPage="/organization-users" />
           <div className="flex-1 overflow-auto">
@@ -117,7 +101,7 @@ export default function OrganizationUsersPage() {
 
   if (error) {
     return (
-      <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
+      <ProtectedRoute requiredRoles={['organization_admin']}>
         <div className="flex h-screen bg-gray-50">
           <Sidebar currentPage="/organization-users" />
           <div className="flex-1 overflow-auto">
@@ -138,7 +122,7 @@ export default function OrganizationUsersPage() {
   }
 
   return (
-    <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin']}>
+    <ProtectedRoute requiredRoles={['organization_admin']}>
       <div className="flex h-screen bg-gray-50">
         <Sidebar currentPage="/organization-users" />
 
@@ -163,7 +147,6 @@ export default function OrganizationUsersPage() {
                   setIsModalOpen(true);
                 }}
               >
-                <UserPlus className="mr-2 h-4 w-4" />
                 Add User
               </Button>
             </div>
@@ -173,52 +156,40 @@ export default function OrganizationUsersPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center">
-                    <Users className="h-8 w-8 text-blue-500 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Users</p>
-                      <p className="text-2xl font-bold text-gray-900">{filteredUsers.length}</p>
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{filteredUsers.length}</p>
+                    <p className="text-sm font-medium text-gray-600 ml-2">Total Users</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center">
-                    <Users className="h-8 w-8 text-green-500 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Active Users</p>
-                      <p className="text-2xl font-bold text-gray-900">{filteredUsers.filter(user => user.is_active).length}</p>
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{filteredUsers.filter(user => user.is_active).length}</p>
+                    <p className="text-sm font-medium text-gray-600 ml-2">Active Users</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center">
-                    <Shield className="h-8 w-8 text-purple-500 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Providers</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900">
                         {filteredUsers.filter(user => 
                           user.user_roles?.some(role => role.name === 'provider')
                         ).length}
                       </p>
-                    </div>
+                    <p className="text-sm font-medium text-gray-600 ml-2">Providers</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center">
-                    <Users className="h-8 w-8 text-yellow-500 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Billing Users</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900">
                         {filteredUsers.filter(user => 
                           user.user_roles?.some(role => role.name === 'billing')
                         ).length}
                       </p>
-                    </div>
+                    <p className="text-sm font-medium text-gray-600 ml-2">Billing Users</p>
                   </div>
                 </CardContent>
               </Card>
@@ -228,7 +199,7 @@ export default function OrganizationUsersPage() {
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
+                <Input
                   type="text"
                   placeholder="Search users by name, email, or role..."
                   value={searchTerm}
@@ -242,42 +213,34 @@ export default function OrganizationUsersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredUsers.map((user) => (
                 <Card key={user.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg text-gray-900">
-                          {user.first_name} {user.last_name}
-                        </CardTitle>
-                        <p className="text-sm text-gray-600">{user.email}</p>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.is_active)}`}>
-                        {getStatusText(user.is_active)}
-                      </div>
-                    </div>
-                  </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">{user.first_name} {user.last_name}</h3>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </div>
+                      </div>
                       {user.phone && (
                         <div className="flex items-center text-sm text-gray-600">
-                          <Phone className="h-4 w-4 mr-2" />
-                          <span>{user.phone}</span>
+                          <span>Phone: {user.phone}</span>
                         </div>
                       )}
                       {user.npi && (
                         <div className="flex items-center text-sm text-gray-600">
-                          <Shield className="h-4 w-4 mr-2" />
                           <span>NPI: {user.npi}</span>
                         </div>
                       )}
                       <div className="flex items-center text-sm text-gray-600">
-                        <Mail className="h-4 w-4 mr-2" />
                         <span>Joined: {formatDate(user.created_at)}</span>
                       </div>
                       {user.user_roles && user.user_roles.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {user.user_roles.map((role, index) => (
                             <div key={index} className="flex items-center">
-                              <Tag className="h-3 w-3 text-gray-400 mr-1" />
                               <span className="text-xs text-gray-500">
                                 {role.name}
                                 {role.organization && ` (${role.organization.acronym})`}
@@ -314,8 +277,6 @@ export default function OrganizationUsersPage() {
 
             {filteredUsers.length === 0 && (
               <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
                 <p className="text-gray-600 mb-4">
                   {searchTerm ? 'Try adjusting your search terms.' : 'Get started by creating your first user.'}
                 </p>
@@ -327,7 +288,6 @@ export default function OrganizationUsersPage() {
                       setIsModalOpen(true);
                     }}
                   >
-                    <UserPlus className="mr-2 h-4 w-4" />
                     Add User
                   </Button>
                 )}

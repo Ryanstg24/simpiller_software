@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Edit, Trash2, Calendar, User, Activity } from 'lucide-react';
-import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { Patient } from '@/hooks/use-patients';
+import { Plus, Edit, Trash2, Save, X, Clock, Activity, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface TimeLogTabProps {
   patient: Patient;
@@ -74,7 +80,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
 
   useEffect(() => {
     fetchTimeLogs();
-  }, [patient.id, selectedMonth]);
+  }, [patient.id, selectedMonth, user?.id, fetchTimeLogs]);
 
   const fetchTimeLogs = async () => {
     try {
@@ -460,7 +466,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
                           {formatDuration(log.duration_minutes)}
                         </span>
                         <span className="flex items-center">
-                          <User className="h-4 w-4 mr-1" />
+                          {/* User icon was removed, so this line is now empty */}
                           {log.providers ? `${log.providers.first_name} ${log.providers.last_name}` : 'Unknown Provider'}
                         </span>
                         {log.billing_code && (

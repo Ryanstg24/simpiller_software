@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, CheckCircle, XCircle, AlertTriangle, Loader2, FlaskConical, Smartphone } from 'lucide-react';
+import { Camera, Upload, CheckCircle, XCircle, AlertTriangle, Loader2, FlaskConical, Smartphone, RotateCcw } from 'lucide-react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useUserDisplay } from '@/hooks/use-user-display';
+import Image from 'next/image';
 
 export default function OCRTestPage() {
-  const userInfo = useUserDisplay();
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
@@ -445,9 +445,11 @@ export default function OCRTestPage() {
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Preview</Label>
                           <div className="relative">
-                            <img
-                              src={imageData}
-                              alt="Captured medication label"
+                            <Image 
+                              src={imageData} 
+                              alt="Captured medication label" 
+                              width={300}
+                              height={200}
                               className="w-full max-w-sm mx-auto rounded-lg border border-gray-300"
                             />
                           </div>
@@ -677,20 +679,12 @@ export default function OCRTestPage() {
                           <div className="mb-1 p-1 bg-blue-100 rounded">
                             <strong>⚠️ Important:</strong> Camera access requires HTTPS connection or localhost
                           </div>
-                          <p><strong>iOS (Safari):</strong></p>
-                          <ul className="list-disc list-inside ml-2 space-y-1">
-                            <li>Ensure you're using HTTPS or localhost</li>
-                            <li>Tap the camera icon in the address bar</li>
-                            <li>Select "Allow" when prompted</li>
-                            <li>Or go to Settings → Safari → Camera → Allow</li>
-                          </ul>
-                          <p className="mt-1"><strong>Android (Chrome):</strong></p>
-                          <ul className="list-disc list-inside ml-2 space-y-1">
-                            <li>Ensure you're using HTTPS or localhost</li>
-                            <li>Tap the camera icon in the address bar</li>
-                            <li>Select "Allow" when prompted</li>
-                            <li>Or go to Settings → Apps → Chrome → Permissions → Camera</li>
-                          </ul>
+                          <div className="p-1 bg-blue-100 rounded">
+                            <strong>iOS:</strong> Tap &quot;Allow&quot; when prompted, or go to Settings &gt; Safari &gt; Camera &gt; Allow
+                          </div>
+                          <div className="p-1 bg-blue-100 rounded">
+                            <strong>Android:</strong> Tap &quot;Allow&quot; when prompted, or go to Settings &gt; Apps &gt; Browser &gt; Permissions &gt; Camera
+                          </div>
                         </div>
                       </div>
                       

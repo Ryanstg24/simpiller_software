@@ -2,22 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import TwilioService from '@/lib/twilio';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    // Verify the request is from a legitimate cron service
+    // Verify the request is from Vercel cron
     const authHeader = request.headers.get('authorization');
-    const expectedToken = process.env.CRON_SECRET_TOKEN;
-    
-    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
     const now = new Date();
-    const currentTime = now.toTimeString().split(' ')[0]; // HH:MM:SS format
-    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
 
     // Get all active medications that need to be taken at the current time
     const { data: medications, error: medicationsError } = await supabase
@@ -62,7 +57,7 @@ export async function POST(request: NextRequest) {
         if (!timeOfDay) continue;
 
         // Check if this medication should be taken now
-        const shouldSendAlert = checkIfMedicationDue(timeOfDay, currentTime);
+        const shouldSendAlert = checkIfMedicationDue(timeOfDay, currentHour, currentMinute);
         
         if (!shouldSendAlert) continue;
 
@@ -173,7 +168,7 @@ export async function POST(request: NextRequest) {
 /**
  * Check if a medication should be taken at the current time
  */
-function checkIfMedicationDue(timeOfDay: string, currentTime: string): boolean {
+function checkIfMedicationDue(timeOfDay: string, currentHour: number, currentMinute: number): boolean {
   // Parse time_of_day which could be formats like:
   // "morning (06:00:00)", "afternoon (12:00:00)", "evening (18:00:00)"
   // or "custom (14:30:00)"
@@ -184,7 +179,7 @@ function checkIfMedicationDue(timeOfDay: string, currentTime: string): boolean {
   const medicationTime = timeMatch[1];
   
   // Allow a 5-minute window around the scheduled time
-  const currentMinutes = timeToMinutes(currentTime);
+  const currentMinutes = currentHour * 60 + currentMinute;
   const medicationMinutes = timeToMinutes(medicationTime);
   
   const timeDiff = Math.abs(currentMinutes - medicationMinutes);

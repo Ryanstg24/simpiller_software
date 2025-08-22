@@ -1,5 +1,3 @@
-import Tesseract from 'tesseract.js';
-
 export interface OCRResult {
   text: string;
   confidence: number;
@@ -68,7 +66,7 @@ export class OCRService {
         imageData,
         'eng',
         {
-          logger: (m: any) => {
+          logger: (m: { status?: string; progress?: number; userJobId?: string }) => {
             // Only log in development to avoid console spam in production
             if (process.env.NODE_ENV === 'development') {
               console.log('OCR Progress:', m);
@@ -127,7 +125,6 @@ export class OCRService {
    * Parse medication label data from OCR text
    */
   static parseMedicationLabel(ocrResult: OCRResult): MedicationLabelData {
-    const text = ocrResult.text.toLowerCase();
     const originalText = ocrResult.text;
     
     console.log('OCR Service: Parsing text:', originalText);

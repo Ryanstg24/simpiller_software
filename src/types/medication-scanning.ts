@@ -75,46 +75,67 @@ export interface MedicationAlert {
 export interface ComplianceScore {
   id: string;
   patient_id: string;
-  month_year: string; // YYYY-MM-DD format
-  total_scheduled_medications: number;
-  total_completed_medications: number;
-  total_missed_medications: number;
-  total_late_medications: number;
+  month_year: string;
+  total_scans: number;
+  completed_scans: number;
   compliance_percentage: number;
-  streak_days: number;
-  longest_streak: number;
-  notes?: string;
   created_at: string;
   updated_at: string;
-  
-  // Joined data
-  patients?: {
-    first_name: string;
-    last_name: string;
-  };
 }
 
 export interface MedicationScanSession {
   id: string;
   patient_id: string;
-  session_token: string;
-  medication_ids: string[];
-  scheduled_time: string;
-  expires_at: string;
-  is_active: boolean;
+  medication_id: string;
+  scan_token: string;
+  status: 'pending' | 'completed' | 'failed';
   created_at: string;
+  completed_at?: string;
   
   // Joined data
   patients?: {
     first_name: string;
     last_name: string;
   };
-  medications?: Array<{
-    id: string;
-    name: string;
+  medications?: {
+    medication_name: string;
     dosage: string;
-    time_of_day: string;
-  }>;
+  };
+}
+
+export interface MedicationScanLog {
+  id: string;
+  scan_session_id: string;
+  medication_id: string;
+  patient_id: string;
+  scan_data: {
+    medication_name?: string;
+    dosage?: string;
+    patient_name?: string;
+    confidence: number;
+    raw_text: string;
+  };
+  scan_result: 'success' | 'failed' | 'partial';
+  created_at: string;
+}
+
+export interface ProviderTimeLog {
+  id: string;
+  patient_id: string;
+  provider_id: string;
+  activity_type: string;
+  description?: string;
+  duration_minutes: number;
+  date: string;
+  billing_code?: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Joined data
+  providers?: {
+    first_name: string;
+    last_name: string;
+  };
 }
 
 // OCR and Image Processing Types

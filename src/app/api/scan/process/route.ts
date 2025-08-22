@@ -1,94 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import OCRService from '@/lib/ocr';
 import { supabase } from '@/lib/supabase';
-import OCRService, { type OCRResult, type MedicationLabelData } from '@/lib/ocr';
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
-      sessionToken, 
-      imageData, 
-      medicationId,
-      scanMethod = 'camera' 
-    } = await request.json();
+    const { imageData, scanSessionId, expectedMedication } = await request.json();
 
-    if (!sessionToken || !imageData || !medicationId) {
+    if (!imageData || !scanSessionId) {
       return NextResponse.json(
-        { error: 'Missing required fields: sessionToken, imageData, medicationId' },
+        { error: 'Missing required fields: imageData and scanSessionId' },
         { status: 400 }
       );
     }
 
-    // Get scan session
-    const { data: scanSession, error: sessionError } = await supabase
-      .from('medication_scan_sessions')
-      .select(`
-        *,
-        patients (
-          first_name,
-          last_name
-        ),
-        medications (
-          medication_name,
-          dosage,
-          strength
-        )
-      `)
-      .eq('id', sessionToken)
-      .single();
-
-    if (sessionError || !scanSession) {
-      return NextResponse.json(
-        { error: 'Invalid or expired scan session' },
-        { status: 404 }
-      );
-    }
-
-    // Check if session is expired
-    if (new Date() > new Date(scanSession.expires_at)) {
-      return NextResponse.json(
-        { error: 'Scan session has expired' },
-        { status: 410 }
-      );
-    }
-
-    // Check if session is already completed
-    if (scanSession.status === 'completed') {
-      return NextResponse.json(
-        { error: 'Scan session already completed' },
-        { status: 409 }
-      );
-    }
-
-    // Process OCR
-    let ocrResult: OCRResult;
-    try {
-      ocrResult = await OCRService.extractTextFromImage(imageData);
-    } catch (error) {
-      console.error('OCR processing failed:', error);
-      return NextResponse.json(
-        { error: 'Failed to process image. Please try again with a clearer photo.' },
-        { status: 500 }
-      );
-    }
-
-    // Parse medication label data
+    // Process the image using OCR
+    const ocrResult = await OCRService.extractTextFromImage(imageData);
     const labelData = OCRService.parseMedicationLabel(ocrResult);
 
-    // Get expected medication data
-    const expectedMedication = {
-      medicationName: scanSession.medications?.medication_name || '',
-      dosage: scanSession.medications?.dosage || '',
-      patientName: `${scanSession.patients?.first_name} ${scanSession.patients?.last_name}`,
-    };
-
-    // Validate medication label
-    const validation = OCRService.validateMedicationLabel(labelData, expectedMedication);
+    // Validate against expected medication if provided
+    let validationResult = null;
+    if (expectedMedication) {
+      validationResult = OCRService.validateMedicationLabel(labelData, expectedMedication);
+    }
 
     // Upload image to storage (optional - for audit trail)
     let imageUrl = null;
     try {
       const imageBuffer = Buffer.from(imageData.split(',')[1], 'base64');
-      const fileName = `medication-scans/${sessionToken}-${Date.now()}.jpg`;
+      const fileName = `medication-scans/${scanSessionId}-${Date.now()}.jpg`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('medication-scans')
@@ -110,9 +49,9 @@ export async function POST(request: NextRequest) {
 
     // Create medication log entry
     const logData = {
-      patient_id: scanSession.patient_id,
-      medication_id: medicationId,
-      scan_method,
+      patient_id: null, // This will be updated once the scan session is linked
+      medication_id: null, // This will be updated once the scan session is linked
+      scan_method: 'api', // Assuming this is an API scan
       scanned_medication_name: labelData.medicationName,
       scanned_dosage: labelData.dosage,
       image_url: imageUrl,
@@ -120,11 +59,11 @@ export async function POST(request: NextRequest) {
         fullText: ocrResult.text,
         confidence: ocrResult.confidence,
         extractedData: labelData,
-        validation: validation,
+        validation: validationResult,
       },
-      verification_score: validation.confidence,
-      session_token: sessionToken,
-      status: validation.isValid ? 'verified' : 'failed',
+      verification_score: validationResult?.confidence || 0,
+      session_token: scanSessionId,
+      status: validationResult?.isValid ? 'verified' : 'failed',
       taken_at: new Date().toISOString(),
     };
 
@@ -146,17 +85,17 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('medication_scan_sessions')
       .update({ 
-        status: validation.isValid ? 'completed' : 'failed',
+        status: validationResult?.isValid ? 'completed' : 'failed',
         completed_at: new Date().toISOString(),
       })
-      .eq('id', sessionToken);
+      .eq('id', scanSessionId);
 
     // Update compliance score if scan was successful
-    if (validation.isValid) {
+    if (validationResult?.isValid) {
       try {
         // Call the compliance calculation function
         await supabase.rpc('calculate_compliance_score', {
-          patient_id: scanSession.patient_id,
+          patient_id: null, // This will be updated once the scan session is linked
         });
       } catch (complianceError) {
         console.warn('Failed to update compliance score:', complianceError);
@@ -165,9 +104,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      isValid: validation.isValid,
-      confidence: validation.confidence,
-      matches: validation.matches,
+      isValid: validationResult?.isValid,
+      confidence: validationResult?.confidence,
+      matches: validationResult?.matches,
       extractedData: labelData,
       ocrText: ocrResult.text,
       logEntry,

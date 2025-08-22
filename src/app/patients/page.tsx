@@ -1,26 +1,29 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, User, Phone, Mail, MapPin, Calendar, Tag, Users, Activity, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
+import { useAuth } from "@/contexts/auth-context";
 import { usePatients } from "@/hooks/use-patients";
-import { useState, useMemo } from "react";
-import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
-import { Patient } from "@/hooks/use-patients";
+import { AddPatientModal } from "@/components/patients/add-patient-modal";
+import { AccessDenied } from "@/components/auth/access-denied";
+import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function PatientsPage() {
   const userInfo = useUserDisplay();
+  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
   const { patients, loading, error } = usePatients();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return patients;
@@ -36,7 +39,7 @@ export default function PatientsPage() {
 
   const handleViewDetails = (patient: Patient) => {
     setSelectedPatient(patient);
-    setIsDetailsModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handlePatientUpdated = () => {
@@ -64,14 +67,6 @@ export default function PatientsPage() {
     return age;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
   const handleAddSuccess = () => {
     // React Query will automatically refetch
   };
@@ -97,7 +92,7 @@ export default function PatientsPage() {
               </div>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => setShowAddModal(true)}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Patient
@@ -215,7 +210,7 @@ export default function PatientsPage() {
                   {!searchTerm && (
                     <Button 
                       className="bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => setIsAddModalOpen(true)}
+                      onClick={() => setShowAddModal(true)}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Patient
@@ -282,17 +277,17 @@ export default function PatientsPage() {
       {/* Modals */}
       <PatientDetailsModal
         patient={selectedPatient}
-        isOpen={isDetailsModalOpen}
+        isOpen={isModalOpen}
         onClose={() => {
-          setIsDetailsModalOpen(false);
+          setIsModalOpen(false);
           setSelectedPatient(null);
         }}
         onPatientUpdated={handlePatientUpdated}
       />
 
       <AddPatientModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
         onSuccess={handleAddSuccess}
       />
     </ProtectedRoute>

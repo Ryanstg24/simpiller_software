@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Calendar, CheckCircle, XCircle, TrendingUp, Clock } from 'lucide-react';
-import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/auth-context';
+import { Patient } from '@/hooks/use-patients';
+import { Activity, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -49,8 +53,10 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('');
 
   useEffect(() => {
-    fetchComplianceData();
-  }, [patient.id, selectedMonth]);
+    if (patient) {
+      fetchComplianceData();
+    }
+  }, [patient, fetchComplianceData]);
 
   const fetchComplianceData = async () => {
     try {

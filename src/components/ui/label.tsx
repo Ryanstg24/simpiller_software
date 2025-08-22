@@ -1,15 +1,29 @@
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { cva, type VariantProps } from "class-variance-authority"
 
-interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+import { cn } from "@/lib/utils"
 
-export function Label({ className, ...props }: LabelProps) {
-  return (
-    <label
-      className={cn(
-        "text-sm font-medium text-gray-700 mb-1 block",
-        className
-      )}
-      {...props}
-    />
-  );
-} 
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+)
+
+export interface LabelProps
+  extends React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>,
+    VariantProps<typeof labelVariants> {
+  // Add any additional props here if needed
+}
+
+const Label = React.forwardRef<
+  React.ElementRef<typeof LabelPrimitive.Root>,
+  LabelProps
+>(({ className, ...props }, ref) => (
+  <LabelPrimitive.Root
+    ref={ref}
+    className={cn(labelVariants(), className)}
+    {...props}
+  />
+))
+Label.displayName = LabelPrimitive.Root.displayName
+
+export { Label } 
