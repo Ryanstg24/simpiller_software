@@ -114,7 +114,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [patient.id, selectedMonth]);
+  }, [patient.id]);
 
   useEffect(() => {
     if (patient) {

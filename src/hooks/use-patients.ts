@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -60,7 +59,7 @@ export function usePatients() {
 
   const {
     data: patients = [],
-    loading,
+    isLoading: loading,
     error,
     refetch
   } = useQuery({
@@ -116,7 +115,7 @@ export function usePatients() {
     },
     enabled: !!user, // Only run query if user is authenticated
     staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const queryClient = useQueryClient();

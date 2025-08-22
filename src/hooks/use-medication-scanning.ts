@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
+import { OCRResult } from '@/lib/ocr';
 
 interface ScanSession {
   id: string;
@@ -27,23 +27,6 @@ interface ScanLog {
   };
   scan_result: 'success' | 'failed' | 'partial';
   created_at: string;
-}
-
-interface MedicationVerificationResult {
-  is_valid: boolean;
-  confidence_score: number;
-  expected_medication_name: string;
-  scanned_medication_name: string;
-  dosage_match: boolean;
-  patient_name_match: boolean;
-  verification_notes?: string;
-}
-
-interface ComplianceScore {
-  current_score: number;
-  previous_score: number;
-  trend: 'improving' | 'declining' | 'stable';
-  last_updated: string;
 }
 
 interface PatientCompliance {

@@ -13,7 +13,7 @@ export interface MedicationLog {
   scanned_dosage?: string;
   scanned_time_from_label?: string;
   image_url?: string;
-  ocr_data?: Record<string, any>;
+  ocr_data?: Record<string, unknown>;
   verification_score?: number;
   notes?: string;
   created_at: string;
@@ -148,7 +148,7 @@ export interface OCRResult {
   expiration_date?: string;
   confidence_score: number;
   raw_text: string;
-  extracted_fields: Record<string, any>;
+  extracted_fields: Record<string, unknown>;
 }
 
 export interface ScanVerificationResult {
