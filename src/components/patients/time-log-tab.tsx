@@ -1,16 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { Patient } from '@/hooks/use-patients';
-import { Plus, Edit, Trash2, Save, X, Clock, Activity, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Clock, Activity } from 'lucide-react';
 
 interface TimeLogTabProps {
   patient: Patient;
@@ -78,7 +72,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
 
   const [showCustomDuration, setShowCustomDuration] = useState(false);
 
-  const fetchTimeLogs = async () => {
+  const fetchTimeLogs = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -99,6 +93,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
             )
           `)
           .eq('patient_id', patient.id)
+          .eq('provider_id', user?.id)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -111,18 +106,17 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
         console.warn('Error fetching time logs, using mock data:', error);
         setTimeLogs(mockTimeLogs);
       }
-
     } catch (error) {
       console.error('Error in fetchTimeLogs:', error);
       setTimeLogs([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [patient.id, user?.id]);
 
   useEffect(() => {
     fetchTimeLogs();
-  }, [patient.id, selectedMonth, user?.id]);
+  }, [fetchTimeLogs]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

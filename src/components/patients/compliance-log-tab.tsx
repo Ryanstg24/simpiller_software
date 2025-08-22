@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/hooks/use-patients';
 import { Activity, Calendar, CheckCircle, XCircle } from 'lucide-react';
@@ -48,7 +48,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
 
-  const fetchComplianceData = async () => {
+  const fetchComplianceData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -114,13 +114,13 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patient.id, selectedMonth]);
 
   useEffect(() => {
     if (patient) {
       fetchComplianceData();
     }
-  }, [patient, selectedMonth]);
+  }, [patient, fetchComplianceData]);
 
   const getCurrentMonthCompliance = () => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format

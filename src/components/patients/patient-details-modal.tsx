@@ -6,7 +6,7 @@ import { Patient } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { MedicationModal } from '@/components/medications/medication-modal';
-import { usePharmacies, Pharmacy } from '@/hooks/use-pharmacies';
+import { usePharmacies } from '@/hooks/use-pharmacies';
 import { ComplianceLogTab } from './compliance-log-tab';
 import { TimeLogTab } from './time-log-tab';
 
