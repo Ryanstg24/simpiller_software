@@ -82,7 +82,7 @@ export default function BillingPage() {
     window.location.reload();
   };
 
-  const handleFilterChange = (key: keyof BillingFilters, value: string | undefined) => {
+  const handleFilterChange = (key: keyof BillingFilters, value: any) => {
     setBillingFilters(prev => ({
       ...prev,
       [key]: value

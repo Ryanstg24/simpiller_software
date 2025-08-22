@@ -245,14 +245,13 @@ export function useBillingAnalytics(filters: BillingFilters = {}) {
     };
 
     fetchBillingData();
-  }, [user, isSimpillerAdmin, filters.organizationId, filters.status, filters.dateRange?.start, filters.dateRange?.end, filters.billingMonth]);
+  }, [user, isSimpillerAdmin, filters.organizationId, filters.status, filters.dateRange, filters.billingMonth]);
 
   return { data, loading, error };
 }
 
 // Helper function to generate CSV data for download
 export function generateBillingCSV(organizations: BillingOrganization[], billingMonth?: string): string {
-  const month = billingMonth || new Date().toISOString().slice(0, 7);
   const headers = [
     'Organization Name',
     'Setup Fee ($)',
