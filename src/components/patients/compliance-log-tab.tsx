@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
 import { Patient } from '@/hooks/use-patients';
-import { Activity, Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Activity, Calendar, CheckCircle, XCircle } from 'lucide-react';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -17,22 +13,22 @@ interface MedicationLog {
   id: string;
   patient_id: string;
   medication_id: string;
-  scan_method: string;
+  scan_method?: string;
   scanned_medication_name?: string;
   scanned_dosage?: string;
   image_url?: string;
-  ocr_data?: any;
-  verification_score: number;
-  session_token: string;
-  status: 'verified' | 'failed' | 'pending';
-  taken_at: string;
+  ocr_data?: Record<string, unknown>;
+  verification_score?: number;
+  session_token?: string;
+  status: 'verified' | 'failed' | 'pending' | 'taken' | 'missed' | 'skipped';
+  taken_at?: string;
   created_at: string;
   
   // Joined data
   medications?: {
     medication_name: string;
     dosage: string;
-  };
+  }[];
 }
 
 interface ComplianceScore {
@@ -290,14 +286,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                         {log.status}
                       </span>
                       <span className="text-sm text-gray-500">
-                        {formatDate(log.taken_at)}
+                        {formatDate(log.taken_at || log.created_at)}
                       </span>
                     </div>
                     
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="text-sm font-medium text-gray-900">
-                          {log.medications?.medication_name || log.scanned_medication_name || 'Unknown Medication'}
+                          {log.medications?.[0]?.medication_name || log.scanned_medication_name || 'Unknown Medication'}
                         </span>
                         {log.scanned_dosage && (
                           <span className="text-sm text-gray-600">
@@ -307,11 +303,11 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                       </div>
                       
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Verification Score:</span> {(log.verification_score * 100).toFixed(1)}%
+                        <span className="font-medium">Verification Score:</span> {(log.verification_score || 0) * 100}%
                       </div>
                       
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Scan Method:</span> {log.scan_method}
+                        <span className="font-medium">Scan Method:</span> {log.scan_method || 'N/A'}
                       </div>
                     </div>
                   </div>

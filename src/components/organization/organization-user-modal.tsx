@@ -19,7 +19,7 @@ export function OrganizationUserModal({
   onClose, 
   onUserUpdated 
 }: OrganizationUserModalProps) {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isOrganizationAdmin, userOrganizationId } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [formData, setFormData] = useState({
@@ -33,6 +33,11 @@ export function OrganizationUserModal({
     is_active: true
   });
   const [loading, setLoading] = useState(false);
+
+  // Check authorization
+  if (!isOrganizationAdmin) {
+    return null; // Don't render if not authorized
+  }
 
   useEffect(() => {
     if (user) {
