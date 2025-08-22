@@ -10,14 +10,10 @@ import { Label } from "@/components/ui/label";
 import { 
   TrendingUp, 
   Users, 
-  Pill, 
-  Calendar, 
+  Building2, 
   Download, 
   DollarSign, 
-  Building2, 
-  Filter,
-  FileText,
-  RefreshCw
+  Filter
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
@@ -54,7 +50,7 @@ export default function AnalyticsPage() {
     }
   };
 
-  const handleFilterChange = (key: keyof BillingFilters, value: any) => {
+  const handleFilterChange = (key: keyof BillingFilters, value: string | undefined) => {
     setBillingFilters(prev => ({
       ...prev,
       [key]: value
@@ -361,7 +357,7 @@ export default function AnalyticsPage() {
         value: regularData.totalMedications.toLocaleString(), 
         change: "N/A", 
         changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: Pill, 
+        icon: Building2, 
         color: "text-purple-600" 
       },
       { 
@@ -369,7 +365,7 @@ export default function AnalyticsPage() {
         value: regularData.daysSinceLastAlert > 0 ? regularData.daysSinceLastAlert.toString() : "N/A", 
         change: "N/A", 
         changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: Calendar, 
+        icon: Building2, 
         color: "text-yellow-600" 
       }
     ];
@@ -413,7 +409,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="flex space-x-2">
                   <Button variant="outline">
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <Building2 className="mr-2 h-4 w-4" />
                     Last 30 Days
                   </Button>
                   <Button className="bg-blue-600 hover:bg-blue-700 text-white">

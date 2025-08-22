@@ -4,16 +4,15 @@ import {
   Home,
   Users,
   Pill,
-  Bell,
   Calendar,
+  Bell,
   Settings,
   Building2,
   Activity,
   Phone,
   LogOut,
   TestTube,
-  Eye,
-  DollarSign
+  Eye
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";

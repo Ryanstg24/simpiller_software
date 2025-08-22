@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DollarSign, Building2, Users, TrendingUp } from "lucide-react";
 import { useBillingAnalytics } from "@/hooks/use-billing-analytics";
 

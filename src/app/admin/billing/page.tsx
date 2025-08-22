@@ -24,7 +24,8 @@ import { AccessDenied } from "@/components/auth/access-denied";
 import { 
   useBillingAnalytics, 
   downloadBillingReport, 
-  BillingFilters 
+  BillingFilters,
+  BillingOrganization
 } from "@/hooks/use-billing-analytics";
 import { SetupFeeModal } from "@/components/admin/setup-fee-modal";
 
@@ -67,7 +68,7 @@ export default function BillingPage() {
     downloadBillingReport(organizations, downloadFormat, undefined, billingFilters.billingMonth);
   };
 
-  const handleEditSetupFee = (org: any) => {
+  const handleEditSetupFee = (org: BillingOrganization) => {
     setEditingOrganization({
       id: org.id,
       name: org.name,
@@ -81,7 +82,7 @@ export default function BillingPage() {
     window.location.reload();
   };
 
-  const handleFilterChange = (key: keyof BillingFilters, value: any) => {
+  const handleFilterChange = (key: keyof BillingFilters, value: string | undefined) => {
     setBillingFilters(prev => ({
       ...prev,
       [key]: value

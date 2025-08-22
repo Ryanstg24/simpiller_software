@@ -98,11 +98,6 @@ export default function AdminPage() {
                           View Billing
                         </Button>
                       </Link>
-                      <Link href="/admin/billing">
-                        <Button variant="outline" size="sm">
-                          Download Reports
-                        </Button>
-                      </Link>
                     </div>
                   </div>
                 </CardContent>
