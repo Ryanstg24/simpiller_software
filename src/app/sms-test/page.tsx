@@ -110,7 +110,7 @@ export default function SMSTestPage() {
             <div className="max-w-2xl mx-auto">
               {/* Page Header */}
               <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">SMS Test Console</h1>
+                <h1 className="text-2xl font-bold text-black">SMS Test Console</h1>
                 <p className="text-gray-600 mt-2">
                   Test SMS functionality locally. Messages will be logged to the console instead of being sent.
                 </p>
@@ -120,33 +120,33 @@ export default function SMSTestPage() {
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Send className="mr-2 h-5 w-5" />
+                    <Send className="mr-2 h-5 w-5 text-black" />
                     Send Test SMS
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="patientName">Patient Name</Label>
+                      <Label htmlFor="patientName" className="text-black">Patient Name</Label>
                       <Input
                         id="patientName"
                         value={formData.patientName}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('patientName', e.target.value)}
                         placeholder="John Doe"
                         required
-                        className="text-black placeholder:text-gray-500"
+                        className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="patientPhone">Patient Phone Number</Label>
+                      <Label htmlFor="patientPhone" className="text-black">Patient Phone Number</Label>
                       <Input
                         id="patientPhone"
                         value={formData.patientPhone}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('patientPhone', e.target.value)}
                         placeholder="+1234567890"
                         required
-                        className="text-black placeholder:text-gray-500"
+                        className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Use E.164 format (+1XXXXXXXXXX)
@@ -154,14 +154,14 @@ export default function SMSTestPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="medicationNames">Medications</Label>
+                      <Label htmlFor="medicationNames" className="text-black">Medications</Label>
                       <Input
                         id="medicationNames"
                         value={formData.medicationNames}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('medicationNames', e.target.value)}
                         placeholder="Lisinopril, Metformin"
                         required
-                        className="text-black placeholder:text-gray-500"
+                        className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
                       <p className="text-sm text-gray-500 mt-1">
                         Separate multiple medications with commas
@@ -169,14 +169,14 @@ export default function SMSTestPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="scheduledTime">Scheduled Time</Label>
+                      <Label htmlFor="scheduledTime" className="text-black">Scheduled Time</Label>
                       <Input
                         id="scheduledTime"
                         type="datetime-local"
                         value={formData.scheduledTime}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('scheduledTime', e.target.value)}
                         required
-                        className="text-black placeholder:text-gray-500"
+                        className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
                     </div>
 

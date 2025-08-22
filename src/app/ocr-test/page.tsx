@@ -495,32 +495,32 @@ export default function OCRTestPage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div>
-                        <Label className="text-sm font-medium text-gray-900">Medication Name</Label>
+                        <Label className="text-sm font-medium text-black">Medication Name</Label>
                         <Input
                           value={expectedMedication.medicationName}
                           onChange={(e) => setExpectedMedication(prev => ({ ...prev, medicationName: e.target.value }))}
                           placeholder="e.g., Lisinopril"
-                          className="mt-1 text-gray-900"
+                          className="mt-1 bg-white text-black border-gray-300 placeholder:text-gray-500"
                           size={20}
                         />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-900">Dosage</Label>
+                        <Label className="text-sm font-medium text-black">Dosage</Label>
                         <Input
                           value={expectedMedication.dosage}
                           onChange={(e) => setExpectedMedication(prev => ({ ...prev, dosage: e.target.value }))}
                           placeholder="e.g., 10mg"
-                          className="mt-1 text-gray-900"
+                          className="mt-1 bg-white text-black border-gray-300 placeholder:text-gray-500"
                           size={20}
                         />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-900">Patient Name</Label>
+                        <Label className="text-sm font-medium text-black">Patient Name</Label>
                         <Input
                           value={expectedMedication.patientName}
                           onChange={(e) => setExpectedMedication(prev => ({ ...prev, patientName: e.target.value }))}
                           placeholder="e.g., John Doe"
-                          className="mt-1 text-gray-900"
+                          className="mt-1 bg-white text-black border-gray-300 placeholder:text-gray-500"
                           size={20}
                         />
                       </div>
@@ -542,13 +542,13 @@ export default function OCRTestPage() {
                       <CardContent>
                         <div className="space-y-2">
                           <div>
-                            <Label className="text-sm font-medium text-gray-900">Extracted Text:</Label>
+                            <Label className="text-sm font-medium text-black">Extracted Text:</Label>
                             <div className="mt-1 p-2 bg-gray-50 rounded-md text-sm font-mono whitespace-pre-wrap text-gray-900 max-h-32 overflow-y-auto">
                               {ocrResult.text}
                             </div>
                           </div>
                           <div>
-                            <Label className="text-sm font-medium text-gray-900">Confidence:</Label>
+                            <Label className="text-sm font-medium text-black">Confidence:</Label>
                             <div className="mt-1 text-sm text-gray-900">
                               {(ocrResult.confidence * 100).toFixed(1)}%
                             </div>
