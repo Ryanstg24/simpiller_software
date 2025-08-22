@@ -29,244 +29,198 @@ interface ScanLog {
   created_at: string;
 }
 
-interface ComplianceScore {
-  id: string;
-  patient_id: string;
-  month_year: string;
-  total_scans: number;
-  completed_scans: number;
-  compliance_percentage: number;
-  created_at: string;
-  updated_at: string;
+interface MedicationVerificationResult {
+  is_valid: boolean;
+  confidence_score: number;
+  expected_medication_name: string;
+  scanned_medication_name: string;
+  dosage_match: boolean;
+  patient_name_match: boolean;
+  verification_notes?: string;
 }
 
-interface ProviderTimeLog {
-  id: string;
+interface ComplianceScore {
+  current_score: number;
+  previous_score: number;
+  trend: 'improving' | 'declining' | 'stable';
+  last_updated: string;
+}
+
+interface PatientCompliance {
   patient_id: string;
-  provider_id: string;
-  activity_type: string;
-  description?: string;
-  duration_minutes: number;
-  date: string;
-  billing_code?: string;
-  created_at: string;
-  updated_at: string;
+  current_month_score: number;
+  total_scheduled: number;
+  total_completed: number;
+  total_missed: number;
+  recent_scans: ScanLog[];
 }
 
 export function useMedicationScanning() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const queryClient = useQueryClient();
 
-  // Submit medication scan
-  const submitScanMutation = useMutation({
-    mutationFn: async (request: { 
-      scanSessionId: string; 
-      scanData: {
-        medication_name?: string;
-        dosage?: string;
-        patient_name?: string;
-        confidence: number;
-        raw_text: string;
-      };
-    }) => {
-      const { scanSessionId, scanData } = request;
+  const createScanSession = useCallback(async (patientId: string, medicationId: string): Promise<ScanSession> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-      // Log the scan
-      const { data: logData, error: logError } = await supabase
-        .from('medication_scan_logs')
-        .insert({
-          scan_session_id: scanSessionId,
-          medication_id: scanData.medication_name || 'unknown',
-          patient_id: scanData.patient_name || 'unknown',
-          scan_data: scanData,
-          scan_result: 'success',
-        })
+      // Generate a unique scan token
+      const scanToken = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const sessionData = {
+        patient_id: patientId,
+        medication_id: medicationId,
+        scan_token: scanToken,
+        status: 'pending' as const,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('medication_scan_sessions')
+        .insert(sessionData)
         .select()
         .single();
 
-      if (logError) {
-        console.error('Error logging scan:', logError);
-        throw logError;
-      }
+      if (error) throw error;
 
-      // Update scan session status
-      const { error: updateError } = await supabase
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create scan session';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getScanSession = useCallback(async (token: string): Promise<ScanSession | null> => {
+    try {
+      const { data, error } = await supabase
         .from('medication_scan_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', scanSessionId);
+        .select('*')
+        .eq('scan_token', token)
+        .single();
 
-      if (updateError) {
-        console.error('Error updating scan session:', updateError);
-        throw updateError;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // No session found
+        }
+        throw error;
       }
 
-      return logData;
+      return data;
+    } catch (err) {
+      console.error('Error fetching scan session:', err);
+      return null;
+    }
+  }, []);
+
+  const submitMedicationScan = useMutation({
+    mutationFn: async (params: {
+      sessionToken: string;
+      imageData?: string;
+      ocrResult?: OCRResult;
+      manualEntry?: {
+        medicationName: string;
+        dosage: string;
+        patientName: string;
+      };
+    }) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Get the scan session
+        const session = await getScanSession(params.sessionToken);
+        if (!session) {
+          throw new Error('Invalid scan session');
+        }
+
+        let scanResult: 'success' | 'failed' | 'partial' = 'failed';
+        let scanData: ScanLog['scan_data'];
+
+        if (params.ocrResult) {
+          // OCR scan submission
+          scanData = {
+            medication_name: '', // Will be extracted from parsed result
+            dosage: '', // Will be extracted from parsed result
+            patient_name: '', // Will be extracted from parsed result
+            confidence: params.ocrResult.confidence,
+            raw_text: params.ocrResult.text
+          };
+          scanResult = params.ocrResult.confidence > 0.7 ? 'success' : 'partial';
+        } else if (params.manualEntry) {
+          // Manual entry submission
+          scanData = {
+            medication_name: params.manualEntry.medicationName,
+            dosage: params.manualEntry.dosage,
+            patient_name: params.manualEntry.patientName,
+            confidence: 0.9, // High confidence for manual entry
+            raw_text: `Manual entry: ${params.manualEntry.medicationName} - ${params.manualEntry.dosage}`
+          };
+          scanResult = 'success';
+        } else {
+          throw new Error('No scan data provided');
+        }
+
+        // Create medication log
+        const logData = {
+          scan_session_id: session.id,
+          medication_id: session.medication_id,
+          patient_id: session.patient_id,
+          scan_data: scanData,
+          scan_result: scanResult,
+          created_at: new Date().toISOString()
+        };
+
+        const { data: logResult, error: logError } = await supabase
+          .from('medication_logs')
+          .insert(logData)
+          .select()
+          .single();
+
+        if (logError) throw logError;
+
+        // Update session status
+        await supabase
+          .from('medication_scan_sessions')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', session.id);
+
+        return logResult;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to submit scan';
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setLoading(false);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scan-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['compliance-scores'] });
-    },
-  });
-
-  // Get compliance scores for a patient
-  const getComplianceScores = useQuery({
-    queryKey: ['compliance-scores'],
-    queryFn: async (): Promise<ComplianceScore[]> => {
-      const { data, error } = await supabase
-        .from('compliance_scores')
-        .select('*')
-        .order('month_year', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching compliance scores:', error);
-        throw error;
-      }
-
-      return data || [];
-    },
-  });
-
-  // Get time logs for a patient
-  const getTimeLogs = useQuery({
-    queryKey: ['time-logs'],
-    queryFn: async (): Promise<ProviderTimeLog[]> => {
-      const { data, error } = await supabase
-        .from('provider_time_logs')
-        .select(`
-          *,
-          providers (
-            first_name,
-            last_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching time logs:', error);
-        throw error;
-      }
-
-      return data || [];
-    },
-  });
-
-  // Helper functions
-  const generateSessionToken = (): string => {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  };
-
-  const processImageOCR = async (imageData: string): Promise<OCRResult> => {
-    // TODO: Implement OCR processing
-    // This would integrate with a service like Google Vision API, AWS Textract, or similar
-    console.log('Processing image with OCR...');
-    return {
-      medication_name: 'Sample Medication',
-      dosage: '10mg',
-      confidence_score: 0.85,
-      raw_text: 'Sample medication label text'
-    };
-  };
-
-  const verifyMedicationScan = async (
-    expectedMedicationId: string,
-    ocrResult: OCRResult,
-    expectedMedications: MedicationLabelData[]
-  ): Promise<any> => {
-    // TODO: Implement medication verification logic
-    const expectedMed = expectedMedications.find(m => m.id === expectedMedicationId);
-    
-    return {
-      is_valid: true,
-      confidence_score: ocrResult.confidence_score,
-      expected_medication_name: expectedMed?.name || '',
-      scanned_medication_name: ocrResult.medication_name || '',
-      verification_notes: 'Medication verified successfully',
-      discrepancies: []
-    };
-  };
-
-  const verifyManualEntry = async (
-    expectedMedicationId: string,
-    manualMedicationName: string,
-    manualDosage: string,
-    expectedMedications: MedicationLabelData[]
-  ): Promise<any> => {
-    const expectedMed = expectedMedications.find(m => m.id === expectedMedicationId);
-    
-    return {
-      is_valid: true,
-      confidence_score: 0.9,
-      expected_medication_name: expectedMed?.name || '',
-      scanned_medication_name: manualMedicationName,
-      verification_notes: 'Manual entry verified',
-      discrepancies: []
-    };
-  };
-
-  const createMedicationLog = async (logData: Partial<ScanLog>): Promise<ScanLog> => {
-    const { data, error } = await supabase
-      .from('medication_logs')
-      .insert(logData)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error('Failed to create medication log');
+      queryClient.invalidateQueries({ queryKey: ['patient-compliance'] });
     }
+  });
 
-    return data;
-  };
-
-  const uploadScanImage = async (imageData: string): Promise<string> => {
-    // TODO: Implement image upload to Supabase Storage
-    console.log('Uploading scan image...');
-    return 'https://example.com/scan-image.jpg';
-  };
-
-  const updateComplianceScore = async (patientId: string): Promise<any> => {
-    // TODO: Implement compliance score calculation
-    console.log('Updating compliance score...');
-    return {
-      current_score: 95.5,
-      streak_days: 7
-    };
-  };
-
-  const checkAndCompleteSession = async (sessionToken: string, patientId: string): Promise<void> => {
-    // Check if all medications in session are completed
-    const { data: logs, error } = await supabase
-      .from('medication_logs')
-      .select('medication_id, scan_status')
-      .eq('patient_id', patientId)
-      .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // Last 30 minutes
-
-    if (error) {
-      console.error('Error checking session completion:', error);
-      return;
-    }
-
-    // TODO: Implement session completion logic
-    console.log('Checking session completion...');
-  };
-
-  const calculateComplianceMetrics = async (patientId: string, monthYear: string): Promise<any> => {
-    // TODO: Implement compliance calculation
-    return {
-      total_scheduled: 0,
-      total_completed: 0,
-      total_missed: 0,
-      total_late: 0,
-      compliance_percentage: 0,
-      streak_days: 0,
-      longest_streak: 0,
-      monthly_trend: []
-    };
-  };
+  const getPatientCompliance = useQuery<PatientCompliance>({
+    queryKey: ['patient-compliance'],
+    queryFn: async (): Promise<PatientCompliance> => {
+      // This would be implemented with actual database queries
+      // For now, return mock data
+      return {
+        patient_id: '',
+        current_month_score: 95.5,
+        total_scheduled: 30,
+        total_completed: 28,
+        total_missed: 2,
+        recent_scans: []
+      };
+    },
+    enabled: false // Only run when explicitly called
+  });
 
   return {
     loading,

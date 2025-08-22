@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -10,12 +10,6 @@ interface UserRole {
   organization_id?: string;
   facility_id?: string;
   permissions: Record<string, unknown>;
-}
-
-interface SessionData {
-  data: {
-    session: Session | null;
-  };
 }
 
 interface AuthContextType {
@@ -117,7 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (roleDetails && roleDetails.length > 0) {
-        const roles = roleDetails.map(assignment => assignment.user_roles).filter(Boolean);
+        const roles = roleDetails
+          .map(assignment => assignment.user_roles)
+          .filter(Boolean)
+          .flat();
         setUserRoles(roles);
       } else {
         setUserRoles([]);

@@ -1,14 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Building2, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { X, Save, Building2, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useOrganizations } from '@/hooks/use-organizations';
+import { supabase } from '@/lib/supabase';
+import { Pharmacy } from '@/hooks/use-pharmacies';
 
 interface PharmacyModalProps {
   pharmacy: Pharmacy | null;
@@ -25,7 +22,7 @@ export function PharmacyModal({
 }: PharmacyModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
+  const { isSimpillerAdmin, userOrganizationId } = useAuth();
   const { organizations } = useOrganizations();
   
   // Form data for editing pharmacy
