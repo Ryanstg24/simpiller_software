@@ -5,20 +5,17 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
 import { usePatients } from "@/hooks/use-patients";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
-import { AccessDenied } from "@/components/auth/access-denied";
-import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function PatientsPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
   const { patients, loading, error } = usePatients();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);

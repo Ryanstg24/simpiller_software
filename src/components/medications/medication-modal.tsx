@@ -1,15 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Pill, Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/auth-context';
+import { X, Save, Pill } from 'lucide-react';
 import { usePatients } from '@/hooks/use-patients';
-import { usePharmacies } from '@/hooks/use-pharmacies';
+import { supabase } from '@/lib/supabase';
 
 interface Medication {
   id?: string;

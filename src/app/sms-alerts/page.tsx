@@ -1,16 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
 import { useSMSAlerts } from "@/hooks/use-sms-alerts";
-import { AccessDenied } from "@/components/auth/access-denied";
 import { Search, Send, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
 interface SMSAlert {

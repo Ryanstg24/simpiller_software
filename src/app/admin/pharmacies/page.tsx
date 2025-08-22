@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePharmacies } from "@/hooks/use-pharmacies";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 
 interface Pharmacy {
   id: string;

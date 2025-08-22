@@ -20,15 +20,15 @@ export default function PharmaciesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPharmacy, setEditingPharmacy] = useState<Pharmacy | null>(null);
-  const [formData, setFormData] = useState({
+  const [setEditingPharmacy] = useState<Pharmacy | null>(null);
+  const [setFormData] = useState({
     name: '',
     address: '',
     phone: '',
     email: '',
     is_partner_pharmacy: false,
   });
-  const [showModal, setShowModal] = useState(false);
+  const [setShowModal] = useState(false);
 
   const filteredPharmacies = useMemo(() => {
     if (!searchTerm) return pharmacies;

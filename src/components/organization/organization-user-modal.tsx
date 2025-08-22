@@ -1,13 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, User, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { X, Save, User } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import type { User as UserType } from '@/hooks/use-users';
+import { supabase } from '@/lib/supabase';
 
 interface OrganizationUserModalProps {
   user: UserType | null;
@@ -19,10 +16,8 @@ interface OrganizationUserModalProps {
 export function OrganizationUserModal({ 
   isOpen, 
   onClose, 
-  onUserCreated, 
-  editingUser = null 
 }: OrganizationUserModalProps) {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',

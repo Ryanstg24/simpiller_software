@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, CheckCircle, XCircle, AlertTriangle, Loader2, FlaskConical, Smartphone, RotateCcw } from 'lucide-react';
+import { Camera, Upload, CheckCircle, XCircle, AlertTriangle, Loader2, FlaskConical, Smartphone } from 'lucide-react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
 import { ProtectedRoute } from '@/components/auth/protected-route';
-import { useUserDisplay } from '@/hooks/use-user-display';
 import Image from 'next/image';
 
 export default function OCRTestPage() {

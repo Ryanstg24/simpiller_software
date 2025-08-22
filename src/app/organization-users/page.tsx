@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useUsers } from "@/hooks/use-users";
 import { OrganizationUserModal } from "@/components/organization/organization-user-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
-import { Search, Edit, Trash2 } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface User {
   id: string;
