@@ -45,8 +45,7 @@ export default function AnalyticsPage() {
 
   const handleDownloadReport = () => {
     if (billingData?.organizations) {
-      const date = new Date().toISOString().split('T')[0];
-      downloadBillingReport(billingData.organizations, `simpiller-billing-report-${date}.csv`);
+      downloadBillingReport(billingData.organizations, 'csv');
     }
   };
 
