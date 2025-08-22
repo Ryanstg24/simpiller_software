@@ -3,11 +3,11 @@ import twilio from 'twilio';
 // Initialize Twilio client
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const isTestMode = process.env.SMS_TEST_MODE === 'true';
 
-if (!accountSid || !authToken || !fromNumber) {
-  throw new Error('Missing Twilio configuration. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables.');
+if (!accountSid || !authToken || !messagingServiceSid) {
+  throw new Error('Missing Twilio configuration. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_MESSAGING_SERVICE_SID environment variables.');
 }
 
 const client = twilio(accountSid, authToken);
@@ -32,26 +32,36 @@ export class TwilioService {
    */
   static async sendSMS(message: SMSMessage): Promise<boolean> {
     try {
+      console.log('🔍 SMS Debug Info:');
+      console.log(`   Test Mode: ${isTestMode}`);
+      console.log(`   To: ${message.to}`);
+      console.log(`   From: ${message.from || messagingServiceSid}`);
+      console.log(`   Body: ${message.body}`);
+      console.log(`   Account SID: ${accountSid ? 'Set' : 'Missing'}`);
+      console.log(`   Auth Token: ${authToken ? 'Set' : 'Missing'}`);
+      console.log(`   Messaging Service SID: ${messagingServiceSid ? 'Set' : 'Missing'}`);
+      
       if (isTestMode) {
         // Log the SMS instead of sending it
         console.log('📱 [TEST MODE] SMS would be sent:');
         console.log(`   To: ${message.to}`);
-        console.log(`   From: ${message.from || fromNumber}`);
+        console.log(`   From: ${message.from || messagingServiceSid}`);
         console.log(`   Body: ${message.body}`);
         console.log('   ──────────────────────────────────────');
         return true;
       }
 
+      console.log('📱 [REAL MODE] Sending SMS via Twilio...');
       const result = await client.messages.create({
         body: message.body,
-        from: message.from || fromNumber,
+        messagingServiceSid: message.from || messagingServiceSid,
         to: message.to,
       });
 
-      console.log(`SMS sent successfully to ${message.to}. SID: ${result.sid}`);
+      console.log(`✅ SMS sent successfully to ${message.to}. SID: ${result.sid}`);
       return true;
     } catch (error) {
-      console.error('Error sending SMS:', error);
+      console.error('❌ Error sending SMS:', error);
       return false;
     }
   }

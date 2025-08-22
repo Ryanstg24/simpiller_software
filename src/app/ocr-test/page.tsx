@@ -427,16 +427,6 @@ export default function OCRTestPage() {
                           onChange={handleFileUpload}
                           className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <Button
-                          onClick={() => {
-                            setImageData('/label_test.jpg');
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                        >
-                          Load Test Image (label_test.jpg)
-                        </Button>
                       </div>
 
                       {/* Display Captured/Uploaded Image */}

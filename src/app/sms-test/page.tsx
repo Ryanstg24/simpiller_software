@@ -38,7 +38,7 @@ export default function SMSTestPage() {
   const [formData, setFormData] = useState({
     patientName: 'John Doe',
     patientPhone: '+1234567890',
-    medicationNames: 'Lisinopril, Metformin',
+    medicationNames: 'Advil, Tylenol',
     scheduledTime: new Date().toISOString().slice(0, 16), // Current time
   });
 
@@ -51,25 +51,31 @@ export default function SMSTestPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('🚀 Form submitted!');
     setIsLoading(true);
     setError(null);
     setResult(null);
 
     try {
+      const requestData = {
+        patientName: formData.patientName,
+        patientPhone: formData.patientPhone,
+        medicationNames: formData.medicationNames.split(',').map(name => name.trim()),
+        scheduledTime: formData.scheduledTime,
+      };
+      console.log('📤 Sending request to /api/sms/test-send with data:', requestData);
+      
       const response = await fetch('/api/sms/test-send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          patientName: formData.patientName,
-          patientPhone: formData.patientPhone,
-          medicationNames: formData.medicationNames.split(',').map(name => name.trim()),
-          scheduledTime: formData.scheduledTime,
-        }),
+        body: JSON.stringify(requestData),
       });
 
+      console.log('📥 Response received:', response.status, response.statusText);
       const data = await response.json();
+      console.log('📋 Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send SMS');
@@ -77,6 +83,7 @@ export default function SMSTestPage() {
 
       setResult(data);
     } catch (err) {
+      console.error('💥 Error in handleSubmit:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
@@ -87,7 +94,7 @@ export default function SMSTestPage() {
     setFormData({
       patientName: 'John Doe',
       patientPhone: '+1234567890',
-      medicationNames: 'Lisinopril, Metformin',
+      medicationNames: 'Advil, Tylenol',
       scheduledTime: new Date().toISOString().slice(0, 16),
     });
     setResult(null);
@@ -159,7 +166,7 @@ export default function SMSTestPage() {
                         id="medicationNames"
                         value={formData.medicationNames}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('medicationNames', e.target.value)}
-                        placeholder="Lisinopril, Metformin"
+                        placeholder="Advil, Tylenol"
                         required
                         className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
