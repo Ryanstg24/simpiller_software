@@ -9,22 +9,10 @@ import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
-import { usePharmacies } from "@/hooks/use-pharmacies";
+import { usePharmacies, Pharmacy } from "@/hooks/use-pharmacies";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
 import { Search, Plus } from "lucide-react";
-
-interface Pharmacy {
-  id: string;
-  name: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  is_partner_pharmacy?: boolean;
-  organization_id?: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export default function AdminPharmaciesPage() {
   const userInfo = useUserDisplay();
@@ -37,12 +25,21 @@ export default function AdminPharmaciesPage() {
   const filteredPharmacies = useMemo(() => {
     if (!searchTerm.trim()) return pharmacies;
     
-    return pharmacies.filter(pharmacy => 
-      pharmacy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pharmacy.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pharmacy.phone?.includes(searchTerm) ||
-      pharmacy.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return pharmacies.filter(pharmacy => {
+      const searchLower = searchTerm.toLowerCase();
+      const fullAddress = [pharmacy.street1, pharmacy.street2, pharmacy.city, pharmacy.state]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      
+      return (
+        pharmacy.name.toLowerCase().includes(searchLower) ||
+        fullAddress.includes(searchLower) ||
+        pharmacy.phone?.includes(searchTerm) ||
+        pharmacy.email?.toLowerCase().includes(searchLower) ||
+        pharmacy.npi?.includes(searchTerm)
+      );
+    });
   }, [pharmacies, searchTerm]);
 
   const handleViewPharmacy = (pharmacy: Pharmacy) => {
@@ -243,9 +240,9 @@ export default function AdminPharmaciesPage() {
                       <div className="flex items-center text-sm text-gray-600">
                         <span>Name: {pharmacy.name}</span>
                       </div>
-                      {pharmacy.address && (
+                      {(pharmacy.street1 || pharmacy.city || pharmacy.state) && (
                         <div className="flex items-center text-sm text-gray-600">
-                          <span>Address: {pharmacy.address}</span>
+                          <span>Address: {[pharmacy.street1, pharmacy.street2, pharmacy.city, pharmacy.state, pharmacy.postal_code].filter(Boolean).join(', ')}</span>
                         </div>
                       )}
                       {pharmacy.phone && (
