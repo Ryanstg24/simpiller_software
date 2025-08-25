@@ -184,7 +184,10 @@ export function MedicationModal({
         prescribed_by_id: user?.id
       };
 
-      console.log('Attempting to create medication with data:', JSON.stringify(medicationData, null, 2));
+      // Remove fields that don't exist in the database schema
+      const { custom_time, ...dataToSend } = medicationData;
+
+      console.log('Attempting to create medication with data:', JSON.stringify(dataToSend, null, 2));
       console.log('Current user:', user?.id);
       console.log('Selected patient:', selectedPatient);
 
