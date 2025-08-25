@@ -206,15 +206,13 @@ export function MedicationModal({
 
         if (error) {
           console.error('Error creating medication:', error);
-          console.error('Error details:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-            fullError: JSON.stringify(error, null, 2)
-          });
+          console.error('Error message:', error.message);
+          console.error('Error code:', error.code);
+          console.error('Error details:', error.details);
+          console.error('Error hint:', error.hint);
+          console.error('Full error object:', error);
           console.error('Data being sent:', JSON.stringify(medicationData, null, 2));
-          alert('Failed to create medication. Please try again.');
+          alert(`Failed to create medication: ${error.message || 'Unknown error'}`);
           return;
         }
       }
