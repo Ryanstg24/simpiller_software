@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Pill } from 'lucide-react';
 import { usePatients } from '@/hooks/use-patients';
+import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
 
 interface Medication {
@@ -57,6 +58,7 @@ export function MedicationModal({
   selectedPatientId 
 }: MedicationModalProps) {
   const { patients } = usePatients();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Medication>>({});
   const [selectedPatient, setSelectedPatient] = useState<string>(selectedPatientId || '');
@@ -145,6 +147,12 @@ export function MedicationModal({
       return;
     }
 
+    // Validate required fields
+    if (!formData.name || formData.name.trim() === '') {
+      alert('Please enter a medication name.');
+      return;
+    }
+
     // Validate frequency vs selected times
     const selectedTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
     const frequency = formData.frequency || 1;
@@ -172,8 +180,13 @@ export function MedicationModal({
       
       const medicationData = {
         ...formData,
-        patient_id: selectedPatient
+        patient_id: selectedPatient,
+        prescribed_by_id: user?.id
       };
+
+      console.log('Attempting to create medication with data:', JSON.stringify(medicationData, null, 2));
+      console.log('Current user:', user?.id);
+      console.log('Selected patient:', selectedPatient);
 
       if (mode === 'edit' && medication?.id) {
         const { error } = await supabase
@@ -193,6 +206,14 @@ export function MedicationModal({
 
         if (error) {
           console.error('Error creating medication:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            fullError: JSON.stringify(error, null, 2)
+          });
+          console.error('Data being sent:', JSON.stringify(medicationData, null, 2));
           alert('Failed to create medication. Please try again.');
           return;
         }
@@ -230,8 +251,8 @@ export function MedicationModal({
       
       // Add time if not already selected
       if (!currentTimeParts.includes(time)) {
-        const timeWithFormat = `${time} (${timePreferences[time as keyof typeof timePreferences]})`;
-        const newTimes = [...currentTimes, timeWithFormat].join(',');
+        // Store just the time name, not the full formatted string
+        const newTimes = [...currentTimes, time].join(',');
         setFormData({ ...formData, time_of_day: newTimes });
       }
     } else {
