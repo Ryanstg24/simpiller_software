@@ -205,7 +205,7 @@ export function MedicationModal({
       } else {
         const { error } = await supabase
           .from('medications')
-          .insert(medicationData);
+          .insert(dataToSend);
 
         if (error) {
           console.error('Error creating medication:', error);
@@ -214,7 +214,7 @@ export function MedicationModal({
           console.error('Error details:', error.details);
           console.error('Error hint:', error.hint);
           console.error('Full error object:', error);
-          console.error('Data being sent:', JSON.stringify(medicationData, null, 2));
+          console.error('Data being sent:', JSON.stringify(dataToSend, null, 2));
           alert(`Failed to create medication: ${error.message || 'Unknown error'}`);
           return;
         }
