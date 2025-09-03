@@ -2,6 +2,8 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { AccessDenied } from './access-denied';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +13,14 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requiredRoles, fallback }: ProtectedRouteProps) {
   const { user, isLoading, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   // Show loading state while auth is initializing
   if (isLoading) {
@@ -24,9 +34,9 @@ export function ProtectedRoute({ children, requiredRoles, fallback }: ProtectedR
     );
   }
 
-  // Redirect to login if not authenticated
+  // Don't render anything if not authenticated (will redirect)
   if (!user) {
-    return <AccessDenied message="Please sign in to access this page." showSignOut={false} />;
+    return null;
   }
 
   // Check role requirements if specified
