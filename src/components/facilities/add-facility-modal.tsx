@@ -77,6 +77,19 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
     setLoading(true);
     setError(null);
 
+    // Validate required fields
+    if (!formData.name.trim()) {
+      setError('Facility name is required.');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.state) {
+      setError('State is required.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('facilities')
@@ -96,7 +109,27 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
 
       if (error) {
         console.error('Error creating facility:', error);
-        setError('Failed to create facility. Please try again.');
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: JSON.stringify(error, null, 2)
+        });
+        console.error('Data being sent:', JSON.stringify({
+          organization_id: formData.organization_id,
+          name: formData.name,
+          code: formData.code || null,
+          street1: formData.street1 || null,
+          street2: formData.street2 || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          postal_code: formData.postal_code || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          is_active: true
+        }, null, 2));
+        setError(`Failed to create facility: ${error.message}`);
         return;
       }
 
@@ -244,13 +277,65 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   State
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.state}
                   onChange={(e) => handleInputChange('state', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
-                  placeholder="Enter state"
-                />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                  required
+                >
+                  <option value="">Select State</option>
+                  <option value="AL">Alabama</option>
+                  <option value="AK">Alaska</option>
+                  <option value="AZ">Arizona</option>
+                  <option value="AR">Arkansas</option>
+                  <option value="CA">California</option>
+                  <option value="CO">Colorado</option>
+                  <option value="CT">Connecticut</option>
+                  <option value="DE">Delaware</option>
+                  <option value="DC">District of Columbia</option>
+                  <option value="FL">Florida</option>
+                  <option value="GA">Georgia</option>
+                  <option value="HI">Hawaii</option>
+                  <option value="ID">Idaho</option>
+                  <option value="IL">Illinois</option>
+                  <option value="IN">Indiana</option>
+                  <option value="IA">Iowa</option>
+                  <option value="KS">Kansas</option>
+                  <option value="KY">Kentucky</option>
+                  <option value="LA">Louisiana</option>
+                  <option value="ME">Maine</option>
+                  <option value="MD">Maryland</option>
+                  <option value="MA">Massachusetts</option>
+                  <option value="MI">Michigan</option>
+                  <option value="MN">Minnesota</option>
+                  <option value="MS">Mississippi</option>
+                  <option value="MO">Missouri</option>
+                  <option value="MT">Montana</option>
+                  <option value="NE">Nebraska</option>
+                  <option value="NV">Nevada</option>
+                  <option value="NH">New Hampshire</option>
+                  <option value="NJ">New Jersey</option>
+                  <option value="NM">New Mexico</option>
+                  <option value="NY">New York</option>
+                  <option value="NC">North Carolina</option>
+                  <option value="ND">North Dakota</option>
+                  <option value="OH">Ohio</option>
+                  <option value="OK">Oklahoma</option>
+                  <option value="OR">Oregon</option>
+                  <option value="PA">Pennsylvania</option>
+                  <option value="RI">Rhode Island</option>
+                  <option value="SC">South Carolina</option>
+                  <option value="SD">South Dakota</option>
+                  <option value="TN">Tennessee</option>
+                  <option value="TX">Texas</option>
+                  <option value="UT">Utah</option>
+                  <option value="VT">Vermont</option>
+                  <option value="VA">Virginia</option>
+                  <option value="WA">Washington</option>
+                  <option value="WV">West Virginia</option>
+                  <option value="WI">Wisconsin</option>
+                  <option value="WY">Wyoming</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
