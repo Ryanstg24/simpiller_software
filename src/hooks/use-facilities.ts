@@ -31,85 +31,85 @@ export function useFacilities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchFacilities = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+  const fetchFacilities = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        let facilitiesQuery = supabase
-          .from('facilities')
+      let facilitiesQuery = supabase
+        .from('facilities')
+        .select(`
+          *,
+          organizations (
+            name,
+            acronym
+          )
+        `)
+        .eq('is_active', true)
+        .order('name');
+
+      if (isSimpillerAdmin) {
+        // Simpiller Admins can see all facilities across all organizations
+        console.log('Fetching all facilities for Simpiller Admin');
+      } else {
+        // Other users need to get their organization through role assignments
+        const { data: userRoles, error: roleError } = await supabase
+          .from('user_role_assignments')
           .select(`
-            *,
-            organizations (
-              name,
-              acronym
+            user_roles (
+              organization_id
             )
           `)
-          .eq('is_active', true)
-          .order('name');
+          .eq('user_id', user.id);
 
-        if (isSimpillerAdmin) {
-          // Simpiller Admins can see all facilities across all organizations
-          console.log('Fetching all facilities for Simpiller Admin');
-        } else {
-          // Other users need to get their organization through role assignments
-          const { data: userRoles, error: roleError } = await supabase
-            .from('user_role_assignments')
-            .select(`
-              user_roles (
-                organization_id
-              )
-            `)
-            .eq('user_id', user.id);
-
-          if (roleError) {
-            console.error('Error fetching user roles:', roleError);
-            setError('Failed to fetch user organization');
-            return;
-          }
-
-          if (!userRoles || userRoles.length === 0) {
-            setError('No organization found for user');
-            return;
-          }
-
-          // Get the organization ID from the first role assignment
-          const organizationId = (userRoles[0].user_roles as { organization_id?: string })?.organization_id;
-          
-          if (!organizationId) {
-            setError('No organization found for user');
-            return;
-          }
-
-          // Filter facilities by organization
-          facilitiesQuery = facilitiesQuery.eq('organization_id', organizationId);
-        }
-
-        const { data: facilitiesData, error: facilitiesError } = await facilitiesQuery;
-
-        if (facilitiesError) {
-          console.error('Error fetching facilities:', facilitiesError);
-          setError('Failed to fetch facilities');
+        if (roleError) {
+          console.error('Error fetching user roles:', roleError);
+          setError('Failed to fetch user organization');
           return;
         }
 
-        setFacilities(facilitiesData || []);
-      } catch (err) {
-        console.error('Error in fetchFacilities:', err);
-        setError('Failed to fetch facilities');
-      } finally {
-        setLoading(false);
-      }
-    };
+        if (!userRoles || userRoles.length === 0) {
+          setError('No organization found for user');
+          return;
+        }
 
+        // Get the organization ID from the first role assignment
+        const organizationId = (userRoles[0].user_roles as { organization_id?: string })?.organization_id;
+        
+        if (!organizationId) {
+          setError('No organization found for user');
+          return;
+        }
+
+        // Filter facilities by organization
+        facilitiesQuery = facilitiesQuery.eq('organization_id', organizationId);
+      }
+
+      const { data: facilitiesData, error: facilitiesError } = await facilitiesQuery;
+
+      if (facilitiesError) {
+        console.error('Error fetching facilities:', facilitiesError);
+        setError('Failed to fetch facilities');
+        return;
+      }
+
+      setFacilities(facilitiesData || []);
+    } catch (err) {
+      console.error('Error in fetchFacilities:', err);
+      setError('Failed to fetch facilities');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchFacilities();
   }, [user, isSimpillerAdmin]);
 
-  return { facilities, loading, error };
+  return { facilities, loading, error, refresh: fetchFacilities };
 } 

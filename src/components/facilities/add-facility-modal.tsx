@@ -19,6 +19,7 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
   const { organizations } = useOrganizations();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [userOrganizationId, setUserOrganizationId] = useState<string | null>(null);
 
   // Form state
@@ -147,8 +148,15 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
         organization_id: userOrganizationId || ''
       });
 
-      onSuccess();
-      onClose();
+      setSuccess(true);
+      setError(null);
+      
+      // Show success message for 2 seconds, then close and refresh
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        setSuccess(false);
+      }, 2000);
     } catch (err) {
       console.error('Error in handleSubmit:', err);
       setError('Failed to create facility. Please try again.');
@@ -160,7 +168,7 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
         <CardHeader className="bg-white border-b">
           <div className="flex justify-between items-center">
@@ -178,6 +186,12 @@ export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModa
             {error && (
               <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-md">
+                ✅ Facility created successfully! Closing in 2 seconds...
               </div>
             )}
 

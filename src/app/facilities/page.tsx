@@ -15,7 +15,7 @@ import { Facility } from "@/hooks/use-facilities";
 
 export default function FacilitiesPage() {
   const userInfo = useUserDisplay();
-  const { facilities, loading, error } = useFacilities();
+  const { facilities, loading, error, refresh } = useFacilities();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -49,8 +49,8 @@ export default function FacilitiesPage() {
   };
 
   const handleAddSuccess = () => {
-    // The useFacilities hook will automatically refetch data
-    // when the component re-renders
+    // Refresh the facilities list to show the newly created facility
+    refresh();
   };
 
   const handleApplyFilters = (newFilters: FacilityFilters) => {

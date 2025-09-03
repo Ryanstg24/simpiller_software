@@ -468,6 +468,88 @@ CREATE POLICY "Users can delete medications for patients in their organization" 
     )
   );
 
+-- RLS Policies for facilities table
+-- Organization admins can manage facilities in their organization
+CREATE POLICY "Organization admins can view facilities in their organization" ON facilities
+  FOR SELECT USING (
+    -- Simpiller admins can view all facilities
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.name = 'simpiller_admin'
+    )
+    OR
+    -- Organization admins can view facilities in their organization
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.organization_id = facilities.organization_id
+      AND ur.name = 'organization_admin'
+    )
+  );
+
+CREATE POLICY "Organization admins can create facilities in their organization" ON facilities
+  FOR INSERT WITH CHECK (
+    -- Simpiller admins can create facilities for any organization
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.name = 'simpiller_admin'
+    )
+    OR
+    -- Organization admins can create facilities in their organization
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.organization_id = facilities.organization_id
+      AND ur.name = 'organization_admin'
+    )
+  );
+
+CREATE POLICY "Organization admins can update facilities in their organization" ON facilities
+  FOR UPDATE USING (
+    -- Simpiller admins can update all facilities
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.name = 'simpiller_admin'
+    )
+    OR
+    -- Organization admins can update facilities in their organization
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.organization_id = facilities.organization_id
+      AND ur.name = 'organization_admin'
+    )
+  );
+
+CREATE POLICY "Organization admins can delete facilities in their organization" ON facilities
+  FOR DELETE USING (
+    -- Simpiller admins can delete all facilities
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.name = 'simpiller_admin'
+    )
+    OR
+    -- Organization admins can delete facilities in their organization
+    EXISTS (
+      SELECT 1 FROM user_role_assignments ura
+      JOIN user_roles ur ON ur.id = ura.role_id
+      WHERE ura.user_id = auth.uid()
+      AND ur.organization_id = facilities.organization_id
+      AND ur.name = 'organization_admin'
+    )
+  );
+
 -- =============================================
 -- INDEXES FOR PERFORMANCE
 -- =============================================
