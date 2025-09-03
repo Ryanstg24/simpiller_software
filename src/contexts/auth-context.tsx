@@ -24,6 +24,7 @@ interface AuthContextType {
   isProvider: boolean;
   isBilling: boolean;
   userOrganizationId: string | null;
+  refreshSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -146,22 +152,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role.name !== 'simpiller_admin'
   )?.organization_id || null;
 
-  const value = {
-    user,
-    session,
-    userRoles,
-    isLoading,
+  const contextValue: AuthContextType = {
+    user: mounted ? user : null,
+    session: mounted ? session : null,
+    userRoles: mounted ? userRoles : [],
+    isLoading: mounted ? isLoading : true,
+    isSimpillerAdmin: mounted ? userRoles.some(role => role.name === 'simpiller_admin') : false,
+    isOrganizationAdmin: mounted ? userRoles.some(role => role.name === 'organization_admin') : false,
+    isProvider: mounted ? userRoles.some(role => role.name === 'provider') : false,
+    isBilling: mounted ? userRoles.some(role => role.name === 'billing') : false,
+    userOrganizationId: mounted ? userRoles.find(role => role.organization_id)?.organization_id || null : null,
     signIn,
     signOut,
-    isSimpillerAdmin,
-    isOrganizationAdmin,
-    isProvider,
-    isBilling,
-    userOrganizationId,
+    refreshSession: () => {
+      // Refresh session logic if needed
+    }
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

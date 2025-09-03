@@ -12,10 +12,12 @@ import { PatientDetailsModal } from "@/components/patients/patient-details-modal
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function PatientsPage() {
   const userInfo = useUserDisplay();
   const { patients, loading, error } = usePatients();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,7 +66,7 @@ export default function PatientsPage() {
   };
 
   const handleAddSuccess = () => {
-    // React Query will automatically refetch
+    queryClient.invalidateQueries({ queryKey: ['patients'] });
   };
 
   return (

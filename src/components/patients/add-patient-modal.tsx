@@ -279,6 +279,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
         timezone: 'America/New_York'
       });
 
+      // Show success message and close modal
+      alert('Patient created successfully!');
       onSuccess();
       onClose();
     } catch (err) {

@@ -4,21 +4,26 @@ import { supabase } from '@/lib/supabase';
 
 export function useUserDisplay() {
   const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [userInfo, setUserInfo] = useState({ 
-    name: "User", 
-    initials: "U", 
-    role: "User",
+    name: "Loading...", 
+    initials: "L", 
+    role: "Loading...",
     organizationId: null as string | null,
     organizationName: null as string | null
   });
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     const fetchUserInfo = async () => {
       if (!user) {
         setUserInfo({ 
-          name: "User", 
-          initials: "U", 
-          role: "User",
+          name: "Guest", 
+          initials: "G", 
+          role: "Guest",
           organizationId: null,
           organizationName: null
         });
@@ -63,32 +68,21 @@ export function useUserDisplay() {
         if (userData) {
           const firstName = userData.first_name || '';
           const lastName = userData.last_name || '';
-          
-          if (firstName || lastName) {
-            const fullName = `${firstName} ${lastName}`.trim();
-            const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-            setUserInfo({ 
-              name: fullName, 
-              initials: initials || "U", 
-              role,
-              organizationId: userOrganizationId,
-              organizationName: null
-            });
-          } else {
-            // Fallback to email if no name is set
-            const email = userData.email || user.email || "User";
-            const initials = email.charAt(0).toUpperCase();
-            setUserInfo({ 
-              name: email, 
-              initials, 
-              role,
-              organizationId: userOrganizationId,
-              organizationName: null
-            });
-          }
+          const fullName = `${firstName} ${lastName}`.trim() || user.email || "User";
+          const initials = firstName && lastName ? 
+            `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() : 
+            (user.email?.charAt(0).toUpperCase() || "U");
+
+          setUserInfo({ 
+            name: fullName, 
+            initials, 
+            role,
+            organizationId: userOrganizationId,
+            organizationName: null
+          });
         }
       } catch (error) {
-        console.error('Error in useUserDisplay:', error);
+        console.error('Error in fetchUserInfo:', error);
         // Fallback to email
         const email = user.email || "User";
         const initials = email.charAt(0).toUpperCase();
@@ -104,6 +98,17 @@ export function useUserDisplay() {
 
     fetchUserInfo();
   }, [user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId]);
+
+  // Return loading state until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return { 
+      name: "Loading...", 
+      initials: "L", 
+      role: "Loading...",
+      organizationId: null,
+      organizationName: null
+    };
+  }
 
   return userInfo;
 } 
