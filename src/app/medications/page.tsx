@@ -362,7 +362,7 @@ export default function MedicationsPage() {
                   <div>
                     <h3 className="text-lg font-medium text-yellow-800">No Patients Assigned</h3>
                     <p className="text-yellow-700 mt-1">
-                      You don't have any patients assigned to you yet. Contact your organization administrator to get assigned patients.
+                      You don&apos;t have any patients assigned to you yet. Contact your organization administrator to get assigned patients.
                     </p>
                   </div>
                 </div>
