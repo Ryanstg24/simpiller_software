@@ -25,6 +25,8 @@ interface AuthContextType {
   isBilling: boolean;
   userOrganizationId: string | null;
   refreshSession: () => void;
+  passwordChangeRequired: boolean;
+  setPasswordChangeRequired: (required: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -125,6 +128,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUserRoles([]);
       }
+
+      // Check if user needs to change password
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('password_change_required')
+        .eq('id', userId)
+        .single();
+
+      if (!userError && userData) {
+        setPasswordChangeRequired(userData.password_change_required || false);
+      }
     } catch (error) {
       console.error('Error fetching user roles:', error);
     }
@@ -166,6 +180,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshSession: () => {
       // Refresh session logic if needed
+    },
+    passwordChangeRequired: mounted ? passwordChangeRequired : false,
+    setPasswordChangeRequired: (required: boolean) => {
+      // This function will be used to manage the password change modal state
+      setPasswordChangeRequired(required);
     }
   };
 

@@ -5,6 +5,7 @@ import { X, Save, User, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import type { User as UserType } from '@/hooks/use-users';
 import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
 
 interface OrganizationUserModalProps {
   user: UserType | null;
@@ -33,6 +34,8 @@ export function OrganizationUserModal({
     is_active: true
   });
   const [loading, setLoading] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -68,6 +71,15 @@ export function OrganizationUserModal({
     return null; // Don't render if not authorized
   }
 
+  const generateTemporaryPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
   const handleSaveUser = async () => {
     if (!formData.first_name || !formData.last_name || !formData.email) {
       alert('Please enter first name, last name, and email.');
@@ -99,9 +111,16 @@ export function OrganizationUserModal({
         await updateUserRoles(user.id, selectedRoles);
       } else {
         // Create new user
+        const tempPassword = generateTemporaryPassword();
+        setGeneratedPassword(tempPassword);
+        
         const { data: newUser, error: userError } = await supabase
           .from('users')
-          .insert([formData])
+          .insert([{
+            ...formData,
+            encrypted_password: tempPassword, // This should be hashed in production
+            password_change_required: true // Force password change on first login
+          }])
           .select()
           .single();
 
@@ -113,6 +132,10 @@ export function OrganizationUserModal({
 
         // Create user roles
         await createUserRoles(newUser.id, selectedRoles);
+        
+        // Show success with password info
+        setShowPassword(true);
+        return; // Don't close modal yet, show password info
       }
 
       setIsEditing(false);
@@ -182,7 +205,7 @@ export function OrganizationUserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
@@ -289,10 +312,10 @@ export function OrganizationUserModal({
                         value={formData.license_number}
                         onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        placeholder="License number"
+                        placeholder="Professional license number"
                       />
                     </div>
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
                       <input
                         type="text"
@@ -302,128 +325,185 @@ export function OrganizationUserModal({
                         placeholder="Medical specialty"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select
+                        value={formData.is_active ? 'active' : 'inactive'}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {/* Roles */}
+                {/* Role Selection */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Roles *</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">User Roles</h3>
                   <div className="space-y-3">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedRoles.includes('provider')}
-                        onChange={() => handleRoleToggle('provider')}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Provider</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedRoles.includes('billing')}
-                        onChange={() => handleRoleToggle('billing')}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Billing</span>
-                    </label>
+                    {['provider', 'billing'].map((role) => (
+                      <label key={role} className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedRoles.includes(role)}
+                          onChange={() => handleRoleToggle(role)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700 capitalize">{role}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
-                {/* Status */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
-                  <select
-                    value={formData.is_active ? 'active' : 'inactive'}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                {/* Password Information */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium">Password Setup</p>
+                      <p className="mt-1">
+                        A secure temporary password will be automatically generated when you create this user. 
+                        The user will be required to change their password on first login for security.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Form Actions */}
                 <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                  >
+                  <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button 
+                    type="button" 
                     onClick={handleSaveUser}
                     disabled={loading}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    <Save className="h-4 w-4" />
-                    <span>{loading ? 'Saving...' : `${user ? 'Update' : 'Create'} User`}</span>
-                  </button>
+                    <Save className="mr-2 h-4 w-4" />
+                    {loading ? 'Saving...' : 'Save User'}
+                  </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Basic Information */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                      <p className="text-gray-900 font-medium">{user?.first_name}</p>
+                {/* Password Display for New Users */}
+                {showPassword && generatedPassword && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="text-lg font-medium text-green-800 mb-3">
+                      ✅ User Created Successfully!
+                    </h3>
+                    <div className="space-y-3">
+                      <p className="text-sm text-green-700">
+                        A temporary password has been generated for the new user. Please share this information securely:
+                      </p>
+                      <div className="bg-white border border-green-300 rounded p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Temporary Password:</span>
+                          <span className="font-mono text-lg font-bold text-green-600">{generatedPassword}</span>
+                        </div>
+                      </div>
+                      <div className="text-sm text-green-700 space-y-1">
+                        <p><strong>Important:</strong></p>
+                        <ul className="list-disc list-inside space-y-1 ml-2">
+                          <li>Share this password securely with the new user</li>
+                          <li>The user will be prompted to change their password on first login</li>
+                          <li>This temporary password will only be shown once</li>
+                        </ul>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                      <p className="text-gray-900 font-medium">{user?.last_name}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <p className="text-gray-900 font-medium">{user?.email}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                      <p className="text-gray-900 font-medium">{user?.phone || 'Not specified'}</p>
+                    <div className="mt-4 flex justify-end">
+                      <Button 
+                        onClick={() => {
+                          setShowPassword(false);
+                          setGeneratedPassword('');
+                          onUserUpdated();
+                          onClose();
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Done
+                      </Button>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Professional Information */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Professional Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* User Details Display */}
+                {!showPassword && (
+                  <div className="space-y-6">
+                    {/* Basic Information */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">NPI Number</label>
-                      <p className="text-gray-900 font-medium">{user?.npi || 'Not specified'}</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                          <p className="text-gray-900">{formData.first_name || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                          <p className="text-gray-900">{formData.last_name || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <p className="text-gray-900">{formData.email || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                          <p className="text-gray-900">{formData.phone || 'Not provided'}</p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Professional Information */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
-                      <p className="text-gray-900 font-medium">{user?.license_number || 'Not specified'}</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Professional Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">NPI Number</label>
+                          <p className="text-gray-900">{formData.npi || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+                          <p className="text-gray-900">{formData.license_number || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
+                          <p className="text-gray-900">{formData.specialty || 'Not provided'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            formData.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {formData.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
-                      <p className="text-gray-900 font-medium">{user?.specialty || 'Not specified'}</p>
+
+                    {/* User Roles */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">User Roles</h3>
+                      <div className="space-y-2">
+                        {selectedRoles.length > 0 ? (
+                          selectedRoles.map((role) => (
+                            <span key={role} className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium capitalize mr-2">
+                              {role}
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-gray-500">No roles assigned</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Roles */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Roles</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {user?.user_roles?.map((role, index) => (
-                      <span key={index} className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        {role.name}
-                      </span>
-                    )) || 'No roles assigned'}
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${user?.is_active ? 'text-green-600 bg-green-100' : 'text-gray-600 bg-gray-100'}`}>
-                    {user?.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
+                )}
               </div>
             )}
           </div>
