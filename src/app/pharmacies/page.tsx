@@ -51,18 +51,6 @@ export default function PharmaciesPage() {
     refresh();
   };
 
-  const handleEditClick = (pharmacy: Pharmacy) => {
-    // setEditingPharmacy(pharmacy); // This line was removed
-    // setFormData({ // This line was removed
-    //   name: pharmacy.name, // This line was removed
-    //   street1: pharmacy.street1 || '', // This line was removed
-    //   phone: pharmacy.phone || '', // This line was removed
-    //   email: pharmacy.email || '', // This line was removed
-    //   is_partner: pharmacy.is_partner || false, // This line was removed
-    // }); // This line was removed
-    // setShowModal(true); // This line was removed
-  };
-
   const handleDeleteClick = async (pharmacy: Pharmacy) => {
     if (window.confirm(`Are you sure you want to delete ${pharmacy.name}?`)) {
       try {
@@ -335,15 +323,6 @@ export default function PharmaciesPage() {
                             onClick={() => handleViewPharmacy(pharmacy)}
                           >
                             View Details
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleEditClick(pharmacy)}
-                            disabled={pharmacy.is_partner && !isSimpillerAdmin}
-                          >
-                            Edit
                           </Button>
                           <Button 
                             variant="outline" 
