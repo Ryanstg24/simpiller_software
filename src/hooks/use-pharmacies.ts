@@ -38,54 +38,64 @@ export function usePharmacies() {
   const [error, setError] = useState<string | null>(null);
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
 
-  useEffect(() => {
-    const fetchPharmacies = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchPharmacies = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        let query = supabase
-          .from('pharmacies')
-          .select(`
-            *,
-            organizations (
-              name,
-              acronym
-            )
-          `)
-          .eq('is_active', true)
-          .order('name');
-
-        // Apply role-based filtering
-        if (isSimpillerAdmin) {
-          // Simpiller admins can see all pharmacies (including partner pharmacies)
-        } else if (isOrganizationAdmin && userOrganizationId) {
-          // Organization admins can see their organization's pharmacies + partner pharmacies
-          query = query.or(`organization_id.eq.${userOrganizationId},is_partner.eq.true`);
-        } else {
-          // Providers and others can't see pharmacies (they'll see them through patients)
-          setPharmacies([]);
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching pharmacies:', error);
-          setError('Failed to fetch pharmacies');
-          return;
-        }
-
-        setPharmacies(data || []);
-      } catch (err) {
-        console.error('Error in fetchPharmacies:', err);
-        setError('Failed to fetch pharmacies');
-      } finally {
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        setError('Request timed out. Please refresh the page.');
         setLoading(false);
-      }
-    };
+      }, 30000); // 30 second timeout
 
+      let query = supabase
+        .from('pharmacies')
+        .select(`
+          *,
+          organizations (
+            name,
+            acronym
+          )
+        `)
+        .eq('is_active', true)
+        .order('name');
+
+      // Apply role-based filtering
+      if (isSimpillerAdmin) {
+        // Simpiller admins can see all pharmacies (including partner pharmacies)
+      } else if (isOrganizationAdmin && userOrganizationId) {
+        // Organization admins can see their organization's pharmacies + partner pharmacies
+        query = query.or(`organization_id.eq.${userOrganizationId},is_partner.eq.true`);
+      } else {
+        // Providers and others can't see pharmacies (they'll see them through patients)
+        setPharmacies([]);
+        setLoading(false);
+        clearTimeout(timeoutId);
+        return;
+      }
+
+      const { data, error } = await query;
+
+      // Clear timeout on successful response
+      clearTimeout(timeoutId);
+
+      if (error) {
+        console.error('Error fetching pharmacies:', error);
+        setError('Failed to fetch pharmacies');
+        return;
+      }
+
+      setPharmacies(data || []);
+    } catch (err) {
+      console.error('Error in fetchPharmacies:', err);
+      setError('Failed to fetch pharmacies');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPharmacies();
   }, [isSimpillerAdmin, isOrganizationAdmin, userOrganizationId]);
 
@@ -193,6 +203,7 @@ export function usePharmacies() {
     error,
     createPharmacy,
     updatePharmacy,
-    deletePharmacy
+    deletePharmacy,
+    refresh: fetchPharmacies
   };
 } 

@@ -22,6 +22,7 @@ export function PharmacyModal({
 }: PharmacyModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const { isSimpillerAdmin, userOrganizationId } = useAuth();
   const { organizations } = useOrganizations();
   
@@ -126,8 +127,15 @@ export function PharmacyModal({
       }
 
       setIsEditing(false);
-      onPharmacyUpdated();
-      alert(`Pharmacy ${pharmacy ? 'updated' : 'created'} successfully!`);
+      setSuccess(true);
+      setLoading(false);
+      
+      // Show success message for 2 seconds, then close and refresh
+      setTimeout(() => {
+        onPharmacyUpdated();
+        onClose();
+        setSuccess(false);
+      }, 2000);
     } catch (error) {
       console.error('Error saving pharmacy:', error);
       alert(`Failed to ${pharmacy ? 'update' : 'create'} pharmacy. Please try again.`);
@@ -139,7 +147,7 @@ export function PharmacyModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
@@ -178,6 +186,12 @@ export function PharmacyModal({
           <div className="p-6">
             {(isEditing || !pharmacy) ? (
               <div className="space-y-6">
+                {success && (
+                  <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-md">
+                    ✅ Pharmacy {pharmacy ? 'updated' : 'created'} successfully! Closing in 2 seconds...
+                  </div>
+                )}
+                
                 {/* Basic Information */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>

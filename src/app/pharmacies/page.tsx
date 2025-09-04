@@ -16,7 +16,7 @@ import { Pharmacy } from "@/hooks/use-pharmacies";
 export default function PharmaciesPage() {
   const userInfo = useUserDisplay();
   const { isSimpillerAdmin, isOrganizationAdmin } = useAuth();
-  const { pharmacies, loading, error, deletePharmacy } = usePharmacies();
+  const { pharmacies, loading, error, deletePharmacy, refresh } = usePharmacies();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,9 +47,8 @@ export default function PharmaciesPage() {
   };
 
   const handlePharmacyUpdated = () => {
-    // Refresh pharmacies data
-    setIsModalOpen(false);
-    setSelectedPharmacy(null);
+    // Refresh pharmacies data to show the newly created/updated pharmacy
+    refresh();
   };
 
   const handleEditClick = (pharmacy: Pharmacy) => {
@@ -114,11 +113,14 @@ export default function PharmaciesPage() {
             <Header 
               title="Pharmacies" 
               subtitle="Manage pharmacies"
-              user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
+              user={{ name: userInfo.name, initials: userInfo.name, role: userInfo.role }}
             />
             <main className="p-6">
               <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading pharmacies...</div>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <div className="text-gray-500">Loading pharmacies...</div>
+                </div>
               </div>
             </main>
           </div>
