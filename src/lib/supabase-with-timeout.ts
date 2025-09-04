@@ -15,7 +15,7 @@ export const supabaseWithTimeout = {
       
       // Add timeout to the query
       const originalThen = query.then.bind(query);
-      query.then = (onFulfilled?: any, onRejected?: any) => {
+      query.then = (onFulfilled?: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) => {
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
             reject(new Error('Request timeout - please try again'));

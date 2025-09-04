@@ -7,7 +7,7 @@ interface LazyDataOptions {
 
 export function useLazyData<T>(
   fetchFn: () => Promise<T>,
-  dependencies: any[] = [],
+  dependencies: unknown[] = [],
   options: LazyDataOptions = {}
 ) {
   const { delay = 300, enabled = true } = options;
@@ -36,7 +36,7 @@ export function useLazyData<T>(
 
   useEffect(() => {
     fetchData();
-  }, dependencies);
+  }, [fetchData, ...dependencies]);
 
   const refetch = useCallback(() => {
     fetchData();
@@ -48,7 +48,7 @@ export function useLazyData<T>(
 // Hook for debounced data fetching
 export function useDebouncedData<T>(
   fetchFn: () => Promise<T>,
-  dependencies: any[] = [],
+  dependencies: unknown[] = [],
   delay: number = 500
 ) {
   const [data, setData] = useState<T | null>(null);

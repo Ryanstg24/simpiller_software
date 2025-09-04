@@ -98,7 +98,7 @@ function DefaultErrorFallback({ error, resetError }: { error?: Error; resetError
 
 // Hook for functional components to handle errors
 export function useErrorHandler() {
-  return (error: Error, errorInfo?: any) => {
+  return (error: Error, errorInfo?: unknown) => {
     console.error('Error caught by useErrorHandler:', error, errorInfo);
     // You could also send this to an error reporting service
   };
