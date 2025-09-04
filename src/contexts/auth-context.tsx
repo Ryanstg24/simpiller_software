@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching role assignments:', roleResult.error);
       } else if (roleResult.data && roleResult.data.length > 0) {
         const roles = roleResult.data
-          .map((assignment: any) => assignment.user_roles)
+          .map((assignment: { user_roles: UserRole[] }) => assignment.user_roles)
           .filter(Boolean)
           .flat();
         setUserRoles(roles);
