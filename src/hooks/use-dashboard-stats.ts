@@ -171,4 +171,4 @@ function generateRecentActivity(activePatients: number, totalMedications: number
   );
 
   return activities.slice(0, 4); // Return max 4 activities
-} 
+}

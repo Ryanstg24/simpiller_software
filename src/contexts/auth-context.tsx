@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching role assignments:', roleResult.error);
       } else if (roleResult.data && roleResult.data.length > 0) {
         const roles = roleResult.data
-          .map(assignment => assignment.user_roles)
+          .map((assignment: any) => assignment.user_roles)
           .filter(Boolean)
           .flat();
         setUserRoles(roles);
@@ -200,4 +200,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+}
