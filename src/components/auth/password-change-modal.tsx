@@ -119,7 +119,7 @@ export function PasswordChangeModal({
                 <div className="text-sm text-blue-700">
                   <p className="font-medium">Security Notice</p>
                   <p className="mt-1">
-                    You're using a temporary password. Please set a new, secure password for your account.
+                    You&apos;re using a temporary password. Please set a new, secure password for your account.
                   </p>
                 </div>
               </div>
