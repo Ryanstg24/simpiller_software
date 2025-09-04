@@ -100,27 +100,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserRoles = async (userId: string) => {
     try {
-      // Get role assignments and role details in a single query
-      const { data: roleDetails, error } = await supabase
-        .from('user_role_assignments')
-        .select(`
-          user_roles (
-            id, 
-            name, 
-            organization_id, 
-            facility_id, 
-            permissions
-          )
-        `)
-        .eq('user_id', userId);
+      // Combine both queries into a single request using Promise.all for parallel execution
+      const [roleResult, userResult] = await Promise.all([
+        supabase
+          .from('user_role_assignments')
+          .select(`
+            user_roles (
+              id, 
+              name, 
+              organization_id, 
+              facility_id, 
+              permissions
+            )
+          `)
+          .eq('user_id', userId),
+        supabase
+          .from('users')
+          .select('password_change_required')
+          .eq('id', userId)
+          .single()
+      ]);
 
-      if (error) {
-        console.error('Error fetching role assignments:', error);
-        return;
-      }
-
-      if (roleDetails && roleDetails.length > 0) {
-        const roles = roleDetails
+      // Process role data
+      if (roleResult.error) {
+        console.error('Error fetching role assignments:', roleResult.error);
+      } else if (roleResult.data && roleResult.data.length > 0) {
+        const roles = roleResult.data
           .map(assignment => assignment.user_roles)
           .filter(Boolean)
           .flat();
@@ -129,15 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserRoles([]);
       }
 
-      // Check if user needs to change password
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('password_change_required')
-        .eq('id', userId)
-        .single();
-
-      if (!userError && userData) {
-        setPasswordChangeRequired(userData.password_change_required || false);
+      // Process password change requirement
+      if (!userResult.error && userResult.data) {
+        setPasswordChangeRequired(userResult.data.password_change_required || false);
       }
     } catch (error) {
       console.error('Error fetching user roles:', error);

@@ -13,6 +13,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/contexts/auth-context";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
+import { StatsCardSkeleton } from "@/components/ui/loading-skeleton";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -39,15 +40,13 @@ export default function Dashboard() {
     }
   };
 
-  // Show loading state while auth is initializing or stats are loading
-  if (isLoading || statsLoading) {
+  // Show loading state while auth is initializing
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-800">
-            {isLoading ? 'Initializing...' : 'Loading dashboard data...'}
-          </p>
+          <p className="mt-4 text-gray-800">Initializing...</p>
         </div>
       </div>
     );
@@ -156,9 +155,18 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {statsCards.map((stat, index) => (
-                <StatsCard key={index} {...stat} />
-              ))}
+              {statsLoading ? (
+                <>
+                  <StatsCardSkeleton />
+                  <StatsCardSkeleton />
+                  <StatsCardSkeleton />
+                  <StatsCardSkeleton />
+                </>
+              ) : (
+                statsCards.map((stat, index) => (
+                  <StatsCard key={index} {...stat} />
+                ))
+              )}
             </div>
 
             {/* Recent Activity */}

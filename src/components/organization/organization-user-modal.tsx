@@ -36,6 +36,7 @@ export function OrganizationUserModal({
   const [loading, setLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -50,6 +51,7 @@ export function OrganizationUserModal({
         is_active: user.is_active ?? true
       });
       setSelectedRoles(user.user_roles?.map(role => role.name) || []);
+      setIsEditing(false); // View mode for existing users
     } else {
       // Reset form for new user
       setFormData({
@@ -63,8 +65,14 @@ export function OrganizationUserModal({
         is_active: true
       });
       setSelectedRoles([]);
+      setIsEditing(true); // Edit mode for new users
     }
-  }, [user]);
+    // Reset states when modal opens/closes
+    setGeneratedPassword('');
+    setShowPassword(false);
+    setSuccess(false);
+    setLoading(false);
+  }, [user, isOpen]);
 
   // Check authorization after all hooks
   if (!isOrganizationAdmin) {
@@ -135,6 +143,17 @@ export function OrganizationUserModal({
         
         // Show success with password info
         setShowPassword(true);
+        setSuccess(true);
+        
+        // Auto-close modal after 5 seconds
+        setTimeout(() => {
+          setShowPassword(false);
+          setGeneratedPassword('');
+          setSuccess(false);
+          onUserUpdated();
+          onClose();
+        }, 5000);
+        
         return; // Don't close modal yet, show password info
       }
 
@@ -417,12 +436,18 @@ export function OrganizationUserModal({
                           <li>This temporary password will only be shown once</li>
                         </ul>
                       </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                        <p className="text-sm text-blue-700">
+                          <strong>Note:</strong> This modal will automatically close in 5 seconds and refresh the user list.
+                        </p>
+                      </div>
                     </div>
                     <div className="mt-4 flex justify-end">
                       <Button 
                         onClick={() => {
                           setShowPassword(false);
                           setGeneratedPassword('');
+                          setSuccess(false);
                           onUserUpdated();
                           onClose();
                         }}

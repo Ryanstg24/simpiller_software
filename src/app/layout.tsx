@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Providers } from "@/components/providers";
 import { PasswordChangeWrapper } from "@/components/auth/password-change-wrapper";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,13 +21,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
-          <AuthProvider>
-            <PasswordChangeWrapper>
-              {children}
-            </PasswordChangeWrapper>
-          </AuthProvider>
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <AuthProvider>
+              <PasswordChangeWrapper>
+                {children}
+              </PasswordChangeWrapper>
+            </AuthProvider>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

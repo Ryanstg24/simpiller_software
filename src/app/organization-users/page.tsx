@@ -239,24 +239,14 @@ export default function OrganizationUsersPage() {
                         </div>
                       )}
                       <div className="pt-3 border-t">
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleViewUser(user)}
-                          >
-                            View Details
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={() => handleViewUser(user)}
-                          >
-                            Edit
-                          </Button>
-                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleViewUser(user)}
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
