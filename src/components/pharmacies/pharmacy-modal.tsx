@@ -23,6 +23,7 @@ export function PharmacyModal({
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { isSimpillerAdmin, userOrganizationId } = useAuth();
   const { organizations } = useOrganizations();
   
@@ -95,6 +96,7 @@ export function PharmacyModal({
 
     try {
       setLoading(true);
+      setError(null);
       
       const pharmacyData = {
         ...formData,
@@ -110,7 +112,7 @@ export function PharmacyModal({
 
         if (error) {
           console.error('Error updating pharmacy:', error);
-          alert('Failed to update pharmacy. Please try again.');
+          setError(`Failed to update pharmacy: ${error.message}`);
           return;
         }
       } else {
@@ -121,14 +123,13 @@ export function PharmacyModal({
 
         if (error) {
           console.error('Error creating pharmacy:', error);
-          alert('Failed to create pharmacy. Please try again.');
+          setError(`Failed to create pharmacy: ${error.message}`);
           return;
         }
       }
 
       setIsEditing(false);
       setSuccess(true);
-      setLoading(false);
       
       // Show success message for 2 seconds, then close and refresh
       setTimeout(() => {
@@ -138,7 +139,7 @@ export function PharmacyModal({
       }, 2000);
     } catch (error) {
       console.error('Error saving pharmacy:', error);
-      alert(`Failed to ${pharmacy ? 'update' : 'create'} pharmacy. Please try again.`);
+      setError(`Failed to ${pharmacy ? 'update' : 'create'} pharmacy. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -189,6 +190,11 @@ export function PharmacyModal({
                 {success && (
                   <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-md">
                     ✅ Pharmacy {pharmacy ? 'updated' : 'created'} successfully! Closing in 2 seconds...
+                  </div>
+                )}
+                {error && (
+                  <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
+                    {error}
                   </div>
                 )}
                 
