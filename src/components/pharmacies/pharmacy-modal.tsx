@@ -80,7 +80,24 @@ export function PharmacyModal({
       });
       setSelectedOrganizationId('');
     }
+    
+    // Clear any previous errors and success states
+    setError(null);
+    setSuccess(false);
+    setLoading(false);
   }, [pharmacy]);
+
+  const handleInputChange = (field: string, value: string | boolean) => {
+    // Clear any previous errors when user starts typing
+    if (error) {
+      setError(null);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSavePharmacy = async () => {
     if (!formData.name) {
@@ -113,6 +130,7 @@ export function PharmacyModal({
         if (error) {
           console.error('Error updating pharmacy:', error);
           setError(`Failed to update pharmacy: ${error.message}`);
+          setLoading(false);
           return;
         }
       } else {
@@ -124,12 +142,14 @@ export function PharmacyModal({
         if (error) {
           console.error('Error creating pharmacy:', error);
           setError(`Failed to create pharmacy: ${error.message}`);
+          setLoading(false);
           return;
         }
       }
 
       setIsEditing(false);
       setSuccess(true);
+      setLoading(false);
       
       // Show success message for 2 seconds, then close and refresh
       setTimeout(() => {
@@ -140,7 +160,6 @@ export function PharmacyModal({
     } catch (error) {
       console.error('Error saving pharmacy:', error);
       setError(`Failed to ${pharmacy ? 'update' : 'create'} pharmacy. Please try again.`);
-    } finally {
       setLoading(false);
     }
   };
@@ -174,7 +193,12 @@ export function PharmacyModal({
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={() => {
+                setError(null);
+                setSuccess(false);
+                setLoading(false);
+                onClose();
+              }}
               className="p-2 text-gray-400 hover:text-gray-600"
             >
               <X className="h-5 w-5" />
@@ -207,7 +231,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="e.g., CVS Pharmacy"
                       />
@@ -217,7 +241,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.npi}
-                        onChange={(e) => setFormData({ ...formData, npi: e.target.value })}
+                        onChange={(e) => handleInputChange('npi', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="National Provider Identifier"
                       />
@@ -226,7 +250,7 @@ export function PharmacyModal({
                       <label className="block text-sm font-medium text-gray-700 mb-1">Pharmacy Type</label>
                       <select
                         value={formData.pharmacy_type}
-                        onChange={(e) => setFormData({ ...formData, pharmacy_type: e.target.value })}
+                        onChange={(e) => handleInputChange('pharmacy_type', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       >
                         <option value="retail">Retail</option>
@@ -240,7 +264,7 @@ export function PharmacyModal({
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <select
                         value={formData.is_active ? 'active' : 'inactive'}
-                        onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+                        onChange={(e) => handleInputChange('is_active', e.target.value === 'active')}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       >
                         <option value="active">Active</option>
@@ -259,7 +283,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.street1}
-                        onChange={(e) => setFormData({ ...formData, street1: e.target.value })}
+                        onChange={(e) => handleInputChange('street1', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -268,7 +292,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.street2}
-                        onChange={(e) => setFormData({ ...formData, street2: e.target.value })}
+                        onChange={(e) => handleInputChange('street2', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -277,7 +301,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -286,7 +310,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.state}
-                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                        onChange={(e) => handleInputChange('state', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         maxLength={2}
                       />
@@ -296,7 +320,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.postal_code}
-                        onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                        onChange={(e) => handleInputChange('postal_code', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -305,7 +329,7 @@ export function PharmacyModal({
                       <input
                         type="text"
                         value={formData.country}
-                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -321,7 +345,7 @@ export function PharmacyModal({
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -330,7 +354,7 @@ export function PharmacyModal({
                       <input
                         type="tel"
                         value={formData.fax}
-                        onChange={(e) => setFormData({ ...formData, fax: e.target.value })}
+                        onChange={(e) => handleInputChange('fax', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -339,7 +363,7 @@ export function PharmacyModal({
                       <input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -348,7 +372,7 @@ export function PharmacyModal({
                       <input
                         type="url"
                         value={formData.website}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        onChange={(e) => handleInputChange('website', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                       />
                     </div>
@@ -364,7 +388,7 @@ export function PharmacyModal({
                         <input
                           type="checkbox"
                           checked={formData.is_partner}
-                          onChange={(e) => setFormData({ ...formData, is_partner: e.target.checked })}
+                          onChange={(e) => handleInputChange('is_partner', e.target.checked)}
                           disabled={!isSimpillerAdmin}
                           className="mr-2"
                         />
@@ -379,7 +403,7 @@ export function PharmacyModal({
                         <input
                           type="checkbox"
                           checked={formData.is_default}
-                          onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                          onChange={(e) => handleInputChange('is_default', e.target.checked)}
                           className="mr-2"
                         />
                         <span className="text-sm text-gray-700">Default Pharmacy</span>
@@ -388,7 +412,7 @@ export function PharmacyModal({
                         <input
                           type="checkbox"
                           checked={formData.integration_enabled}
-                          onChange={(e) => setFormData({ ...formData, integration_enabled: e.target.checked })}
+                          onChange={(e) => handleInputChange('integration_enabled', e.target.checked)}
                           className="mr-2"
                         />
                         <span className="text-sm text-gray-700">Integration Enabled</span>
@@ -434,7 +458,7 @@ export function PharmacyModal({
                         <input
                           type="url"
                           value={formData.api_endpoint}
-                          onChange={(e) => setFormData({ ...formData, api_endpoint: e.target.value })}
+                          onChange={(e) => handleInputChange('api_endpoint', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                           placeholder="https://api.pharmacy.com"
                         />
@@ -444,7 +468,7 @@ export function PharmacyModal({
                         <input
                           type="password"
                           value={formData.api_key}
-                          onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                          onChange={(e) => handleInputChange('api_key', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                           placeholder="API Key"
                         />
