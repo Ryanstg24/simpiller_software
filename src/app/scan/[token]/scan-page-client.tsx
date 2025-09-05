@@ -225,13 +225,16 @@ export function ScanPageClient({ token }: { token: string }) {
               );
               
               if (isValid && result.confidence > 30) {
-                console.log('✅ Auto-capture: Valid medication detected, capturing...');
+                console.log('✅ Auto-capture: Valid medication detected, capturing and processing...');
                 setImageData(imageDataUrl);
                 setOcrResult(result);
                 setLabelData(parsed);
                 setLastCaptureTime(now);
                 clearInterval(captureInterval);
                 stopCamera();
+                
+                // Automatically process the OCR result
+                await processImage();
               }
             }
           }
@@ -251,7 +254,7 @@ export function ScanPageClient({ token }: { token: string }) {
     setCameraError(null);
   };
 
-  const captureImage = () => {
+  const captureImage = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -265,16 +268,27 @@ export function ScanPageClient({ token }: { token: string }) {
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
         setImageData(imageDataUrl);
         stopCamera();
+        
+        // Automatically process OCR if auto-capture is enabled
+        if (autoCaptureEnabled) {
+          await processImage();
+        }
       }
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setImageData(e.target?.result as string);
+      reader.onload = async (e) => {
+        const result = e.target?.result as string;
+        setImageData(result);
+        
+        // Automatically process OCR if auto-capture is enabled
+        if (autoCaptureEnabled) {
+          await processImage();
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -467,36 +481,22 @@ export function ScanPageClient({ token }: { token: string }) {
                 onClick={startCamera}
                 className="w-full flex items-center p-3 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50"
               >
-                <Camera className="h-5 w-5 text-blue-600 mr-3" />
-                <div className="text-left">
+                <Camera className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" />
+                <div className="text-left flex-1 min-w-0">
                   <div className="font-medium text-gray-900">📱 Live Camera Preview</div>
-                  <div className="text-sm text-gray-600">Recommended: See live camera feed and capture automatically</div>
+                  <div className="text-sm text-gray-600 truncate">Recommended: See live camera feed and capture automatically</div>
                 </div>
               </Button>
               
               <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                <Camera className="h-5 w-5 text-purple-600 mr-3" />
-                <div className="text-left">
+                <Camera className="h-5 w-5 text-purple-600 mr-3 flex-shrink-0" />
+                <div className="text-left flex-1 min-w-0">
                   <div className="font-medium text-gray-900">📷 Native Camera (Fallback)</div>
-                  <div className="text-sm text-gray-600">Use iOS camera app if live preview doesn&apos;t work</div>
+                  <div className="text-sm text-gray-600">Use iOS camera app - includes Take Photo, Upload Photo, and Choose from Library options</div>
                 </div>
                 <input
                   type="file"
                   accept="image/*;capture=camera"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              
-              <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                <Upload className="h-5 w-5 text-green-600 mr-3" />
-                <div className="text-left">
-                  <div className="font-medium text-gray-900">📁 Upload Photo</div>
-                  <div className="text-sm text-gray-600">Choose from your photo library</div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -507,10 +507,10 @@ export function ScanPageClient({ token }: { token: string }) {
             {/* Instructions */}
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>📱 For best results:</strong> Use &quot;Live Camera Preview&quot; first. It will automatically capture when your medication is detected.
+                <strong>📱 For best results:</strong> Use &quot;Live Camera Preview&quot; first. It will automatically capture and process when your medication is detected.
               </p>
               <p className="text-xs text-blue-700 mt-2">
-                <strong>Fallback:</strong> If the live camera doesn&apos;t work, try &quot;Native Camera&quot; which opens your phone&apos;s camera app.
+                <strong>Fallback:</strong> If the live camera doesn&apos;t work, try &quot;Native Camera&quot; which gives you Take Photo, Upload Photo, and Choose from Library options.
               </p>
             </div>
             
@@ -607,8 +607,8 @@ export function ScanPageClient({ token }: { token: string }) {
               </div>
               <p className="text-xs text-green-700">
                 {autoCaptureEnabled 
-                  ? 'Camera will automatically capture when your medication is detected'
-                  : 'Click "Capture & Scan" to manually capture'
+                  ? 'Camera will automatically capture and process when your medication is detected'
+                  : 'Click "Capture & Scan" to manually capture and process'
                 }
               </p>
             </div>
