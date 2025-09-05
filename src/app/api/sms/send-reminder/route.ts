@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique scan link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://simpiller-software.vercel.app';
+    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://simpiller-software.vercel.app';
     const scanLink = `${baseUrl}/scan/${scanSession.id}`;
 
     // Format phone number
