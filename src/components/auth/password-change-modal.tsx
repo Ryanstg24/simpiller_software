@@ -23,6 +23,7 @@ export function PasswordChangeModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [loadingStep, setLoadingStep] = useState<string>('');
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -37,14 +38,15 @@ export function PasswordChangeModal({
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setLoadingStep('');
 
-    // Set a timeout to force close the modal if it gets stuck
+    // Set a timeout to force close the modal if it gets stuck (safety net only)
     const forceCloseTimeout = setTimeout(() => {
-      console.log('Force closing password change modal due to timeout');
+      console.log('Force closing password change modal due to timeout - this should not happen normally');
       setLoading(false);
       onPasswordChanged();
       onClose();
-    }, 10000); // 10 second timeout
+    }, 30000); // 30 second timeout - should be plenty of time
     setTimeoutId(forceCloseTimeout);
 
     // Validate passwords
@@ -72,6 +74,9 @@ export function PasswordChangeModal({
     }
 
     try {
+      console.log('Starting password change process...');
+      setLoadingStep('Changing password...');
+      
       // Change password using Supabase
       const { error } = await supabase.auth.updateUser({
         password: newPassword
@@ -94,7 +99,11 @@ export function PasswordChangeModal({
         return;
       }
 
+      console.log('Password changed successfully in Supabase Auth');
+
       // Get the current user ID
+      console.log('Getting current user...');
+      setLoadingStep('Updating user record...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
@@ -105,7 +114,10 @@ export function PasswordChangeModal({
         return;
       }
 
+      console.log('Got user ID:', user.id);
+
       // Update the user record to remove the password change requirement
+      console.log('Updating user record in database...');
       const { error: updateError } = await supabase
         .from('users')
         .update({ password_change_required: false })
@@ -120,12 +132,15 @@ export function PasswordChangeModal({
       }
 
       // Success - show success message briefly then close
+      console.log('Password change process completed successfully');
+      setLoadingStep('Complete!');
       setSuccess(true);
       setLoading(false);
       if (timeoutId) clearTimeout(timeoutId);
       
       // Show success message for 2 seconds then close
       setTimeout(() => {
+        console.log('Closing password change modal');
         onPasswordChanged();
         onClose();
       }, 2000);
@@ -182,6 +197,15 @@ export function PasswordChangeModal({
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
                   {error}
+                </div>
+              )}
+
+              {loading && loadingStep && (
+                <div className="p-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span>{loadingStep}</span>
+                  </div>
                 </div>
               )}
 
@@ -306,7 +330,7 @@ export function PasswordChangeModal({
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Save className="mr-2 h-4 w-4" />
-                  {loading ? 'Changing Password...' : 'Change Password'}
+                  {loading ? (loadingStep || 'Changing Password...') : 'Change Password'}
                 </Button>
               </div>
             </form>
