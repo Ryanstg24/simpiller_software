@@ -47,6 +47,11 @@ export function ScanPageClient({ token }: { token: string }) {
       try {
         // Check if this is a test scan (starts with "test-")
         if (token.startsWith('test-')) {
+          // Extract data from URL parameters
+          const urlParams = new URLSearchParams(window.location.search);
+          const medicationParam = urlParams.get('med') || 'Test Medication';
+          const patientParam = urlParams.get('patient') || 'Test Patient';
+          
           // Create a mock test session immediately
           // Extract timestamp from token for realistic test data
           const timestamp = token.replace('test-', '');
@@ -60,11 +65,11 @@ export function ScanPageClient({ token }: { token: string }) {
             status: 'pending',
             created_at: testDate.toISOString(),
             patients: {
-              first_name: 'Test',
-              last_name: 'Patient'
+              first_name: patientParam.split(' ')[0] || 'Test',
+              last_name: patientParam.split(' ').slice(1).join(' ') || 'Patient'
             },
             medications: {
-              medication_name: 'Test Medication',
+              medication_name: medicationParam,
               dosage: '500mg'
             }
           };
@@ -170,30 +175,54 @@ export function ScanPageClient({ token }: { token: string }) {
         throw new Error('No medication found for current index');
       }
 
-      // Validate against expected medication
-      const expectedMedication = {
-        medicationName: currentMedication.medication_name,
-        dosage: currentMedication.dosage,
-        patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
-      };
+      // For test scans, create a more realistic validation
+      let validation;
+      if (token.startsWith('test-')) {
+        // For test scans, simulate a realistic validation
+        const scannedText = ocrData.text.toLowerCase();
+        const expectedMedicationName = currentMedication.medication_name.toLowerCase();
+        
+        // Check if the scanned text contains the expected medication name or similar
+        const isMatch = scannedText.includes(expectedMedicationName) || 
+                       scannedText.includes('medication') || 
+                       scannedText.includes('tablet') ||
+                       scannedText.includes('capsule') ||
+                       scannedText.includes('mg') ||
+                       scannedText.includes('prescription');
+        
+        validation = {
+          isValid: isMatch,
+          confidence: isMatch ? 0.85 : 0.25,
+          matchedFields: isMatch ? ['medicationName'] : [],
+          errors: isMatch ? [] : ['Medication name not found in scanned text']
+        };
+      } else {
+        // For real scans, use the actual validation
+        const expectedMedication = {
+          medicationName: currentMedication.medication_name,
+          dosage: currentMedication.dosage,
+          patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
+        };
+        validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
+      }
 
-      const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
-
-      // Simulate scan submission (replace with actual API call)
-      // In a real app, you would send this data to your backend
-      console.log('Simulating scan submission:', {
+      console.log('Scan validation result:', {
         sessionToken: token,
-        medicationId: scanSession.medication_id, // Assuming medication_id is available
-        imageData,
-        scanMethod: 'camera', // Or 'manual' if manual entry is implemented
-        ocrResult: ocrData,
-        labelData: parsedLabelData,
+        medicationId: scanSession.medication_id,
+        expectedMedication: currentMedication.medication_name,
+        scannedText: ocrData.text,
         validation,
+        isTestScan: token.startsWith('test-')
       });
 
-      // For now, just simulate success
+      // Determine success based on validation
+      const isSuccess = validation.isValid && validation.confidence > 0.5;
+      
       setScanComplete(true);
-      setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+      setScanSession(prev => prev ? { 
+        ...prev, 
+        status: isSuccess ? 'completed' : 'failed' 
+      } : null);
 
     } catch (error) {
       console.error('Error processing image:', error);
@@ -339,15 +368,29 @@ export function ScanPageClient({ token }: { token: string }) {
         {/* Camera Interface */}
         {isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <div className="relative">
+            <div className="relative bg-black rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full rounded-lg"
+                muted
+                className="w-full h-64 object-cover"
               />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="border-2 border-white rounded-lg w-64 h-40"></div>
+              {/* Scanning overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="border-2 border-white rounded-lg w-48 h-32 relative">
+                  {/* Corner brackets */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
+                  <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-blue-400"></div>
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-blue-400"></div>
+                </div>
+              </div>
+              {/* Instructions overlay */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="bg-black bg-opacity-70 text-white text-center py-2 px-4 rounded-lg">
+                  <p className="text-sm">Position medication label within the frame</p>
+                </div>
               </div>
             </div>
             <div className="flex space-x-3 mt-4">
@@ -355,7 +398,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 onClick={captureImage}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
-                Capture
+                📸 Capture & Scan
               </Button>
               <Button
                 onClick={() => {

@@ -19,10 +19,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate a test scan link using Vercel domain
+    // Generate a test scan link using Vercel domain with medication data
     // Use server-side environment variable for API routes
     const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://simpiller-software.vercel.app';
-    const testScanLink = `${baseUrl}/scan/test-${Date.now()}`;
+    const timestamp = Date.now();
+    const medicationData = Array.isArray(medicationNames) ? medicationNames.join(',') : medicationNames;
+    const testScanLink = `${baseUrl}/scan/test-${timestamp}?med=${encodeURIComponent(medicationData)}&patient=${encodeURIComponent(patientName)}`;
     console.log('🔗 Environment check:');
     console.log('   APP_URL:', process.env.APP_URL);
     console.log('   NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
