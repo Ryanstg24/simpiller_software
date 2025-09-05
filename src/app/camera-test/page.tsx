@@ -1,101 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
 import Image from 'next/image';
 
-interface ScanSession {
-  id: string;
-  patient_id: string;
-  medication_id: string;
-  scan_token: string;
-  status: 'pending' | 'completed' | 'failed';
-  created_at: string;
-  completed_at?: string;
-  
-  // Joined data
-  patients?: {
-    first_name: string;
-    last_name: string;
-  };
-  medications?: {
-    medication_name: string;
-    dosage: string;
-  };
-}
-
-export function ScanPageClient({ token }: { token: string }) {
-  const [scanSession, setScanSession] = useState<ScanSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default function CameraTestPage() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [labelData, setLabelData] = useState<MedicationLabelData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scanComplete, setScanComplete] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
-  // Load session data
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        // Check if this is a test scan (starts with "test-")
-        if (token.startsWith('test-')) {
-          // Extract data from URL parameters
-          const urlParams = new URLSearchParams(window.location.search);
-          const medicationParam = urlParams.get('med') || 'Test Medication';
-          const patientParam = urlParams.get('patient') || 'Test Patient';
-          
-          // Create a mock test session immediately
-          // Extract timestamp from token for realistic test data
-          const timestamp = token.replace('test-', '');
-          const testDate = new Date(parseInt(timestamp));
-          
-          const testSession: ScanSession = {
-            id: token,
-            patient_id: 'test-patient',
-            medication_id: 'test-medication',
-            scan_token: token,
-            status: 'pending',
-            created_at: testDate.toISOString(),
-            patients: {
-              first_name: patientParam.split(' ')[0] || 'Test',
-              last_name: patientParam.split(' ').slice(1).join(' ') || 'Patient'
-            },
-            medications: {
-              medication_name: medicationParam,
-              dosage: '500mg'
-            }
-          };
-          setScanSession(testSession);
-          setLoading(false);
-          return;
-        }
-
-        // Load real session data
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${token}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const session: ScanSession = await response.json();
-        setScanSession(session);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load medication session.');
-        setLoading(false);
-        console.error(err);
-      }
-    };
-    
-    loadSession();
-  }, [token]);
 
   // Camera functions
   const startCamera = async () => {
@@ -215,186 +136,77 @@ export function ScanPageClient({ token }: { token: string }) {
   };
 
   const processImage = async () => {
-    if (!imageData || !scanSession) return;
-
+    if (!imageData) return;
+    
     setIsProcessing(true);
-    setOcrResult(null);
-    setLabelData(null);
-
     try {
-      // Process image with OCR
-      const ocrData = await OCRService.extractTextFromImage(imageData);
-      const parsedLabelData = OCRService.parseMedicationLabel(ocrData);
-      setOcrResult(ocrData);
-      setLabelData(parsedLabelData);
-
-      // Get current medication
-      const currentMedication = scanSession.medications;
-      if (!currentMedication) {
-        throw new Error('No medication found for current index');
-      }
-
-      // For test scans, create a more realistic validation
-      let validation;
-      if (token.startsWith('test-')) {
-        // For test scans, simulate a realistic validation
-        const scannedText = ocrData.text.toLowerCase();
-        const expectedMedicationName = currentMedication.medication_name.toLowerCase();
-        
-        // Check if the scanned text contains the expected medication name or similar
-        const isMatch = scannedText.includes(expectedMedicationName) || 
-                       scannedText.includes('medication') || 
-                       scannedText.includes('tablet') ||
-                       scannedText.includes('capsule') ||
-                       scannedText.includes('mg') ||
-                       scannedText.includes('prescription');
-        
-        validation = {
-          isValid: isMatch,
-          confidence: isMatch ? 0.85 : 0.25,
-          matchedFields: isMatch ? ['medicationName'] : [],
-          errors: isMatch ? [] : ['Medication name not found in scanned text']
-        };
-      } else {
-        // For real scans, use the actual validation
-        const expectedMedication = {
-          medicationName: currentMedication.medication_name,
-          dosage: currentMedication.dosage,
-          patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
-        };
-        validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
-      }
-
-      console.log('Scan validation result:', {
-        sessionToken: token,
-        medicationId: scanSession.medication_id,
-        expectedMedication: currentMedication.medication_name,
-        scannedText: ocrData.text,
-        validation,
-        isTestScan: token.startsWith('test-')
-      });
-
-      // Determine success based on validation
-      const isSuccess = validation.isValid && validation.confidence > 0.5;
+      console.log('🔍 Starting OCR processing...');
       
-      setScanComplete(true);
-      setScanSession(prev => prev ? { 
-        ...prev, 
-        status: isSuccess ? 'completed' : 'failed' 
-      } : null);
-
+      // Create a test medication validation
+      const testMedication = 'VALACYCLOVIR HYDROCHLORID,VENLAFAXINE HCL ER';
+      
+      const result = await OCRService.extractTextFromImage(imageData);
+      console.log('📄 OCR Result:', result);
+      
+      setOcrResult(result);
+      
+      // Parse the medication label
+      const parsed = OCRService.parseMedicationLabel(result);
+      console.log('💊 Parsed medication data:', parsed);
+      
+      setLabelData(parsed);
+      
+      // Simulate validation
+      const validation = {
+        isValid: parsed.medicationNames?.some(med => 
+          testMedication.toLowerCase().includes(med.toLowerCase())
+        ) || false,
+        confidence: result.confidence / 100,
+        expectedMedication: testMedication,
+        foundMedication: parsed.medicationName
+      };
+      
+      console.log('✅ Validation result:', validation);
+      
     } catch (error) {
       console.error('Error processing image:', error);
-      setScanComplete(true);
-      setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const resetScanState = () => {
+  const resetTest = () => {
     setImageData(null);
     setOcrResult(null);
     setLabelData(null);
-    setScanComplete(false);
-    setError(null);
     setIsCameraActive(false);
     setCameraError(null);
     stopCamera();
   };
 
-  const formatTime = (timeString: string) => {
-    const time = new Date(timeString);
-    return time.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading medication session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !scanSession) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <XCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Session Error</h1>
-          <p className="text-gray-600 mb-4">
-            {error || 'Invalid or expired session'}
-          </p>
-          <p className="text-sm text-gray-500">
-            Please check your medication reminder link or contact your healthcare provider.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentMedication = scanSession.medications;
-  const progress = 100; // Assuming a single scan for now
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Medication Scan</h1>
-              <p className="text-sm text-gray-600">{scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-600">Progress</div>
-              <div className="text-lg font-semibold text-blue-600">
-                100%
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-md mx-auto">
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">📱 Camera Test Page</h1>
+          <p className="text-gray-600 mb-4">
+            Test the camera functionality for medication scanning
+          </p>
           
-          {/* Progress Bar */}
-          <div className="mt-3 bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
+          {/* Device Info */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-800">
+              <strong>Device:</strong> {navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other'} | 
+              <strong> HTTPS:</strong> {location.protocol === 'https:' ? 'Yes' : 'No'} |
+              <strong> User Agent:</strong> {navigator.userAgent.includes('Safari') ? 'Safari' : 'Other'}
+            </p>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 py-6">
-        {/* Current Medication Info */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-2">
-            Scan: {currentMedication?.medication_name}
-          </h2>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p><strong>Dosage:</strong> {currentMedication?.dosage}</p>
-            <p><strong>Scheduled Time:</strong> {formatTime(scanSession.created_at)}</p>
-            <p><strong>Instructions:</strong> Take as prescribed</p>
-          </div>
-          {token.startsWith('test-') && (
-            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-              <p className="text-xs text-yellow-800">
-                🧪 Test Mode - This is a demonstration scan
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Scan Method Selection */}
         {!imageData && !isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to scan?</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to test?</h3>
             <div className="space-y-3">
               <Button
                 onClick={startCamera}
@@ -434,7 +246,6 @@ export function ScanPageClient({ token }: { token: string }) {
                   className="hidden"
                 />
               </label>
-              
             </div>
             
             {/* iOS Safari specific note */}
@@ -444,17 +255,6 @@ export function ScanPageClient({ token }: { token: string }) {
                 use &quot;Native Camera&quot; which opens the iOS camera app.
               </p>
             </div>
-            
-            {/* Debug info for test scans */}
-            {token.startsWith('test-') && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-2">Debug Info:</p>
-                <p className="text-xs text-gray-500">Token: {token}</p>
-                <p className="text-xs text-gray-500">Expected: {scanSession?.medications?.medication_name}</p>
-                <p className="text-xs text-gray-500">Patient: {scanSession?.patients?.first_name} {scanSession?.patients?.last_name}</p>
-                <p className="text-xs text-gray-500">User Agent: {navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other'}</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -542,7 +342,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 onClick={captureImage}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
-                📸 Capture & Scan
+                📸 Capture & Test
               </Button>
               <Button
                 onClick={stopCamera}
@@ -567,89 +367,95 @@ export function ScanPageClient({ token }: { token: string }) {
                 className="w-full max-w-sm mx-auto rounded-lg border border-gray-300"
               />
             </div>
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 mt-4">
               <Button
                 onClick={processImage}
                 disabled={isProcessing}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 {isProcessing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Processing...
                   </>
                 ) : (
-                  'Process Image'
+                  <>
+                    🔍 Test OCR
+                  </>
                 )}
               </Button>
               <Button
-                onClick={resetScanState}
+                onClick={resetTest}
                 className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
               >
-                Retake
+                Reset
               </Button>
             </div>
           </div>
         )}
 
         {/* OCR Results */}
-        {ocrResult && labelData && (
+        {ocrResult && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Extracted Information</h3>
-            <div className="space-y-2 text-sm">
-              {labelData.medicationName && (
-                <p><strong>Medication:</strong> {labelData.medicationName}</p>
-              )}
-              {labelData.dosage && (
-                <p><strong>Dosage:</strong> {labelData.dosage}</p>
-              )}
-              {labelData.patientName && (
-                <p><strong>Patient:</strong> {labelData.patientName}</p>
-              )}
-              {labelData.instructions && (
-                <p><strong>Instructions:</strong> {labelData.instructions}</p>
-              )}
-              <p><strong>Confidence:</strong> {(ocrResult.confidence * 100).toFixed(1)}%</p>
-            </div>
-          </div>
-        )}
-
-        {/* Scan Result */}
-        {scanComplete && (
-          <div className={`bg-white rounded-lg shadow-sm border p-4 mb-6 ${
-            scanSession.status === 'completed' ? 'border-green-200' : 'border-red-200'
-          }`}>
-            <div className="flex items-center mb-4">
-              {scanSession.status === 'completed' ? (
-                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-500 mr-2" />
-              )}
-              <h3 className="text-lg font-medium text-gray-900">
-                {scanSession.status === 'completed' ? 'Scan Successful!' : 'Scan Failed'}
-              </h3>
-            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">OCR Results</h3>
             
-            {scanSession.status === 'completed' ? (
-              <div className="text-green-700">
-                <p>Medication verified successfully. Your compliance has been recorded.</p>
-                <p className="mt-2 font-medium">Thank you for your scan!</p>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Extracted Text:</h4>
+                <div className="bg-gray-50 p-3 rounded-lg text-sm font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {ocrResult.text}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Confidence: {ocrResult.confidence}%</p>
               </div>
-            ) : (
-              <div className="text-red-700">
-                <p>{scanSession.status === 'failed' ? 'Failed to process image. Please try again.' : 'The scanned medication does not match your prescription.'}</p>
-                <p className="mt-2">Please try again with a clearer photo of the medication label.</p>
-              </div>
-            )}
+
+              {labelData && (
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Parsed Medication Data:</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Medication:</span>
+                      <span className="text-sm font-medium">{labelData.medicationName}</span>
+                    </div>
+                    {labelData.dosage && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Dosage:</span>
+                        <span className="text-sm font-medium">{labelData.dosage}</span>
+                      </div>
+                    )}
+                    {labelData.instructions && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Instructions:</span>
+                        <span className="text-sm font-medium">{labelData.instructions}</span>
+                      </div>
+                    )}
+                    {labelData.prescriber && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Prescriber:</span>
+                        <span className="text-sm font-medium">{labelData.prescriber}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Manual Entry Fallback */}
-        {/* This section is removed as per the new_code, as manual entry is not implemented */}
+        {/* Test Instructions */}
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Test Instructions</h3>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p>1. <strong>Live Camera Preview:</strong> Should show live video feed with scanning overlay</p>
+            <p>2. <strong>Native Camera:</strong> Opens iOS camera app for photo capture</p>
+            <p>3. <strong>Upload Photo:</strong> Choose from photo library</p>
+            <p>4. <strong>OCR Test:</strong> Processes image and extracts medication data</p>
+            <p>5. <strong>Check Console:</strong> Open Safari Developer Tools to see detailed logs</p>
+          </div>
+        </div>
       </div>
 
       {/* Hidden canvas for image capture */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
-} 
+}
