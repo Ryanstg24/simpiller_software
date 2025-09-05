@@ -32,7 +32,7 @@ export default function CameraTestPage() {
     });
   }, []);
 
-  // Camera functions
+  // Camera functions - ChatGPT's approach: Set camera active first, then use useEffect
   const startCamera = async () => {
     try {
       console.log('🎥 Starting camera...');
@@ -58,45 +58,12 @@ export default function CameraTestPage() {
       console.log('📹 Camera stream obtained:', stream);
       console.log('📹 Stream tracks:', stream.getTracks());
       
-      // ChatGPT's fix: Wait for video element to be available
-      console.log('🔍 Checking videoRef.current:', videoRef.current);
+      // Store the stream and set camera active - this will trigger video element rendering
+      streamRef.current = stream;
+      setIsCameraActive(true);
       
-      // If video element doesn't exist, wait a bit and try again
-      if (!videoRef.current) {
-        console.log('⏳ Video element not ready, waiting...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (!videoRef.current) {
-          console.log('⏳ Still not ready, waiting more...');
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
+      console.log('🎯 Camera active set to true, video element should render now');
       
-      console.log('🔍 Final videoRef.current check:', videoRef.current);
-      console.log('🔍 videoRef.current type:', typeof videoRef.current);
-      console.log('🔍 videoRef.current is null:', videoRef.current === null);
-      
-      if (videoRef.current) {
-        const video = videoRef.current;
-        
-        console.log('🎯 Video element found:', !!video);
-        console.log('🎯 Video element tagName:', video.tagName);
-        
-        // ChatGPT's simple approach: Just set srcObject and play
-        video.srcObject = stream;
-        streamRef.current = stream;
-        setIsCameraActive(true);
-        
-        console.log('🎯 Video srcObject set:', !!video.srcObject);
-        
-        // ChatGPT's critical fix: Call play() immediately
-        await video.play();
-        console.log('✅ Video playing successfully!');
-      } else {
-        console.error('❌ videoRef.current is null - video element not rendered yet');
-        setCameraError('Video element not ready. Please try again.');
-        setIsCameraActive(false);
-      }
     } catch (err) {
       console.error('Error accessing camera:', err);
       let errorMessage = 'Failed to access camera. Please ensure it is enabled and try again.';
@@ -115,6 +82,32 @@ export default function CameraTestPage() {
       setIsCameraActive(false);
     }
   };
+
+  // ChatGPT's useEffect approach: Handle video element after it's rendered
+  useEffect(() => {
+    if (isCameraActive && streamRef.current && videoRef.current) {
+      console.log('🎯 Video element is now available, setting up stream...');
+      
+      const video = videoRef.current;
+      const stream = streamRef.current;
+      
+      console.log('🎯 Video element found:', !!video);
+      console.log('🎯 Video element tagName:', video.tagName);
+      
+      // ChatGPT's simple approach: Just set srcObject and play
+      video.srcObject = stream;
+      
+      console.log('🎯 Video srcObject set:', !!video.srcObject);
+      
+      // ChatGPT's critical fix: Call play() immediately
+      video.play().then(() => {
+        console.log('✅ Video playing successfully!');
+      }).catch((err) => {
+        console.error('❌ Video play failed:', err);
+        setCameraError('Failed to start video playback. Please try again.');
+      });
+    }
+  }, [isCameraActive]); // Run when isCameraActive changes
 
   const stopCamera = () => {
     if (streamRef.current) {
