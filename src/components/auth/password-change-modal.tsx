@@ -41,6 +41,14 @@ export function PasswordChangeModal({
       return;
     }
 
+    // Check for common weak passwords
+    const commonPasswords = ['password', '12345678', 'qwerty123', 'admin123'];
+    if (commonPasswords.includes(newPassword.toLowerCase())) {
+      setError('Please choose a stronger password. This password is too common.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Change password using Supabase
       const { error } = await supabase.auth.updateUser({
@@ -49,7 +57,16 @@ export function PasswordChangeModal({
 
       if (error) {
         console.error('Error changing password:', error);
-        setError(`Failed to change password: ${error.message}`);
+        
+        // Handle specific error cases
+        if (error.message.includes('New password should be different from the old password')) {
+          setError('Please choose a different password than your current temporary password.');
+        } else if (error.message.includes('Password should be at least')) {
+          setError('Password must be at least 6 characters long.');
+        } else {
+          setError(`Failed to change password: ${error.message}`);
+        }
+        
         setLoading(false);
         return;
       }
@@ -154,6 +171,9 @@ export function PasswordChangeModal({
                   <p className="mt-1">
                     You&apos;re using a temporary password. Please set a new, secure password for your account.
                   </p>
+                  <p className="mt-2 text-xs">
+                    <strong>Requirements:</strong> At least 8 characters, different from your current password, and not a common password.
+                  </p>
                 </div>
               </div>
             </div>
@@ -191,7 +211,51 @@ export function PasswordChangeModal({
             </div>
 
               {/* Form Actions */}
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex justify-between pt-4 border-t">
+                <div className="flex space-x-2">
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      // Allow user to skip password change (use with caution)
+                      if (confirm('Are you sure you want to skip changing your password? You can change it later in settings.')) {
+                        onPasswordChanged();
+                        onClose();
+                      }
+                    }}
+                    className="text-gray-600"
+                  >
+                    Skip for Now
+                  </Button>
+                  {/* Debug button - remove in production */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const { data: { user } } = await supabase.auth.getUser();
+                          if (user) {
+                            const response = await fetch('/api/admin/reset-password-requirement', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: user.id })
+                            });
+                            if (response.ok) {
+                              alert('Password requirement reset. Refreshing...');
+                              window.location.reload();
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error resetting password requirement:', error);
+                        }
+                      }}
+                      className="text-red-600 border-red-300"
+                    >
+                      Debug: Reset
+                    </Button>
+                  )}
+                </div>
                 <Button 
                   type="submit" 
                   disabled={loading || !newPassword || !confirmPassword}
