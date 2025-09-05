@@ -510,7 +510,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 <strong>📱 For best results:</strong> Use &quot;Live Camera Preview&quot; first. It will automatically capture when your medication is detected.
               </p>
               <p className="text-xs text-blue-700 mt-2">
-                <strong>Fallback:</strong> If the live camera doesn't work, try &quot;Native Camera&quot; which opens your phone&apos;s camera app.
+                <strong>Fallback:</strong> If the live camera doesn&apos;t work, try &quot;Native Camera&quot; which opens your phone&apos;s camera app.
               </p>
             </div>
             
