@@ -37,6 +37,8 @@ export function ScanPageClient({ token }: { token: string }) {
   const [scanComplete, setScanComplete] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+  const [lastCaptureTime, setLastCaptureTime] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,7 +99,7 @@ export function ScanPageClient({ token }: { token: string }) {
     loadSession();
   }, [token]);
 
-  // Camera functions
+  // Camera functions - ChatGPT's approach: Set camera active first, then use useEffect
   const startCamera = async () => {
     try {
       console.log('🎥 Starting camera...');
@@ -123,40 +125,12 @@ export function ScanPageClient({ token }: { token: string }) {
       console.log('📹 Camera stream obtained:', stream);
       console.log('📹 Stream tracks:', stream.getTracks());
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setIsCameraActive(true);
-        
-        // Force video to load and play - iOS Safari specific
-        const video = videoRef.current;
-        
-        // Wait for metadata to load before playing
-        video.onloadedmetadata = () => {
-          console.log('📺 Video metadata loaded');
-          console.log('📺 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          video.play().then(() => {
-            console.log('▶️ Video started playing');
-          }).catch((playError) => {
-            console.error('❌ Video play error:', playError);
-            // Try to play again after a short delay
-            setTimeout(() => {
-              video.play().catch(console.error);
-            }, 100);
-          });
-        };
-        
-        video.oncanplay = () => {
-          console.log('▶️ Video can play');
-        };
-        
-        video.onerror = (e) => {
-          console.error('❌ Video error:', e);
-        };
-
-        // Force load the video
-        video.load();
-      }
+      // Store the stream and set camera active - this will trigger video element rendering
+      streamRef.current = stream;
+      setIsCameraActive(true);
+      
+      console.log('🎯 Camera active set to true, video element should render now');
+      
     } catch (err) {
       console.error('Error accessing camera:', err);
       let errorMessage = 'Failed to access camera. Please ensure it is enabled and try again.';
@@ -174,6 +148,98 @@ export function ScanPageClient({ token }: { token: string }) {
       setCameraError(errorMessage);
       setIsCameraActive(false);
     }
+  };
+
+  // ChatGPT's useEffect approach: Handle video element after it's rendered
+  useEffect(() => {
+    if (isCameraActive && streamRef.current && videoRef.current) {
+      console.log('🎯 Video element is now available, setting up stream...');
+      
+      const video = videoRef.current;
+      const stream = streamRef.current;
+      
+      console.log('🎯 Video element found:', !!video);
+      console.log('🎯 Video element tagName:', video.tagName);
+      
+      // ChatGPT's simple approach: Just set srcObject and play
+      video.srcObject = stream;
+      
+      console.log('🎯 Video srcObject set:', !!video.srcObject);
+      
+      // ChatGPT's critical fix: Call play() immediately
+      video.play().then(() => {
+        console.log('✅ Video playing successfully!');
+        
+        // Start automatic capture if enabled
+        if (autoCaptureEnabled) {
+          startAutoCapture();
+        }
+      }).catch((err) => {
+        console.error('❌ Video play failed:', err);
+        setCameraError('Failed to start video playback. Please try again.');
+      });
+    }
+  }, [isCameraActive]); // Run when isCameraActive changes
+
+  // Automatic capture function
+  const startAutoCapture = () => {
+    const captureInterval = setInterval(async () => {
+      if (!isCameraActive || !videoRef.current || !canvasRef.current) {
+        clearInterval(captureInterval);
+        return;
+      }
+
+      // Don't capture too frequently (max once every 2 seconds)
+      const now = Date.now();
+      if (now - lastCaptureTime < 2000) {
+        return;
+      }
+
+      try {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        
+        if (context && video.videoWidth > 0 && video.videoHeight > 0) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0);
+          
+          const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          
+          // Process the image for medication detection
+          const result = await OCRService.extractTextFromImage(imageDataUrl);
+          const parsed = OCRService.parseMedicationLabel(result);
+          
+          // Check if we found medication names
+          if (parsed.medicationNames && parsed.medicationNames.length > 0) {
+            console.log('🔍 Auto-capture: Found medication:', parsed.medicationName);
+            
+            // Get expected medication from session data
+            const expectedMedication = scanSession?.medications?.medication_name || '';
+            
+            if (expectedMedication) {
+              const isValid = parsed.medicationNames.some(med => 
+                expectedMedication.toLowerCase().includes(med.toLowerCase()) ||
+                med.toLowerCase().includes(expectedMedication.toLowerCase())
+              );
+              
+              if (isValid && result.confidence > 30) {
+                console.log('✅ Auto-capture: Valid medication detected, capturing...');
+                setImageData(imageDataUrl);
+                setOcrResult(result);
+                setLabelData(parsed);
+                setLastCaptureTime(now);
+                clearInterval(captureInterval);
+                stopCamera();
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Auto-capture error:', error);
+      }
+    }, 1000); // Check every second
   };
 
   const stopCamera = () => {
@@ -300,6 +366,7 @@ export function ScanPageClient({ token }: { token: string }) {
     setError(null);
     setIsCameraActive(false);
     setCameraError(null);
+    setLastCaptureTime(0);
     stopCamera();
   };
 
@@ -394,24 +461,24 @@ export function ScanPageClient({ token }: { token: string }) {
         {/* Scan Method Selection */}
         {!imageData && !isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to scan?</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to scan your medication?</h3>
             <div className="space-y-3">
               <Button
                 onClick={startCamera}
-                className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center p-3 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50"
               >
                 <Camera className="h-5 w-5 text-blue-600 mr-3" />
                 <div className="text-left">
-                  <div className="font-medium text-gray-900">Live Camera Preview</div>
-                  <div className="text-sm text-gray-600">See live camera feed and capture</div>
+                  <div className="font-medium text-gray-900">📱 Live Camera Preview</div>
+                  <div className="text-sm text-gray-600">Recommended: See live camera feed and capture automatically</div>
                 </div>
               </Button>
               
               <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <Camera className="h-5 w-5 text-purple-600 mr-3" />
                 <div className="text-left">
-                  <div className="font-medium text-gray-900">Native Camera</div>
-                  <div className="text-sm text-gray-600">Use iOS camera app (fallback)</div>
+                  <div className="font-medium text-gray-900">📷 Native Camera (Fallback)</div>
+                  <div className="text-sm text-gray-600">Use iOS camera app if live preview doesn't work</div>
                 </div>
                 <input
                   type="file"
@@ -424,7 +491,7 @@ export function ScanPageClient({ token }: { token: string }) {
               <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <Upload className="h-5 w-5 text-green-600 mr-3" />
                 <div className="text-left">
-                  <div className="font-medium text-gray-900">Upload Photo</div>
+                  <div className="font-medium text-gray-900">📁 Upload Photo</div>
                   <div className="text-sm text-gray-600">Choose from your photo library</div>
                 </div>
                 <input
@@ -437,11 +504,13 @@ export function ScanPageClient({ token }: { token: string }) {
               
             </div>
             
-            {/* iOS Safari specific note */}
+            {/* Instructions */}
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800">
-                <strong>iOS Safari Users:</strong> Try &quot;Live Camera Preview&quot; first. If the camera doesn&apos;t show, 
-                use &quot;Native Camera&quot; which opens the iOS camera app.
+              <p className="text-sm text-blue-800">
+                <strong>📱 For best results:</strong> Use "Live Camera Preview" first. It will automatically capture when your medication is detected.
+              </p>
+              <p className="text-xs text-blue-700 mt-2">
+                <strong>Fallback:</strong> If the live camera doesn't work, try "Native Camera" which opens your phone's camera app.
               </p>
             </div>
             
@@ -469,9 +538,10 @@ export function ScanPageClient({ token }: { token: string }) {
                 muted
                 className="w-full h-64 object-cover"
                 style={{ 
-                  transform: 'scaleX(-1)', // Mirror the video for better UX
-                  minHeight: '256px',
-                  backgroundColor: '#000'
+                  minHeight: '400px',
+                  backgroundColor: '#000',
+                  width: '100%',
+                  height: '400px'
                 }}
                 onLoadedMetadata={() => {
                   console.log('📺 Video metadata loaded in JSX');
@@ -516,6 +586,31 @@ export function ScanPageClient({ token }: { token: string }) {
                   📹 Live
                 </div>
               </div>
+            </div>
+            
+            {/* Auto-capture controls */}
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-green-800">
+                  <strong>Auto-Capture:</strong> {autoCaptureEnabled ? 'Enabled' : 'Disabled'}
+                </p>
+                <Button
+                  onClick={() => setAutoCaptureEnabled(!autoCaptureEnabled)}
+                  className={`px-3 py-1 text-xs rounded ${
+                    autoCaptureEnabled 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-300 text-gray-700'
+                  }`}
+                >
+                  {autoCaptureEnabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
+              <p className="text-xs text-green-700">
+                {autoCaptureEnabled 
+                  ? 'Camera will automatically capture when your medication is detected'
+                  : 'Click "Capture & Scan" to manually capture'
+                }
+              </p>
             </div>
             
             {/* Camera error display */}
