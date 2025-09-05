@@ -396,7 +396,7 @@ export default function CameraTestPage() {
             {/* Debug controls */}
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-xs text-yellow-800 mb-2">
-                <strong>Debug Info:</strong> If you can't see the camera, try these buttons:
+                <strong>Debug Info:</strong> If you can&apos;t see the camera, try these buttons:
               </p>
               <div className="flex space-x-2">
                 <Button
