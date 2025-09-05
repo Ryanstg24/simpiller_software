@@ -21,6 +21,7 @@ export function PasswordChangeModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,17 @@ export function PasswordChangeModal({
       if (error) {
         console.error('Error changing password:', error);
         setError(`Failed to change password: ${error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Get the current user ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('Error getting user:', userError);
+        setError('Failed to update user record. Please try again.');
+        setLoading(false);
         return;
       }
 
@@ -56,20 +68,28 @@ export function PasswordChangeModal({
       const { error: updateError } = await supabase
         .from('users')
         .update({ password_change_required: false })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('id', user.id);
 
       if (updateError) {
         console.error('Error updating user record:', updateError);
-        // Don't fail the whole operation if this fails
+        setError('Password changed but failed to update user record. Please refresh the page.');
+        setLoading(false);
+        return;
       }
 
-      // Success - close modal and notify parent
-      onPasswordChanged();
-      onClose();
+      // Success - show success message briefly then close
+      console.log('Password changed successfully');
+      setSuccess(true);
+      setLoading(false);
+      
+      // Show success message for 2 seconds then close
+      setTimeout(() => {
+        onPasswordChanged();
+        onClose();
+      }, 2000);
     } catch (err) {
       console.error('Error in password change:', err);
       setError('Failed to change password. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -92,22 +112,35 @@ export function PasswordChangeModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {!success && (
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
-                {error}
+          {success ? (
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-            )}
+              <h3 className="text-lg font-medium text-green-800">Password Changed Successfully!</h3>
+              <p className="text-green-700">Your account is now ready. Redirecting...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
+                  {error}
+                </div>
+              )}
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
@@ -157,18 +190,19 @@ export function PasswordChangeModal({
               />
             </div>
 
-            {/* Form Actions */}
-            <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button 
-                type="submit" 
-                disabled={loading || !newPassword || !confirmPassword}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {loading ? 'Changing Password...' : 'Change Password'}
-              </Button>
-            </div>
-          </form>
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button 
+                  type="submit" 
+                  disabled={loading || !newPassword || !confirmPassword}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {loading ? 'Changing Password...' : 'Change Password'}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

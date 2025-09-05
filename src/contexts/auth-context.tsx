@@ -136,7 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Process password change requirement
       if (!userResult.error && userResult.data) {
-        setPasswordChangeRequired(userResult.data.password_change_required || false);
+        const requiresPasswordChange = userResult.data.password_change_required || false;
+        console.log('Password change required:', requiresPasswordChange);
+        setPasswordChangeRequired(requiresPasswordChange);
       }
     } catch (error) {
       console.error('Error fetching user roles:', error);
@@ -183,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     passwordChangeRequired: mounted ? passwordChangeRequired : false,
     setPasswordChangeRequired: (required: boolean) => {
       // This function will be used to manage the password change modal state
+      console.log('Setting password change required:', required);
       setPasswordChangeRequired(required);
     }
   };

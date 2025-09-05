@@ -10,7 +10,6 @@ interface PasswordChangeWrapperProps {
 
 export function PasswordChangeWrapper({ children }: PasswordChangeWrapperProps) {
   const { passwordChangeRequired, setPasswordChangeRequired } = useAuth();
-  const [showModal, setShowModal] = useState(false);
 
   // Show modal if password change is required
   if (passwordChangeRequired) {
