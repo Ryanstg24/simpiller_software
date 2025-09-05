@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Create a Supabase client with the service role key (server-side only)
+// Create a Supabase client with service role key for admin operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // This should be in your .env.local
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
     auth: {
       autoRefreshToken: false,
@@ -16,10 +16,22 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, first_name, last_name, phone, npi, organization_id, role } = body;
+    const { 
+      email, 
+      password, 
+      first_name, 
+      last_name, 
+      phone, 
+      npi, 
+      license_number, 
+      specialty, 
+      is_active,
+      organization_id,
+      roles 
+    } = body;
 
     // Validate required fields
-    if (!email || !password || !first_name || !last_name || !role) {
+    if (!email || !password || !first_name || !last_name || !organization_id || !roles?.length) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -30,111 +42,105 @@ export async function POST(request: NextRequest) {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: true, // Auto-confirm email
       user_metadata: {
         first_name,
-        last_name
+        last_name,
+        phone,
+        npi,
+        license_number,
+        specialty,
+        is_active
       }
     });
 
     if (authError) {
-      console.error('Error creating user:', authError);
+      console.error('Error creating auth user:', authError);
       return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 400 }
+        { error: 'Failed to create user account' },
+        { status: 500 }
       );
     }
 
-    const userId = authData.user?.id;
-    if (!userId) {
+    if (!authData.user) {
       return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 400 }
+        { error: 'No user data returned from auth creation' },
+        { status: 500 }
       );
     }
 
-    // Insert user data into our users table
-    const { error: userError } = await supabaseAdmin
+    // Create the user record in our users table
+    const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: userId,
-        email,
+      .insert([{
+        id: authData.user.id, // Use the auth user ID
         first_name,
         last_name,
-        phone: phone || null,
-        npi: npi || null,
-        is_active: true
-      });
+        email,
+        phone,
+        npi,
+        license_number,
+        specialty,
+        is_active,
+        password_change_required: true // Force password change on first login
+      }])
+      .select()
+      .single();
 
     if (userError) {
-      console.error('Error inserting user data:', userError);
+      console.error('Error creating user record:', userError);
+      // Try to clean up the auth user if user record creation fails
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 400 }
+        { error: 'Failed to create user profile' },
+        { status: 500 }
       );
     }
 
-    // Assign the role if selected
-    if (role) {
-      let roleId: string;
+    // Create user roles
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('id')
+      .in('name', roles)
+      .eq('organization_id', organization_id);
 
-      if (role === 'simpiller_admin') {
-        // Get the Simpiller Admin role (system-wide)
-        const { data: roleData, error: roleError } = await supabaseAdmin
-          .from('user_roles')
-          .select('id')
-          .eq('name', 'simpiller_admin')
-          .is('organization_id', null)
-          .single();
-
-        if (roleError) {
-          console.error('Error getting role:', roleError);
-          return NextResponse.json(
-            { error: 'Failed to assign role' },
-            { status: 400 }
-          );
-        }
-        roleId = roleData.id;
-      } else {
-        // Get the organization-specific role
-        const { data: roleData, error: roleError } = await supabaseAdmin
-          .from('user_roles')
-          .select('id')
-          .eq('name', role)
-          .eq('organization_id', organization_id)
-          .single();
-
-        if (roleError) {
-          console.error('Error getting role:', roleError);
-          return NextResponse.json(
-            { error: 'Failed to assign role' },
-            { status: 400 }
-          );
-        }
-        roleId = roleData.id;
-      }
-
-      // Assign the role to the user
-      const { error: assignmentError } = await supabaseAdmin
-        .from('user_role_assignments')
-        .insert({
-          user_id: userId,
-          role_id: roleId
-        });
-
-      if (assignmentError) {
-        console.error('Error assigning role:', assignmentError);
-        return NextResponse.json(
-          { error: 'Failed to assign role' },
-          { status: 400 }
-        );
-      }
+    if (roleError) {
+      console.error('Error fetching roles:', roleError);
+      // Clean up
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      await supabaseAdmin.from('users').delete().eq('id', authData.user.id);
+      return NextResponse.json(
+        { error: 'Failed to assign roles' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json(
-      { success: true, user: authData.user },
-      { status: 201 }
-    );
+    // Create user role assignments
+    const roleAssignments = roleData.map(role => ({
+      user_id: authData.user.id,
+      role_id: role.id
+    }));
+
+    const { error: assignmentError } = await supabaseAdmin
+      .from('user_role_assignments')
+      .insert(roleAssignments);
+
+    if (assignmentError) {
+      console.error('Error creating role assignments:', assignmentError);
+      // Clean up
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      await supabaseAdmin.from('users').delete().eq('id', authData.user.id);
+      return NextResponse.json(
+        { error: 'Failed to assign roles' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: newUser,
+      password // Return the password so it can be displayed to the admin
+    });
 
   } catch (error) {
     console.error('Error in user creation API:', error);
@@ -143,4 +149,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

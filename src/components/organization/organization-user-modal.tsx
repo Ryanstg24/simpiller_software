@@ -147,25 +147,35 @@ export function OrganizationUserModal({
         const tempPassword = generateTemporaryPassword();
         setGeneratedPassword(tempPassword);
         
-        const { data: newUser, error: userError } = await supabase
-          .from('users')
-          .insert([{
-            ...formData,
-            encrypted_password: tempPassword, // This should be hashed in production
-            password_change_required: true // Force password change on first login
-          }])
-          .select()
-          .single();
+        // Call the API endpoint to create the user
+        const response = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: tempPassword,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            phone: formData.phone,
+            npi: formData.npi,
+            license_number: formData.license_number,
+            specialty: formData.specialty,
+            is_active: formData.is_active,
+            organization_id: userOrganizationId,
+            roles: selectedRoles
+          })
+        });
 
-        if (userError) {
-          console.error('Error creating user:', userError);
-          alert('Failed to create user. Please try again.');
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error('Error creating user:', result.error);
+          alert(`Failed to create user: ${result.error}`);
           return;
         }
 
-        // Create user roles
-        await createUserRoles(newUser.id, selectedRoles);
-        
         // Show success with password info
         setShowPassword(true);
         setSuccess(true);
@@ -194,8 +204,20 @@ export function OrganizationUserModal({
     }
   };
 
-  const createUserRoles = async (userId: string, roles: string[]) => {
-    // First, get the role IDs for the selected roles
+
+  const updateUserRoles = async (userId: string, roles: string[]) => {
+    // First, remove all existing role assignments for this user
+    const { error: deleteError } = await supabase
+      .from('user_role_assignments')
+      .delete()
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting existing role assignments:', deleteError);
+      throw new Error('Failed to update roles');
+    }
+
+    // Then create new role assignments
     const { data: roleData, error: roleError } = await supabase
       .from('user_roles')
       .select('id')
@@ -223,22 +245,6 @@ export function OrganizationUserModal({
     }
   };
 
-  const updateUserRoles = async (userId: string, roles: string[]) => {
-    // First, remove all existing role assignments for this user
-    const { error: deleteError } = await supabase
-      .from('user_role_assignments')
-      .delete()
-      .eq('user_id', userId);
-
-    if (deleteError) {
-      console.error('Error deleting existing role assignments:', deleteError);
-      throw new Error('Failed to update roles');
-    }
-
-    // Then create new role assignments
-    await createUserRoles(userId, roles);
-  };
-
   const handleRoleToggle = (role: string) => {
     setSelectedRoles(prev => 
       prev.includes(role) 
@@ -263,28 +269,28 @@ export function OrganizationUserModal({
     if (!user?.id) return;
     
     try {
-      // Fetch the user's encrypted password from the database
+      // Check if user has password_change_required flag
       const { data, error } = await supabase
         .from('users')
-        .select('encrypted_password')
+        .select('password_change_required')
         .eq('id', user.id)
         .single();
 
       if (error) {
-        console.error('Error fetching password:', error);
-        alert('Failed to retrieve password. Please try again.');
+        console.error('Error fetching user data:', error);
+        alert('Failed to retrieve user data. Please try again.');
         return;
       }
 
-      if (data?.encrypted_password) {
-        setGeneratedPassword(data.encrypted_password);
-        setShowTempPassword(true);
+      if (data?.password_change_required) {
+        // Show a message that the user needs to reset their password
+        alert('This user has a temporary password that was set during account creation. The password cannot be retrieved for security reasons. Please ask the user to use the "Forgot Password" feature to reset their password.');
       } else {
-        alert('No temporary password found for this user.');
+        alert('This user has already changed their password. The temporary password is no longer available.');
       }
     } catch (error) {
-      console.error('Error fetching password:', error);
-      alert('Failed to retrieve password. Please try again.');
+      console.error('Error fetching user data:', error);
+      alert('Failed to retrieve user data. Please try again.');
     }
   };
 
@@ -311,13 +317,12 @@ export function OrganizationUserModal({
               <>
                 <button
                   onClick={handleShowTempPassword}
-                  className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                  className="flex items-center space-x-1 px-3 py-1 text-sm bg-orange-600 text-white rounded hover:bg-orange-700"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span>Show Password</span>
+                  <span>Password Info</span>
                 </button>
                 <button
                   onClick={() => setIsEditing(true)}
@@ -523,7 +528,7 @@ export function OrganizationUserModal({
                         User Created Successfully!
                       </h3>
                       <p className="text-green-700">
-                        A temporary password has been generated. Please copy and share it securely with the new user.
+                        A temporary password has been generated and the user account is ready. Please copy and share the password securely with the new user.
                       </p>
                     </div>
                     
@@ -601,61 +606,6 @@ export function OrganizationUserModal({
                   </div>
                 )}
 
-                {/* Password Display for Existing Users */}
-                {showTempPassword && generatedPassword && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                    <div className="text-center mb-4">
-                      <h3 className="text-lg font-medium text-blue-800 mb-2">
-                        Temporary Password
-                      </h3>
-                      <p className="text-blue-700 text-sm">
-                        This is the temporary password for this user. Share it securely.
-                      </p>
-                    </div>
-                    
-                    {/* Password Display - Large and Copyable */}
-                    <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-3">
-                          <input
-                            type="text"
-                            value={generatedPassword}
-                            readOnly
-                            className="font-mono text-xl font-bold text-blue-600 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-center w-full max-w-md"
-                            onClick={(e) => e.currentTarget.select()}
-                          />
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(generatedPassword);
-                              setCopySuccess(true);
-                              setTimeout(() => setCopySuccess(false), 2000);
-                            }}
-                            className={`px-4 py-2 rounded transition-colors ${
-                              copySuccess 
-                                ? 'bg-green-600 text-white' 
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
-                          >
-                            {copySuccess ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-center">
-                      <Button 
-                        onClick={() => {
-                          setShowTempPassword(false);
-                          setGeneratedPassword('');
-                        }}
-                        variant="outline"
-                        className="px-6"
-                      >
-                        Close
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 {/* User Details Display */}
                 {!showPassword && !showTempPassword && (
@@ -732,18 +682,17 @@ export function OrganizationUserModal({
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-700">Temporary Password</p>
-                            <p className="text-xs text-gray-500">View the temporary password for this user</p>
+                            <p className="text-sm font-medium text-gray-700">Password Status</p>
+                            <p className="text-xs text-gray-500">Check password status and reset options</p>
                           </div>
                           <Button 
                             onClick={handleShowTempPassword}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-orange-600 hover:bg-orange-700 text-white"
                           >
                             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            Show Password
+                            Password Info
                           </Button>
                         </div>
                       </div>
