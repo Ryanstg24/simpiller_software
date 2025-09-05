@@ -37,6 +37,8 @@ export function OrganizationUserModal({
   const [generatedPassword, setGeneratedPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -72,6 +74,8 @@ export function OrganizationUserModal({
     setShowPassword(false);
     setSuccess(false);
     setLoading(false);
+    setValidationErrors([]);
+    setCopySuccess(false);
   }, [user, isOpen]);
 
   // Check authorization after all hooks
@@ -89,13 +93,32 @@ export function OrganizationUserModal({
   };
 
   const handleSaveUser = async () => {
-    if (!formData.first_name || !formData.last_name || !formData.email) {
-      alert('Please enter first name, last name, and email.');
-      return;
+    // Clear previous validation errors
+    setValidationErrors([]);
+    
+    // Validate required fields
+    const errors: string[] = [];
+    
+    if (!formData.first_name?.trim()) {
+      errors.push('First name is required');
     }
-
+    
+    if (!formData.last_name?.trim()) {
+      errors.push('Last name is required');
+    }
+    
+    if (!formData.email?.trim()) {
+      errors.push('Email is required');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push('Please enter a valid email address');
+    }
+    
     if (selectedRoles.length === 0) {
-      alert('Please select at least one role.');
+      errors.push('Please select at least one role');
+    }
+    
+    if (errors.length > 0) {
+      setValidationErrors(errors);
       return;
     }
 
@@ -145,14 +168,14 @@ export function OrganizationUserModal({
         setShowPassword(true);
         setSuccess(true);
         
-        // Auto-close modal after 5 seconds
+        // Auto-close modal after 10 seconds
         setTimeout(() => {
           setShowPassword(false);
           setGeneratedPassword('');
           setSuccess(false);
           onUserUpdated();
           onClose();
-        }, 5000);
+        }, 10000);
         
         return; // Don't close modal yet, show password info
       }
@@ -219,6 +242,18 @@ export function OrganizationUserModal({
         ? prev.filter(r => r !== role)
         : [...prev, role]
     );
+    // Clear validation errors when user makes changes
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear validation errors when user makes changes
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
   };
 
   if (!isOpen) return null;
@@ -263,6 +298,25 @@ export function OrganizationUserModal({
           <div className="p-6">
             {isEditing ? (
               <div className="space-y-6">
+                {/* Validation Errors */}
+                {validationErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <svg className="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <h4 className="font-medium text-red-800 mb-2">Please fix the following errors:</h4>
+                        <ul className="text-sm text-red-700 space-y-1">
+                          {validationErrors.map((error, index) => (
+                            <li key={index}>• {error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Basic Information */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
@@ -272,7 +326,7 @@ export function OrganizationUserModal({
                       <input
                         type="text"
                         value={formData.first_name}
-                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        onChange={(e) => handleInputChange('first_name', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="First name"
                       />
@@ -282,7 +336,7 @@ export function OrganizationUserModal({
                       <input
                         type="text"
                         value={formData.last_name}
-                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        onChange={(e) => handleInputChange('last_name', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="Last name"
                       />
@@ -292,7 +346,7 @@ export function OrganizationUserModal({
                       <input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="email@example.com"
                       />
@@ -302,7 +356,7 @@ export function OrganizationUserModal({
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="Phone number"
                       />
@@ -414,35 +468,79 @@ export function OrganizationUserModal({
               <div className="space-y-6">
                 {/* Password Display for New Users */}
                 {showPassword && generatedPassword && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 className="text-lg font-medium text-green-800 mb-3">
-                      ✅ User Created Successfully!
-                    </h3>
-                    <div className="space-y-3">
-                      <p className="text-sm text-green-700">
-                        A temporary password has been generated for the new user. Please share this information securely:
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <div className="text-center mb-6">
+                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h3 className="text-2xl font-bold text-green-800 mb-2">
+                        User Created Successfully!
+                      </h3>
+                      <p className="text-green-700">
+                        A temporary password has been generated. Please copy and share it securely with the new user.
                       </p>
-                      <div className="bg-white border border-green-300 rounded p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Temporary Password:</span>
-                          <span className="font-mono text-lg font-bold text-green-600">{generatedPassword}</span>
+                    </div>
+                    
+                    {/* Password Display - Large and Copyable */}
+                    <div className="bg-white border-2 border-green-300 rounded-lg p-4 mb-4">
+                      <div className="text-center">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Temporary Password
+                        </label>
+                        <div className="flex items-center justify-center space-x-3">
+                          <input
+                            type="text"
+                            value={generatedPassword}
+                            readOnly
+                            className="font-mono text-xl font-bold text-green-600 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-center w-full max-w-md"
+                            onClick={(e) => e.currentTarget.select()}
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedPassword);
+                              setCopySuccess(true);
+                              setTimeout(() => setCopySuccess(false), 2000);
+                            }}
+                            className={`px-4 py-2 rounded transition-colors ${
+                              copySuccess 
+                                ? 'bg-green-600 text-white' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            {copySuccess ? 'Copied!' : 'Copy'}
+                          </button>
                         </div>
                       </div>
-                      <div className="text-sm text-green-700 space-y-1">
-                        <p><strong>Important:</strong></p>
-                        <ul className="list-disc list-inside space-y-1 ml-2">
-                          <li>Share this password securely with the new user</li>
-                          <li>The user will be prompted to change their password on first login</li>
-                          <li>This temporary password will only be shown once</li>
-                        </ul>
-                      </div>
-                      <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
-                        <p className="text-sm text-blue-700">
-                          <strong>Note:</strong> This modal will automatically close in 5 seconds and refresh the user list.
-                        </p>
+                    </div>
+                    
+                    {/* Important Instructions */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-start space-x-3">
+                        <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <h4 className="font-medium text-yellow-800 mb-2">Important Instructions:</h4>
+                          <ul className="text-sm text-yellow-700 space-y-1">
+                            <li>• Share this password securely with the new user</li>
+                            <li>• The user will be forced to change their password on first login</li>
+                            <li>• This temporary password will only be shown once</li>
+                            <li>• Save this password somewhere safe until the user logs in</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                    <div className="mt-4 flex justify-end">
+                    
+                    {/* Auto-close notice */}
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
+                      <p className="text-sm text-blue-700 text-center">
+                        <strong>Note:</strong> This modal will automatically close in 10 seconds and refresh the user list.
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-center">
                       <Button 
                         onClick={() => {
                           setShowPassword(false);
@@ -451,7 +549,7 @@ export function OrganizationUserModal({
                           onUserUpdated();
                           onClose();
                         }}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="bg-green-600 hover:bg-green-700 text-white px-8"
                       >
                         Done
                       </Button>
