@@ -478,7 +478,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 <Camera className="h-5 w-5 text-purple-600 mr-3" />
                 <div className="text-left">
                   <div className="font-medium text-gray-900">📷 Native Camera (Fallback)</div>
-                  <div className="text-sm text-gray-600">Use iOS camera app if live preview doesn't work</div>
+                  <div className="text-sm text-gray-600">Use iOS camera app if live preview doesn&apos;t work</div>
                 </div>
                 <input
                   type="file"
@@ -507,10 +507,10 @@ export function ScanPageClient({ token }: { token: string }) {
             {/* Instructions */}
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>📱 For best results:</strong> Use "Live Camera Preview" first. It will automatically capture when your medication is detected.
+                <strong>📱 For best results:</strong> Use &quot;Live Camera Preview&quot; first. It will automatically capture when your medication is detected.
               </p>
               <p className="text-xs text-blue-700 mt-2">
-                <strong>Fallback:</strong> If the live camera doesn't work, try "Native Camera" which opens your phone's camera app.
+                <strong>Fallback:</strong> If the live camera doesn't work, try &quot;Native Camera&quot; which opens your phone&apos;s camera app.
               </p>
             </div>
             
