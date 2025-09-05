@@ -45,6 +45,30 @@ export function ScanPageClient({ token }: { token: string }) {
   useEffect(() => {
     const loadSession = async () => {
       try {
+        // Check if this is a test scan (starts with "test-")
+        if (token.startsWith('test-')) {
+          // Create a mock test session
+          const testSession: ScanSession = {
+            id: token,
+            patient_id: 'test-patient',
+            medication_id: 'test-medication',
+            scan_token: token,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+            patients: {
+              first_name: 'Test',
+              last_name: 'Patient'
+            },
+            medications: {
+              medication_name: 'Test Medication',
+              dosage: '500mg'
+            }
+          };
+          setScanSession(testSession);
+          return;
+        }
+
+        // Load real session data
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${token}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -261,6 +285,13 @@ export function ScanPageClient({ token }: { token: string }) {
             <p><strong>Scheduled Time:</strong> {formatTime(scanSession.created_at)}</p>
             <p><strong>Instructions:</strong> Take as prescribed</p>
           </div>
+          {token.startsWith('test-') && (
+            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+              <p className="text-xs text-yellow-800">
+                🧪 Test Mode - This is a demonstration scan
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Scan Method Selection */}
