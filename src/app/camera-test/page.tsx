@@ -58,178 +58,44 @@ export default function CameraTestPage() {
       console.log('📹 Camera stream obtained:', stream);
       console.log('📹 Stream tracks:', stream.getTracks());
       
+      // ChatGPT's fix: Wait for video element to be available
       console.log('🔍 Checking videoRef.current:', videoRef.current);
+      
+      // If video element doesn't exist, wait a bit and try again
+      if (!videoRef.current) {
+        console.log('⏳ Video element not ready, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (!videoRef.current) {
+          console.log('⏳ Still not ready, waiting more...');
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      console.log('🔍 Final videoRef.current check:', videoRef.current);
       console.log('🔍 videoRef.current type:', typeof videoRef.current);
       console.log('🔍 videoRef.current is null:', videoRef.current === null);
-      console.log('🔍 videoRef.current is undefined:', videoRef.current === undefined);
       
       if (videoRef.current) {
         const video = videoRef.current;
         
         console.log('🎯 Video element found:', !!video);
         console.log('🎯 Video element tagName:', video.tagName);
-        console.log('🎯 Video element id:', video.id);
         
-        // iOS Safari specific: Set attributes BEFORE setting srcObject
-        video.setAttribute('autoplay', '');
-        video.setAttribute('muted', '');
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', 'true');
-        
-        // Set properties as well
-        video.autoplay = true;
-        video.muted = true;
-        video.playsInline = true;
-        
-        console.log('🎯 Video attributes set - autoplay:', video.autoplay, 'playsInline:', video.playsInline, 'muted:', video.muted);
-        console.log('🎯 Video hasAttribute autoplay:', video.hasAttribute('autoplay'));
-        console.log('🎯 Video hasAttribute playsinline:', video.hasAttribute('playsinline'));
-        console.log('🎯 Video hasAttribute webkit-playsinline:', video.hasAttribute('webkit-playsinline'));
-        
-        // Set the stream AFTER setting attributes
+        // ChatGPT's simple approach: Just set srcObject and play
         video.srcObject = stream;
         streamRef.current = stream;
         setIsCameraActive(true);
         
         console.log('🎯 Video srcObject set:', !!video.srcObject);
-        console.log('🎯 Video readyState after srcObject:', video.readyState);
         
-        // Force video to load and play - iOS Safari specific
-        
-        // Wait for metadata to load before playing
-        video.onloadedmetadata = () => {
-          console.log('📺 Video metadata loaded');
-          console.log('📺 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          console.log('📺 Video srcObject:', video.srcObject);
-          console.log('📺 Video readyState:', video.readyState);
-          
-          // iOS Safari: Set video dimensions dynamically
-          if (video.videoWidth > 0 && video.videoHeight > 0) {
-            video.width = video.videoWidth;
-            video.height = video.videoHeight;
-            console.log('📺 Video dimensions set to:', video.width, 'x', video.height);
-          }
-          
-          video.play().then(() => {
-            console.log('▶️ Video started playing');
-            console.log('▶️ Video paused:', video.paused);
-            console.log('▶️ Video currentTime:', video.currentTime);
-          }).catch((playError) => {
-            console.error('❌ Video play error:', playError);
-            // Try to play again after a short delay
-            setTimeout(() => {
-              video.play().catch(console.error);
-            }, 100);
-          });
-        };
-        
-        video.oncanplay = () => {
-          console.log('▶️ Video can play');
-          console.log('▶️ Video dimensions on canplay:', video.videoWidth, 'x', video.videoHeight);
-        };
-        
-        video.onerror = (e) => {
-          console.error('❌ Video error:', e);
-        };
-
-        video.onloadstart = () => {
-          console.log('🔄 Video load started');
-        };
-
-        video.onloadeddata = () => {
-          console.log('📊 Video data loaded');
-          console.log('📊 Video dimensions on loadeddata:', video.videoWidth, 'x', video.videoHeight);
-        };
-
-        // Force load the video
-        video.load();
-        
-        // Immediate play attempt
-        setTimeout(() => {
-          console.log('🚀 Immediate play attempt...');
-          video.play().then(() => {
-            console.log('✅ Immediate play successful');
-          }).catch((err) => {
-            console.log('❌ Immediate play failed:', err);
-          });
-        }, 100);
-        
-        // Additional iOS Safari fix - ensure video is visible
-        setTimeout(() => {
-          console.log('🔄 Checking video after 500ms...');
-          console.log('🔄 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          console.log('🔄 Video srcObject:', video.srcObject);
-          console.log('🔄 Video readyState:', video.readyState);
-          console.log('🔄 Video paused:', video.paused);
-          console.log('🔄 Video currentTime:', video.currentTime);
-          
-          if (video.videoWidth === 0 && video.videoHeight === 0) {
-            console.log('🔄 Video dimensions still 0, trying iOS Safari workaround...');
-            
-            // iOS Safari workaround: Create a new video element
-            const newVideo = document.createElement('video');
-            newVideo.setAttribute('autoplay', '');
-            newVideo.setAttribute('muted', '');
-            newVideo.setAttribute('playsinline', '');
-            newVideo.setAttribute('webkit-playsinline', 'true');
-            newVideo.style.width = '100%';
-            newVideo.style.height = '256px';
-            newVideo.style.backgroundColor = '#000';
-            newVideo.style.transform = 'scaleX(-1)';
-            
-            // Replace the old video element
-            if (video.parentNode) {
-              video.parentNode.replaceChild(newVideo, video);
-              videoRef.current = newVideo;
-              
-              // Set the stream on the new video element
-              newVideo.srcObject = stream;
-              newVideo.load();
-              newVideo.play().catch(console.error);
-              
-              console.log('🔄 New video element created and stream assigned');
-            }
-          }
-        }, 500);
+        // ChatGPT's critical fix: Call play() immediately
+        await video.play();
+        console.log('✅ Video playing successfully!');
       } else {
-        console.error('❌ videoRef.current is null or undefined!');
-        console.error('❌ This means the video element is not rendered yet');
-        
-        // ChatGPT's solution: Create video element directly
-        console.log('🔧 Creating video element directly...');
-        const videoContainer = document.getElementById('video-container');
-        if (videoContainer) {
-          const video = document.createElement('video');
-          video.id = 'direct-camera-video';
-          video.setAttribute('autoplay', '');
-          video.setAttribute('playsinline', '');
-          video.setAttribute('muted', '');
-          video.setAttribute('webkit-playsinline', 'true');
-          video.style.width = '100%';
-          video.style.height = '256px';
-          video.style.backgroundColor = '#000';
-          video.style.transform = 'scaleX(-1)';
-          video.style.objectFit = 'cover';
-          
-          videoContainer.appendChild(video);
-          
-          // Set the stream and play
-          video.srcObject = stream;
-          streamRef.current = stream;
-          setIsCameraActive(true);
-          
-          console.log('🔧 Direct video element created, setting stream...');
-          
-          // ChatGPT's critical fix: Call play() immediately
-          video.play().then(() => {
-            console.log('✅ Direct video play successful!');
-          }).catch((err) => {
-            console.error('❌ Direct video play failed:', err);
-          });
-        } else {
-          setCameraError('Video container not found. Please try again.');
-          setIsCameraActive(false);
-        }
+        console.error('❌ videoRef.current is null - video element not rendered yet');
+        setCameraError('Video element not ready. Please try again.');
+        setIsCameraActive(false);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -420,7 +286,6 @@ export default function CameraTestPage() {
                 autoPlay
                 playsInline
                 muted
-                webkit-playsinline="true"
                 className="w-full h-64 object-cover"
                 style={{ 
                   transform: 'scaleX(-1)', // Mirror the video for better UX
@@ -428,26 +293,6 @@ export default function CameraTestPage() {
                   backgroundColor: '#000',
                   width: '100%',
                   height: '256px'
-                }}
-                onLoadedMetadata={() => {
-                  console.log('📺 Video metadata loaded in JSX');
-                  console.log('📺 Video element dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
-                  if (videoRef.current) {
-                    videoRef.current.play().catch(console.error);
-                  }
-                }}
-                onCanPlay={() => {
-                  console.log('▶️ Video can play in JSX');
-                  console.log('📺 Video ready state:', videoRef.current?.readyState);
-                }}
-                onError={(e) => {
-                  console.error('❌ Video error in JSX:', e);
-                }}
-                onLoadStart={() => {
-                  console.log('🔄 Video load started');
-                }}
-                onLoadedData={() => {
-                  console.log('📊 Video data loaded');
                 }}
               />
               {/* Scanning overlay */}
