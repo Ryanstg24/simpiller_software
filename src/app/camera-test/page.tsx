@@ -61,26 +61,33 @@ export default function CameraTestPage() {
       if (videoRef.current) {
         const video = videoRef.current;
         
-        // Set the stream
+        console.log('🎯 Video element found:', !!video);
+        console.log('🎯 Video element tagName:', video.tagName);
+        console.log('🎯 Video element id:', video.id);
+        
+        // iOS Safari specific: Set attributes BEFORE setting srcObject
+        video.setAttribute('autoplay', '');
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', 'true');
+        
+        // Set properties as well
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        
+        console.log('🎯 Video attributes set - autoplay:', video.autoplay, 'playsInline:', video.playsInline, 'muted:', video.muted);
+        console.log('🎯 Video hasAttribute autoplay:', video.hasAttribute('autoplay'));
+        console.log('🎯 Video hasAttribute playsinline:', video.hasAttribute('playsinline'));
+        console.log('🎯 Video hasAttribute webkit-playsinline:', video.hasAttribute('webkit-playsinline'));
+        
+        // Set the stream AFTER setting attributes
         video.srcObject = stream;
         streamRef.current = stream;
         setIsCameraActive(true);
         
-        // Immediate debugging
-        console.log('🎯 Video element found:', !!video);
         console.log('🎯 Video srcObject set:', !!video.srcObject);
-        console.log('🎯 Video autoplay:', video.autoplay);
-        console.log('🎯 Video playsInline:', video.playsInline);
-        console.log('🎯 Video muted:', video.muted);
-        console.log('🎯 Video readyState before load:', video.readyState);
-        
-        // Ensure all required attributes are set
-        video.autoplay = true;
-        video.playsInline = true;
-        video.muted = true;
-        video.setAttribute('webkit-playsinline', 'true');
-        
-        console.log('🎯 Video attributes set - autoplay:', video.autoplay, 'playsInline:', video.playsInline, 'muted:', video.muted);
+        console.log('🎯 Video readyState after srcObject:', video.readyState);
         
         // Force video to load and play - iOS Safari specific
         
@@ -90,6 +97,13 @@ export default function CameraTestPage() {
           console.log('📺 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
           console.log('📺 Video srcObject:', video.srcObject);
           console.log('📺 Video readyState:', video.readyState);
+          
+          // iOS Safari: Set video dimensions dynamically
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            video.width = video.videoWidth;
+            video.height = video.videoHeight;
+            console.log('📺 Video dimensions set to:', video.width, 'x', video.height);
+          }
           
           video.play().then(() => {
             console.log('▶️ Video started playing');
@@ -145,10 +159,31 @@ export default function CameraTestPage() {
           console.log('🔄 Video currentTime:', video.currentTime);
           
           if (video.videoWidth === 0 && video.videoHeight === 0) {
-            console.log('🔄 Video dimensions still 0, retrying...');
-            video.srcObject = stream;
-            video.load();
-            video.play().catch(console.error);
+            console.log('🔄 Video dimensions still 0, trying iOS Safari workaround...');
+            
+            // iOS Safari workaround: Create a new video element
+            const newVideo = document.createElement('video');
+            newVideo.setAttribute('autoplay', '');
+            newVideo.setAttribute('muted', '');
+            newVideo.setAttribute('playsinline', '');
+            newVideo.setAttribute('webkit-playsinline', 'true');
+            newVideo.style.width = '100%';
+            newVideo.style.height = '256px';
+            newVideo.style.backgroundColor = '#000';
+            newVideo.style.transform = 'scaleX(-1)';
+            
+            // Replace the old video element
+            if (video.parentNode) {
+              video.parentNode.replaceChild(newVideo, video);
+              videoRef.current = newVideo;
+              
+              // Set the stream on the new video element
+              newVideo.srcObject = stream;
+              newVideo.load();
+              newVideo.play().catch(console.error);
+              
+              console.log('🔄 New video element created and stream assigned');
+            }
           }
         }, 500);
       }
