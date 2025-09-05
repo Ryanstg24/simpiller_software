@@ -106,36 +106,54 @@ export function ScanPageClient({ token }: { token: string }) {
         throw new Error('Camera access is not supported on this device');
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      // iOS Safari specific constraints
+      const constraints = {
+        video: {
           facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
+        }
+      };
+
+      console.log('📹 Requesting camera with constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
       console.log('📹 Camera stream obtained:', stream);
+      console.log('📹 Stream tracks:', stream.getTracks());
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsCameraActive(true);
         
-        // Wait for video to load and play
-        videoRef.current.onloadedmetadata = () => {
+        // Force video to load and play
+        const video = videoRef.current;
+        
+        // iOS Safari specific handling
+        video.onloadedmetadata = () => {
           console.log('📺 Video metadata loaded');
-          if (videoRef.current) {
-            videoRef.current.play().catch(console.error);
-          }
+          console.log('📺 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          video.play().then(() => {
+            console.log('▶️ Video started playing');
+          }).catch((playError) => {
+            console.error('❌ Video play error:', playError);
+            // Try to play again after a short delay
+            setTimeout(() => {
+              video.play().catch(console.error);
+            }, 100);
+          });
         };
         
-        videoRef.current.oncanplay = () => {
+        video.oncanplay = () => {
           console.log('▶️ Video can play');
         };
         
-        videoRef.current.onerror = (e) => {
+        video.onerror = (e) => {
           console.error('❌ Video error:', e);
         };
+
+        // Force load the video
+        video.load();
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -401,6 +419,14 @@ export function ScanPageClient({ token }: { token: string }) {
               </label>
             </div>
             
+            {/* iOS Safari specific note */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                <strong>iOS Safari Users:</strong> If the camera doesn't show, try using "Upload Photo" instead. 
+                This is a known limitation with iOS Safari camera access.
+              </p>
+            </div>
+            
             {/* Debug info for test scans */}
             {token.startsWith('test-') && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
@@ -408,6 +434,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 <p className="text-xs text-gray-500">Token: {token}</p>
                 <p className="text-xs text-gray-500">Expected: {scanSession?.medications?.medication_name}</p>
                 <p className="text-xs text-gray-500">Patient: {scanSession?.patients?.first_name} {scanSession?.patients?.last_name}</p>
+                <p className="text-xs text-gray-500">User Agent: {navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other'}</p>
               </div>
             )}
           </div>
@@ -426,7 +453,20 @@ export function ScanPageClient({ token }: { token: string }) {
                 className="w-full h-64 object-cover"
                 style={{ 
                   transform: 'scaleX(-1)', // Mirror the video for better UX
-                  minHeight: '256px'
+                  minHeight: '256px',
+                  backgroundColor: '#000'
+                }}
+                onLoadedMetadata={() => {
+                  console.log('📺 Video metadata loaded in JSX');
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(console.error);
+                  }
+                }}
+                onCanPlay={() => {
+                  console.log('▶️ Video can play in JSX');
+                }}
+                onError={(e) => {
+                  console.error('❌ Video error in JSX:', e);
                 }}
               />
               {/* Scanning overlay */}
