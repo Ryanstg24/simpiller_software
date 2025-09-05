@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate a test scan link
-    const testScanLink = `http://localhost:3000/scan/test-${Date.now()}`;
+    // Generate a test scan link using Vercel domain
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://simpiller-software.vercel.app';
+    const testScanLink = `${baseUrl}/scan/test-${Date.now()}`;
     console.log('🔗 Generated scan link:', testScanLink);
 
     // Format phone number
