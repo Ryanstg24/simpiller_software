@@ -70,8 +70,13 @@ export default function CameraTestPage() {
         video.onloadedmetadata = () => {
           console.log('📺 Video metadata loaded');
           console.log('📺 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          console.log('📺 Video srcObject:', video.srcObject);
+          console.log('📺 Video readyState:', video.readyState);
+          
           video.play().then(() => {
             console.log('▶️ Video started playing');
+            console.log('▶️ Video paused:', video.paused);
+            console.log('▶️ Video currentTime:', video.currentTime);
           }).catch((playError) => {
             console.error('❌ Video play error:', playError);
             // Try to play again after a short delay
@@ -83,14 +88,38 @@ export default function CameraTestPage() {
         
         video.oncanplay = () => {
           console.log('▶️ Video can play');
+          console.log('▶️ Video dimensions on canplay:', video.videoWidth, 'x', video.videoHeight);
         };
         
         video.onerror = (e) => {
           console.error('❌ Video error:', e);
         };
 
+        video.onloadstart = () => {
+          console.log('🔄 Video load started');
+        };
+
+        video.onloadeddata = () => {
+          console.log('📊 Video data loaded');
+          console.log('📊 Video dimensions on loadeddata:', video.videoWidth, 'x', video.videoHeight);
+        };
+
         // Force load the video
         video.load();
+        
+        // Additional iOS Safari fix - ensure video is visible
+        setTimeout(() => {
+          console.log('🔄 Checking video after 500ms...');
+          console.log('🔄 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          console.log('🔄 Video srcObject:', video.srcObject);
+          console.log('🔄 Video readyState:', video.readyState);
+          
+          if (video.videoWidth === 0 && video.videoHeight === 0) {
+            console.log('🔄 Video dimensions still 0, retrying...');
+            video.srcObject = stream;
+            video.load();
+          }
+        }, 500);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -281,11 +310,14 @@ export default function CameraTestPage() {
                 autoPlay
                 playsInline
                 muted
+                webkit-playsinline="true"
                 className="w-full h-64 object-cover"
                 style={{ 
                   transform: 'scaleX(-1)', // Mirror the video for better UX
                   minHeight: '256px',
-                  backgroundColor: '#000'
+                  backgroundColor: '#000',
+                  width: '100%',
+                  height: '256px'
                 }}
                 onLoadedMetadata={() => {
                   console.log('📺 Video metadata loaded in JSX');
@@ -330,6 +362,16 @@ export default function CameraTestPage() {
                   📹 Live
                 </div>
               </div>
+              
+              {/* Video debug info */}
+              <div className="absolute top-4 left-4">
+                <div className="bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
+                  {videoRef.current ? 
+                    `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}` : 
+                    'No video'
+                  }
+                </div>
+              </div>
             </div>
             
             {/* Camera error display */}
@@ -350,6 +392,43 @@ export default function CameraTestPage() {
                 </div>
               </div>
             )}
+            
+            {/* Debug controls */}
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs text-yellow-800 mb-2">
+                <strong>Debug Info:</strong> If you can't see the camera, try these buttons:
+              </p>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => {
+                    const video = videoRef.current;
+                    if (video) {
+                      console.log('🔧 Manual play attempt');
+                      console.log('🔧 Video srcObject:', video.srcObject);
+                      console.log('🔧 Video readyState:', video.readyState);
+                      console.log('🔧 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                      video.play().catch(console.error);
+                    }
+                  }}
+                  className="bg-yellow-600 text-white px-3 py-1 text-xs rounded"
+                >
+                  Force Play
+                </Button>
+                <Button
+                  onClick={() => {
+                    const video = videoRef.current;
+                    if (video && streamRef.current) {
+                      console.log('🔧 Reattaching stream');
+                      video.srcObject = streamRef.current;
+                      video.load();
+                    }
+                  }}
+                  className="bg-yellow-600 text-white px-3 py-1 text-xs rounded"
+                >
+                  Reattach Stream
+                </Button>
+              </div>
+            </div>
             
             <div className="flex space-x-3 mt-4">
               <Button
