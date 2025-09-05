@@ -58,6 +58,11 @@ export default function CameraTestPage() {
       console.log('📹 Camera stream obtained:', stream);
       console.log('📹 Stream tracks:', stream.getTracks());
       
+      console.log('🔍 Checking videoRef.current:', videoRef.current);
+      console.log('🔍 videoRef.current type:', typeof videoRef.current);
+      console.log('🔍 videoRef.current is null:', videoRef.current === null);
+      console.log('🔍 videoRef.current is undefined:', videoRef.current === undefined);
+      
       if (videoRef.current) {
         const video = videoRef.current;
         
@@ -186,6 +191,45 @@ export default function CameraTestPage() {
             }
           }
         }, 500);
+      } else {
+        console.error('❌ videoRef.current is null or undefined!');
+        console.error('❌ This means the video element is not rendered yet');
+        
+        // ChatGPT's solution: Create video element directly
+        console.log('🔧 Creating video element directly...');
+        const videoContainer = document.getElementById('video-container');
+        if (videoContainer) {
+          const video = document.createElement('video');
+          video.id = 'direct-camera-video';
+          video.setAttribute('autoplay', '');
+          video.setAttribute('playsinline', '');
+          video.setAttribute('muted', '');
+          video.setAttribute('webkit-playsinline', 'true');
+          video.style.width = '100%';
+          video.style.height = '256px';
+          video.style.backgroundColor = '#000';
+          video.style.transform = 'scaleX(-1)';
+          video.style.objectFit = 'cover';
+          
+          videoContainer.appendChild(video);
+          
+          // Set the stream and play
+          video.srcObject = stream;
+          streamRef.current = stream;
+          setIsCameraActive(true);
+          
+          console.log('🔧 Direct video element created, setting stream...');
+          
+          // ChatGPT's critical fix: Call play() immediately
+          video.play().then(() => {
+            console.log('✅ Direct video play successful!');
+          }).catch((err) => {
+            console.error('❌ Direct video play failed:', err);
+          });
+        } else {
+          setCameraError('Video container not found. Please try again.');
+          setIsCameraActive(false);
+        }
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -370,7 +414,7 @@ export default function CameraTestPage() {
         {/* Camera Interface */}
         {isCameraActive && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <div className="relative bg-black rounded-lg overflow-hidden">
+            <div id="video-container" className="relative bg-black rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
                 autoPlay
