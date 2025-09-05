@@ -31,8 +31,10 @@ export default function ScanPage() {
   const [cameraPermission, setCameraPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [isMobile, setIsMobile] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isTestScan, setIsTestScan] = useState(false);
+  const [sessionData, setSessionData] = useState<any>(null);
 
-  // Check if device is mobile
+  // Check if device is mobile and handle scan ID
   useEffect(() => {
     const checkMobile = () => {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
@@ -40,8 +42,33 @@ export default function ScanPage() {
       setIsMobile(isMobileDevice);
     };
     
+    const handleScanId = () => {
+      // Check if this is a test scan (starts with "test-")
+      if (scanId.startsWith('test-')) {
+        setIsTestScan(true);
+        setSessionData({
+          id: scanId,
+          type: 'test',
+          patientName: 'Test Patient',
+          medications: ['Test Medication'],
+          scheduledTime: new Date().toISOString()
+        });
+      } else {
+        // This would be a real scan session - for now, just set as test
+        setIsTestScan(true);
+        setSessionData({
+          id: scanId,
+          type: 'real',
+          patientName: 'Real Patient',
+          medications: ['Real Medication'],
+          scheduledTime: new Date().toISOString()
+        });
+      }
+    };
+    
     checkMobile();
-  }, []);
+    handleScanId();
+  }, [scanId]);
 
   // Request camera permission
   const requestCameraPermission = async () => {
@@ -143,6 +170,18 @@ export default function ScanPage() {
     };
   }, []);
 
+  // Show loading state while session data is being determined
+  if (!sessionData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading medication session...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-md mx-auto">
@@ -155,9 +194,24 @@ export default function ScanPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600 text-center">
-              Scan ID: {scanId}
-            </p>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-600">
+                Scan ID: {scanId}
+              </p>
+              <p className="text-sm text-gray-600">
+                Patient: {sessionData.patientName}
+              </p>
+              <p className="text-sm text-gray-600">
+                Medications: {sessionData.medications.join(', ')}
+              </p>
+              {isTestScan && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                  <p className="text-xs text-yellow-800">
+                    🧪 Test Mode - This is a demonstration scan
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
