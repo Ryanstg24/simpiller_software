@@ -39,6 +39,7 @@ export function OrganizationUserModal({
   const [success, setSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showTempPassword, setShowTempPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -76,6 +77,7 @@ export function OrganizationUserModal({
     setLoading(false);
     setValidationErrors([]);
     setCopySuccess(false);
+    setShowTempPassword(false);
   }, [user, isOpen]);
 
   // Check authorization after all hooks
@@ -167,6 +169,7 @@ export function OrganizationUserModal({
         // Show success with password info
         setShowPassword(true);
         setSuccess(true);
+        setIsEditing(false); // Switch to view mode to show password
         
         // Auto-close modal after 10 seconds
         setTimeout(() => {
@@ -256,6 +259,35 @@ export function OrganizationUserModal({
     }
   };
 
+  const handleShowTempPassword = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Fetch the user's encrypted password from the database
+      const { data, error } = await supabase
+        .from('users')
+        .select('encrypted_password')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching password:', error);
+        alert('Failed to retrieve password. Please try again.');
+        return;
+      }
+
+      if (data?.encrypted_password) {
+        setGeneratedPassword(data.encrypted_password);
+        setShowTempPassword(true);
+      } else {
+        alert('No temporary password found for this user.');
+      }
+    } catch (error) {
+      console.error('Error fetching password:', error);
+      alert('Failed to retrieve password. Please try again.');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -275,14 +307,26 @@ export function OrganizationUserModal({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                <Edit className="h-4 w-4" />
-                <span>Edit</span>
-              </button>
+            {!isEditing && user && (
+              <>
+                <button
+                  onClick={handleShowTempPassword}
+                  className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span>Show Password</span>
+                </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Edit</span>
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -557,8 +601,64 @@ export function OrganizationUserModal({
                   </div>
                 )}
 
+                {/* Password Display for Existing Users */}
+                {showTempPassword && generatedPassword && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-medium text-blue-800 mb-2">
+                        Temporary Password
+                      </h3>
+                      <p className="text-blue-700 text-sm">
+                        This is the temporary password for this user. Share it securely.
+                      </p>
+                    </div>
+                    
+                    {/* Password Display - Large and Copyable */}
+                    <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-3">
+                          <input
+                            type="text"
+                            value={generatedPassword}
+                            readOnly
+                            className="font-mono text-xl font-bold text-blue-600 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-center w-full max-w-md"
+                            onClick={(e) => e.currentTarget.select()}
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedPassword);
+                              setCopySuccess(true);
+                              setTimeout(() => setCopySuccess(false), 2000);
+                            }}
+                            className={`px-4 py-2 rounded transition-colors ${
+                              copySuccess 
+                                ? 'bg-green-600 text-white' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            {copySuccess ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-center">
+                      <Button 
+                        onClick={() => {
+                          setShowTempPassword(false);
+                          setGeneratedPassword('');
+                        }}
+                        variant="outline"
+                        className="px-6"
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* User Details Display */}
-                {!showPassword && (
+                {!showPassword && !showTempPassword && (
                   <div className="space-y-6">
                     {/* Basic Information */}
                     <div>
@@ -623,6 +723,29 @@ export function OrganizationUserModal({
                         ) : (
                           <p className="text-gray-500">No roles assigned</p>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Password Management */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Password Management</h3>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Temporary Password</p>
+                            <p className="text-xs text-gray-500">View the temporary password for this user</p>
+                          </div>
+                          <Button 
+                            onClick={handleShowTempPassword}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Show Password
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
