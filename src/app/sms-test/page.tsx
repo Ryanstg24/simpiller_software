@@ -39,7 +39,7 @@ export default function SMSTestPage() {
     patientName: 'John Doe',
     patientPhone: '+1234567890',
     medicationNames: 'Advil, Tylenol',
-    scheduledTime: new Date().toISOString().slice(0, 16), // Current time
+    scheduledTime: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16), // Local time
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -95,7 +95,7 @@ export default function SMSTestPage() {
       patientName: 'John Doe',
       patientPhone: '+1234567890',
       medicationNames: 'Advil, Tylenol',
-      scheduledTime: new Date().toISOString().slice(0, 16),
+      scheduledTime: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
     });
     setResult(null);
     setError(null);

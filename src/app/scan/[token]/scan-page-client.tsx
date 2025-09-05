@@ -28,7 +28,7 @@ interface ScanSession {
 
 export function ScanPageClient({ token }: { token: string }) {
   const [scanSession, setScanSession] = useState<ScanSession | null>(null);
-  const [loading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -47,14 +47,18 @@ export function ScanPageClient({ token }: { token: string }) {
       try {
         // Check if this is a test scan (starts with "test-")
         if (token.startsWith('test-')) {
-          // Create a mock test session
+          // Create a mock test session immediately
+          // Extract timestamp from token for realistic test data
+          const timestamp = token.replace('test-', '');
+          const testDate = new Date(parseInt(timestamp));
+          
           const testSession: ScanSession = {
             id: token,
             patient_id: 'test-patient',
             medication_id: 'test-medication',
             scan_token: token,
             status: 'pending',
-            created_at: new Date().toISOString(),
+            created_at: testDate.toISOString(),
             patients: {
               first_name: 'Test',
               last_name: 'Patient'
@@ -65,6 +69,7 @@ export function ScanPageClient({ token }: { token: string }) {
             }
           };
           setScanSession(testSession);
+          setLoading(false);
           return;
         }
 
@@ -75,8 +80,10 @@ export function ScanPageClient({ token }: { token: string }) {
         }
         const session: ScanSession = await response.json();
         setScanSession(session);
+        setLoading(false);
       } catch (err) {
         setError('Failed to load medication session.');
+        setLoading(false);
         console.error(err);
       }
     };
