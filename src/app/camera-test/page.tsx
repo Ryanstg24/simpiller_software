@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OCRService, { OCRResult, MedicationLabelData } from '@/lib/ocr';
@@ -13,10 +13,24 @@ export default function CameraTestPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<{
+    device: string;
+    https: string;
+    userAgent: string;
+  } | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Get device info on client side only
+  useEffect(() => {
+    setDeviceInfo({
+      device: navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other',
+      https: location.protocol === 'https:' ? 'Yes' : 'No',
+      userAgent: navigator.userAgent.includes('Safari') ? 'Safari' : 'Other'
+    });
+  }, []);
 
   // Camera functions
   const startCamera = async () => {
@@ -196,9 +210,9 @@ export default function CameraTestPage() {
           {/* Device Info */}
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-800">
-              <strong>Device:</strong> {navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other'} | 
-              <strong> HTTPS:</strong> {location.protocol === 'https:' ? 'Yes' : 'No'} |
-              <strong> User Agent:</strong> {navigator.userAgent.includes('Safari') ? 'Safari' : 'Other'}
+              <strong>Device:</strong> {deviceInfo?.device || 'Loading...'} | 
+              <strong> HTTPS:</strong> {deviceInfo?.https || 'Loading...'} |
+              <strong> User Agent:</strong> {deviceInfo?.userAgent || 'Loading...'}
             </p>
           </div>
         </div>
