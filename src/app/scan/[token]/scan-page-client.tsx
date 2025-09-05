@@ -422,7 +422,7 @@ export function ScanPageClient({ token }: { token: string }) {
             {/* iOS Safari specific note */}
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                <strong>iOS Safari Users:</strong> If the camera doesn't show, try using "Upload Photo" instead. 
+                <strong>iOS Safari Users:</strong> If the camera doesn&apos;t show, try using &quot;Upload Photo&quot; instead. 
                 This is a known limitation with iOS Safari camera access.
               </p>
             </div>
