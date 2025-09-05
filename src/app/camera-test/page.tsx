@@ -13,6 +13,8 @@ export default function CameraTestPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+  const [lastCaptureTime, setLastCaptureTime] = useState(0);
   const [deviceInfo, setDeviceInfo] = useState<{
     device: string;
     https: string;
@@ -102,12 +104,74 @@ export default function CameraTestPage() {
       // ChatGPT's critical fix: Call play() immediately
       video.play().then(() => {
         console.log('✅ Video playing successfully!');
+        
+        // Start automatic capture if enabled
+        if (autoCaptureEnabled) {
+          startAutoCapture();
+        }
       }).catch((err) => {
         console.error('❌ Video play failed:', err);
         setCameraError('Failed to start video playback. Please try again.');
       });
     }
   }, [isCameraActive]); // Run when isCameraActive changes
+
+  // Automatic capture function
+  const startAutoCapture = () => {
+    const captureInterval = setInterval(async () => {
+      if (!isCameraActive || !videoRef.current || !canvasRef.current) {
+        clearInterval(captureInterval);
+        return;
+      }
+
+      // Don't capture too frequently (max once every 2 seconds)
+      const now = Date.now();
+      if (now - lastCaptureTime < 2000) {
+        return;
+      }
+
+      try {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        
+        if (context && video.videoWidth > 0 && video.videoHeight > 0) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0);
+          
+          const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          
+          // Process the image for medication detection
+          const result = await OCRService.extractTextFromImage(imageDataUrl);
+          const parsed = OCRService.parseMedicationLabel(result);
+          
+          // Check if we found medication names
+          if (parsed.medicationNames && parsed.medicationNames.length > 0) {
+            console.log('🔍 Auto-capture: Found medication:', parsed.medicationName);
+            
+            // Test validation
+            const testMedication = 'VALACYCLOVIR HYDROCHLORID,VENLAFAXINE HCL ER';
+            const isValid = parsed.medicationNames.some(med => 
+              testMedication.toLowerCase().includes(med.toLowerCase())
+            );
+            
+            if (isValid && result.confidence > 30) {
+              console.log('✅ Auto-capture: Valid medication detected, capturing...');
+              setImageData(imageDataUrl);
+              setOcrResult(result);
+              setLabelData(parsed);
+              setLastCaptureTime(now);
+              clearInterval(captureInterval);
+              stopCamera();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Auto-capture error:', error);
+      }
+    }, 1000); // Check every second
+  };
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -193,6 +257,7 @@ export default function CameraTestPage() {
     setLabelData(null);
     setIsCameraActive(false);
     setCameraError(null);
+    setLastCaptureTime(0);
     stopCamera();
   };
 
@@ -281,11 +346,10 @@ export default function CameraTestPage() {
                 muted
                 className="w-full h-64 object-cover"
                 style={{ 
-                  transform: 'scaleX(-1)', // Mirror the video for better UX
-                  minHeight: '256px',
+                  minHeight: '400px',
                   backgroundColor: '#000',
                   width: '100%',
-                  height: '256px'
+                  height: '400px'
                 }}
               />
               {/* Scanning overlay */}
@@ -340,6 +404,31 @@ export default function CameraTestPage() {
                 </div>
               </div>
             )}
+            
+            {/* Auto-capture controls */}
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-green-800">
+                  <strong>Auto-Capture:</strong> {autoCaptureEnabled ? 'Enabled' : 'Disabled'}
+                </p>
+                <Button
+                  onClick={() => setAutoCaptureEnabled(!autoCaptureEnabled)}
+                  className={`px-3 py-1 text-xs rounded ${
+                    autoCaptureEnabled 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-300 text-gray-700'
+                  }`}
+                >
+                  {autoCaptureEnabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
+              <p className="text-xs text-green-700">
+                {autoCaptureEnabled 
+                  ? 'Camera will automatically capture when medication is detected'
+                  : 'Click "Capture & Test" to manually capture'
+                }
+              </p>
+            </div>
             
             {/* Debug controls */}
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
