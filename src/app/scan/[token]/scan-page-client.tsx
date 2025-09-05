@@ -154,6 +154,15 @@ export function ScanPageClient({ token }: { token: string }) {
 
         // Force load the video
         video.load();
+        
+        // Additional iOS Safari fix - ensure video is visible
+        setTimeout(() => {
+          if (video.videoWidth === 0 && video.videoHeight === 0) {
+            console.log('🔄 Video dimensions still 0, retrying...');
+            video.srcObject = stream;
+            video.load();
+          }
+        }, 500);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -417,13 +426,28 @@ export function ScanPageClient({ token }: { token: string }) {
                   className="hidden"
                 />
               </label>
+              
+              {/* iOS Safari Camera Fallback */}
+              <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                <Camera className="h-5 w-5 text-purple-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">Take Photo (iOS Safari)</div>
+                  <div className="text-sm text-gray-600">Use iOS camera interface</div>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*;capture=camera"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
             
             {/* iOS Safari specific note */}
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                <strong>iOS Safari Users:</strong> If the camera doesn&apos;t show, try using &quot;Upload Photo&quot; instead. 
-                This is a known limitation with iOS Safari camera access.
+                <strong>iOS Safari Users:</strong> If the live camera preview doesn&apos;t show, try &quot;Take Photo (iOS Safari)&quot; 
+                which uses the native iOS camera interface for better compatibility.
               </p>
             </div>
             
@@ -458,15 +482,23 @@ export function ScanPageClient({ token }: { token: string }) {
                 }}
                 onLoadedMetadata={() => {
                   console.log('📺 Video metadata loaded in JSX');
+                  console.log('📺 Video element dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
                   if (videoRef.current) {
                     videoRef.current.play().catch(console.error);
                   }
                 }}
                 onCanPlay={() => {
                   console.log('▶️ Video can play in JSX');
+                  console.log('📺 Video ready state:', videoRef.current?.readyState);
                 }}
                 onError={(e) => {
                   console.error('❌ Video error in JSX:', e);
+                }}
+                onLoadStart={() => {
+                  console.log('🔄 Video load started');
+                }}
+                onLoadedData={() => {
+                  console.log('📊 Video data loaded');
                 }}
               />
               {/* Scanning overlay */}
