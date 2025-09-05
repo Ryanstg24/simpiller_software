@@ -59,12 +59,30 @@ export default function CameraTestPage() {
       console.log('📹 Stream tracks:', stream.getTracks());
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        
+        // Set the stream
+        video.srcObject = stream;
         streamRef.current = stream;
         setIsCameraActive(true);
         
+        // Immediate debugging
+        console.log('🎯 Video element found:', !!video);
+        console.log('🎯 Video srcObject set:', !!video.srcObject);
+        console.log('🎯 Video autoplay:', video.autoplay);
+        console.log('🎯 Video playsInline:', video.playsInline);
+        console.log('🎯 Video muted:', video.muted);
+        console.log('🎯 Video readyState before load:', video.readyState);
+        
+        // Ensure all required attributes are set
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = true;
+        video.setAttribute('webkit-playsinline', 'true');
+        
+        console.log('🎯 Video attributes set - autoplay:', video.autoplay, 'playsInline:', video.playsInline, 'muted:', video.muted);
+        
         // Force video to load and play - iOS Safari specific
-        const video = videoRef.current;
         
         // Wait for metadata to load before playing
         video.onloadedmetadata = () => {
@@ -107,17 +125,30 @@ export default function CameraTestPage() {
         // Force load the video
         video.load();
         
+        // Immediate play attempt
+        setTimeout(() => {
+          console.log('🚀 Immediate play attempt...');
+          video.play().then(() => {
+            console.log('✅ Immediate play successful');
+          }).catch((err) => {
+            console.log('❌ Immediate play failed:', err);
+          });
+        }, 100);
+        
         // Additional iOS Safari fix - ensure video is visible
         setTimeout(() => {
           console.log('🔄 Checking video after 500ms...');
           console.log('🔄 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
           console.log('🔄 Video srcObject:', video.srcObject);
           console.log('🔄 Video readyState:', video.readyState);
+          console.log('🔄 Video paused:', video.paused);
+          console.log('🔄 Video currentTime:', video.currentTime);
           
           if (video.videoWidth === 0 && video.videoHeight === 0) {
             console.log('🔄 Video dimensions still 0, retrying...');
             video.srcObject = stream;
             video.load();
+            video.play().catch(console.error);
           }
         }, 500);
       }
