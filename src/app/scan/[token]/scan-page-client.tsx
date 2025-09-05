@@ -99,6 +99,13 @@ export function ScanPageClient({ token }: { token: string }) {
   // Camera setup
   const startCamera = async () => {
     try {
+      console.log('🎥 Starting camera...');
+      
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access is not supported on this device');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'environment', // Use back camera on mobile
@@ -107,14 +114,45 @@ export function ScanPageClient({ token }: { token: string }) {
         } 
       });
       
+      console.log('📹 Camera stream obtained:', stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsCameraActive(true);
+        
+        // Wait for video to load and play
+        videoRef.current.onloadedmetadata = () => {
+          console.log('📺 Video metadata loaded');
+          if (videoRef.current) {
+            videoRef.current.play().catch(console.error);
+          }
+        };
+        
+        videoRef.current.oncanplay = () => {
+          console.log('▶️ Video can play');
+        };
+        
+        videoRef.current.onerror = (e) => {
+          console.error('❌ Video error:', e);
+        };
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setError('Failed to access camera. Please ensure it is enabled and try again.');
+      let errorMessage = 'Failed to access camera. Please ensure it is enabled and try again.';
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          errorMessage = 'Camera access was denied. Please allow camera access and try again.';
+        } else if (err.name === 'NotFoundError') {
+          errorMessage = 'No camera found on this device.';
+        } else if (err.name === 'NotSupportedError') {
+          errorMessage = 'Camera access is not supported on this device.';
+        }
+      }
+      
+      setError(errorMessage);
+      setIsCameraActive(false);
     }
   };
 
@@ -362,6 +400,16 @@ export function ScanPageClient({ token }: { token: string }) {
                 />
               </label>
             </div>
+            
+            {/* Debug info for test scans */}
+            {token.startsWith('test-') && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-2">Debug Info:</p>
+                <p className="text-xs text-gray-500">Token: {token}</p>
+                <p className="text-xs text-gray-500">Expected: {scanSession?.medications?.medication_name}</p>
+                <p className="text-xs text-gray-500">Patient: {scanSession?.patients?.first_name} {scanSession?.patients?.last_name}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -374,7 +422,12 @@ export function ScanPageClient({ token }: { token: string }) {
                 autoPlay
                 playsInline
                 muted
+                webkit-playsinline="true"
                 className="w-full h-64 object-cover"
+                style={{ 
+                  transform: 'scaleX(-1)', // Mirror the video for better UX
+                  minHeight: '256px'
+                }}
               />
               {/* Scanning overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -390,6 +443,12 @@ export function ScanPageClient({ token }: { token: string }) {
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="bg-black bg-opacity-70 text-white text-center py-2 px-4 rounded-lg">
                   <p className="text-sm">Position medication label within the frame</p>
+                </div>
+              </div>
+              {/* Camera status indicator */}
+              <div className="absolute top-4 right-4">
+                <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                  📹 Live
                 </div>
               </div>
             </div>
