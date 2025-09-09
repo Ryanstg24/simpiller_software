@@ -12,6 +12,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Pull scheduled_time to determine on_time/overdue/missed windows
+    const { data: sessionRow } = await supabase
+      .from('medication_scan_sessions')
+      .select('scheduled_time')
+      .eq('id', scanSessionId)
+      .single();
+
+    const now = new Date();
+    const scheduledAt = sessionRow?.scheduled_time ? new Date(sessionRow.scheduled_time) : null;
+    let timeliness: 'on_time' | 'overdue' | 'missed' = 'on_time';
+    if (scheduledAt) {
+      const diffMin = (now.getTime() - scheduledAt.getTime()) / 60000;
+      if (diffMin > 180) timeliness = 'missed';
+      else if (diffMin > 60) timeliness = 'overdue';
+    }
+
+    // If scan window expired, mark missed and block success
+    if (timeliness === 'missed') {
+      await supabase
+        .from('medication_logs')
+        .insert({
+          medication_id: medicationId,
+          patient_id: patientId,
+          schedule_id: scheduleId || null,
+          event_key: new Date().toISOString().slice(0, 13),
+          event_date: now.toISOString(),
+          status: 'missed',
+          source: 'qr_scan',
+          raw_scan_data: JSON.stringify({ reason: 'window_expired', scheduledAt, now }),
+        });
+      return NextResponse.json({ error: 'Scan window expired. Marked as missed.' }, { status: 400 });
+    }
+
     // Update scan session status to completed
     const { error: sessionError } = await supabase
       .from('medication_scan_sessions')
@@ -41,7 +74,7 @@ export async function POST(request: NextRequest) {
       finalScheduleId = schedule?.id || null;
     }
 
-    // Create medication log entry
+    // Create medication log entry (this also feeds Adherance log)
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
     const { data: logEntry, error: logError } = await supabase
       .from('medication_logs')
@@ -51,7 +84,7 @@ export async function POST(request: NextRequest) {
         schedule_id: finalScheduleId,
         event_key: eventKey,
         event_date: new Date().toISOString(),
-        status: 'taken',
+        status: timeliness === 'overdue' ? 'taken_overdue' : 'taken_on_time',
         qr_code_scanned: scanData?.qrCode || null,
         raw_scan_data: JSON.stringify(scanData),
         source: 'qr_scan',
@@ -140,8 +173,15 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     const takenDoses = logs.filter(log => log.status === 'taken').length;
     const complianceScore = totalExpectedDoses > 0 ? (takenDoses / totalExpectedDoses) * 100 : 100;
 
-    // Update patient compliance score (you might want to create a compliance_scores table)
-    // For now, we'll store it in a patient field or create a separate table
+    // Persist rolling 30-day adherance (compliance) score on patient
+    const { error: patientUpdateError } = await supabase
+      .from('patients')
+      .update({ adherence_score: Math.round(complianceScore * 100) / 100 })
+      .eq('id', patientId);
+    if (patientUpdateError) {
+      console.error('Error updating patient adherence_score:', patientUpdateError);
+    }
+
     console.log(`Compliance score for patient ${patientId}, medication ${medicationId}: ${complianceScore.toFixed(2)}%`);
 
   } catch (error) {

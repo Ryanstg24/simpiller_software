@@ -168,13 +168,6 @@ export default function AnalyticsPage() {
                     <Filter className="mr-2 h-4 w-4" />
                     Filters
                   </Button>
-                  <Button 
-                    onClick={handleDownloadReport}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Report
-                  </Button>
                 </div>
               </div>
 
@@ -335,37 +328,53 @@ export default function AnalyticsPage() {
   // Regular Analytics View for Organization Admins and Providers
   if (!isSimpillerAdmin && regularData) {
     const metrics = [
-      { 
-        title: "Overall Compliance", 
-        value: regularData.overallCompliance > 0 ? `${regularData.overallCompliance}%` : "Not tracked", 
-        change: "N/A", 
-        changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: TrendingUp, 
-        color: "text-green-600" 
+      {
+        title: "Total Patients",
+        value: regularData.totalPatients?.toLocaleString?.() || regularData.activePatients.toLocaleString(),
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: Users,
+        color: "text-blue-600"
       },
-      { 
-        title: "Active Patients", 
-        value: regularData.activePatients.toLocaleString(), 
-        change: "N/A", 
-        changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: Users, 
-        color: "text-blue-600" 
+      {
+        title: "RTM Active Patients",
+        value: regularData.activePatients.toLocaleString(),
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: Users,
+        color: "text-green-600"
       },
-      { 
-        title: "Medications", 
-        value: regularData.totalMedications.toLocaleString(), 
-        change: "N/A", 
-        changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: Building2, 
-        color: "text-purple-600" 
+      {
+        title: "Doses Today – Completed",
+        value: (regularData.dosesTodayCompleted ?? 0).toString(),
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: TrendingUp,
+        color: "text-green-600"
       },
-      { 
-        title: "Days Since Last Alert", 
-        value: regularData.daysSinceLastAlert > 0 ? regularData.daysSinceLastAlert.toString() : "N/A", 
-        change: "N/A", 
-        changeType: "neutral" as "increase" | "decrease" | "neutral", 
-        icon: Building2, 
-        color: "text-yellow-600" 
+      {
+        title: "Doses Today – Overdue",
+        value: (regularData.dosesTodayOverdue ?? 0).toString(),
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: TrendingUp,
+        color: "text-yellow-600"
+      },
+      {
+        title: "Doses Today – Missed",
+        value: (regularData.dosesTodayMissed ?? 0).toString(),
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: TrendingUp,
+        color: "text-red-600"
+      },
+      {
+        title: "30‑Day Avg Adherance",
+        value: regularData.overallCompliance > 0 ? `${regularData.overallCompliance}%` : "Not tracked",
+        change: "N/A",
+        changeType: "neutral" as "increase" | "decrease" | "neutral",
+        icon: TrendingUp,
+        color: "text-purple-600"
       }
     ];
 
@@ -410,10 +419,6 @@ export default function AnalyticsPage() {
                   <Button variant="outline">
                     <Building2 className="mr-2 h-4 w-4" />
                     Last 30 Days
-                  </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Report
                   </Button>
                 </div>
               </div>

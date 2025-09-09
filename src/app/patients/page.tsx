@@ -153,7 +153,8 @@ export default function PatientsPage() {
                 if (mlogs && mlogs.length > 0) {
                   const daySet = new Set<string>();
                   for (const entry of mlogs as Array<{ event_date: string; status: string }>) {
-                    if (entry.status === 'taken' && entry.event_date) {
+                    const s = entry.status || '';
+                    if ((s.startsWith('taken') || s === 'taken') && entry.event_date) {
                       const d = new Date(entry.event_date);
                       const dayKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
                       daySet.add(dayKey);
@@ -277,7 +278,7 @@ export default function PatientsPage() {
                       <Users className="h-8 w-8 text-green-500 mr-3" />
                       <div>
                         <p className="text-sm font-medium text-gray-600">Active Patients</p>
-                        <p className="text-2xl font-bold text-gray-900">{patients.filter(p => p.is_active).length}</p>
+                        <p className="text-2xl font-bold text-gray-900">{patients.filter((p: Patient) => p.is_active).length}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -289,7 +290,7 @@ export default function PatientsPage() {
                       <div>
                         <p className="text-sm font-medium text-gray-600">This Month</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {patients.filter(p => {
+                          {patients.filter((p: Patient) => {
                             const created = new Date(p.created_at);
                             const now = new Date();
                             return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
@@ -307,12 +308,12 @@ export default function PatientsPage() {
                         <p className="text-sm font-medium text-gray-600">Avg Age</p>
                         <p className="text-2xl font-bold text-gray-900">
                           {patients.length > 0 
-                            ? Math.round(patients.reduce((sum, p) => {
+                            ? Math.round(patients.reduce((sum: number, p: Patient) => {
                                 if (p.date_of_birth) {
                                   return sum + calculateAge(p.date_of_birth);
                                 }
                                 return sum;
-                              }, 0) / patients.filter(p => p.date_of_birth).length)
+                              }, 0) / patients.filter((p: Patient) => p.date_of_birth).length)
                             : 0}
                         </p>
                       </div>
@@ -382,7 +383,7 @@ export default function PatientsPage() {
                   </h2>
                 </div>
                 <div className="divide-y">
-                  {filteredPatients.map((patient) => (
+                  {filteredPatients.map((patient: Patient) => (
                     <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -409,12 +410,12 @@ export default function PatientsPage() {
                         {/* Inline compact progress + actions */}
                         <div className="flex items-center justify-end gap-4 flex-1">
                           {renderProgressBars(patient.id)}
-                          {/* Adherance days and cycle remaining */}
+                          {/* Adherence days and cycle remaining */}
                           {(() => {
-                            const p = progressByPatientId[patient.id];
+                            const p: PatientCycleProgress | undefined = progressByPatientId[patient.id];
                             return (
                               <>
-                                <div className="text-xs text-gray-700 whitespace-nowrap">Adherance: {(p?.adherenceDays ?? 0)}/16</div>
+                                <div className="text-xs text-gray-700 whitespace-nowrap">Adherence: {(p?.adherenceDays ?? 0)}/16</div>
                                 <div className="text-xs text-gray-700 whitespace-nowrap">Cycle: {(p?.daysLeft ?? 0)}d</div>
                               </>
                             );

@@ -3,10 +3,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 
 interface AnalyticsData {
-  overallCompliance: number;
-  activePatients: number;
+  overallCompliance: number; // 30-day avg adherence across scoped patients
+  totalPatients: number;
+  activePatients: number; // RTM active
   totalMedications: number;
-  daysSinceLastAlert: number;
+  dosesTodayCompleted: number;
+  dosesTodayOverdue: number;
+  dosesTodayMissed: number;
   complianceTrend: Array<{
     month: string;
     compliance: number;
@@ -26,9 +29,12 @@ interface AnalyticsData {
 export function useAnalytics() {
   const [data, setData] = useState<AnalyticsData>({
     overallCompliance: 0,
+    totalPatients: 0,
     activePatients: 0,
     totalMedications: 0,
-    daysSinceLastAlert: 0,
+    dosesTodayCompleted: 0,
+    dosesTodayOverdue: 0,
+    dosesTodayMissed: 0,
     complianceTrend: [],
     medicationTypes: [],
     recentActivity: []
@@ -47,6 +53,7 @@ export function useAnalytics() {
         setError(null);
 
         let activePatients = 0;
+        let totalPatients = 0;
         let totalMedications = 0;
 
         // Fetch patients based on user role
@@ -54,7 +61,7 @@ export function useAnalytics() {
           // Simpiller Admin sees all patients
           const { data: patientsData, error: patientsError } = await supabase
             .from('patients')
-            .select('id')
+            .select('id, rtm_status')
             .eq('is_active', true);
 
           if (patientsError) {
@@ -62,7 +69,8 @@ export function useAnalytics() {
             throw new Error('Failed to fetch patient statistics');
           }
 
-          activePatients = patientsData?.length || 0;
+          totalPatients = patientsData?.length || 0;
+          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
 
           // Simpiller Admin sees all medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -81,7 +89,7 @@ export function useAnalytics() {
           // Organization Admin sees their organization's patients
           const { data: patientsData, error: patientsError } = await supabase
             .from('patients')
-            .select('id')
+            .select('id, rtm_status')
             .eq('is_active', true)
             .eq('organization_id', userOrganizationId);
 
@@ -90,7 +98,8 @@ export function useAnalytics() {
             throw new Error('Failed to fetch patient statistics');
           }
 
-          activePatients = patientsData?.length || 0;
+          totalPatients = patientsData?.length || 0;
+          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
 
           // Organization Admin sees their organization's medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -114,7 +123,7 @@ export function useAnalytics() {
           // Provider sees only their assigned patients
           const { data: patientsData, error: patientsError } = await supabase
             .from('patients')
-            .select('id')
+            .select('id, rtm_status')
             .eq('is_active', true)
             .eq('assigned_provider_id', user.id);
 
@@ -123,7 +132,8 @@ export function useAnalytics() {
             throw new Error('Failed to fetch patient statistics');
           }
 
-          activePatients = patientsData?.length || 0;
+          totalPatients = patientsData?.length || 0;
+          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
 
           // Provider sees only their assigned patients' medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -144,8 +154,35 @@ export function useAnalytics() {
           totalMedications = medicationsData?.length || 0;
         }
 
-        // Calculate overall compliance (placeholder for now)
-        const overallCompliance = 0; // Will be calculated from medication_logs when scanning is implemented
+        // Calculate 30-day average adherence across scoped patients
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const { data: adherenceRows } = await supabase
+          .from('patients')
+          .select('adherence_score')
+          .eq('is_active', true)
+          .in('id', (
+            await supabase
+              .from('patients')
+              .select('id')
+              .eq('is_active', true)
+              .then(r => (r.data || []).map((x: any) => x.id))
+          ));
+        const scores = (adherenceRows || []).map(r => Number((r as any).adherence_score || 0)).filter(n => !isNaN(n));
+        const overallCompliance = scores.length ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 100) / 100 : 0;
+
+        // Doses today by status
+        const start = new Date(); start.setHours(0,0,0,0);
+        const end = new Date(); end.setHours(23,59,59,999);
+        const { data: todayLogs } = await supabase
+          .from('medication_logs')
+          .select('status')
+          .gte('event_date', start.toISOString())
+          .lt('event_date', end.toISOString());
+        const todayStatuses = (todayLogs || []).map(r => (r as any).status as string);
+        const dosesTodayCompleted = todayStatuses.filter(s => s === 'taken' || s.startsWith('taken_')).length;
+        const dosesTodayOverdue = todayStatuses.filter(s => s === 'taken_overdue').length;
+        const dosesTodayMissed = todayStatuses.filter(s => s === 'missed').length;
 
         // Generate compliance trend data (last 6 months) - all 0 since we're just starting
         const complianceTrend = generateComplianceTrend();
@@ -157,13 +194,14 @@ export function useAnalytics() {
         const recentActivity = generateRecentActivity(activePatients, totalMedications);
 
         // Calculate days since last alert (placeholder)
-        const daysSinceLastAlert = 0; // Will be calculated from alerts table when implemented
-
         setData({
           overallCompliance,
+          totalPatients,
           activePatients,
           totalMedications,
-          daysSinceLastAlert,
+          dosesTodayCompleted,
+          dosesTodayOverdue,
+          dosesTodayMissed,
           complianceTrend,
           medicationTypes,
           recentActivity

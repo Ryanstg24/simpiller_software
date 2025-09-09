@@ -48,6 +48,7 @@ export default function SchedulePage() {
   const [medications, setMedications] = useState<Medication[]>([]);
   const [medicationsLoading, setMedicationsLoading] = useState(true);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
+  const [takenTodayByMedId, setTakenTodayByMedId] = useState<Record<string, boolean>>({});
 
   // Fetch medications for the filtered patients
   useEffect(() => {
@@ -95,6 +96,29 @@ export default function SchedulePage() {
 
     fetchMedications();
   }, [patients]);
+
+  // Pull today's logs after medications to determine completed status
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (medications.length === 0) { setTakenTodayByMedId({}); return; }
+      const medIds = medications.map(m => m.id);
+      const start = new Date(); start.setHours(0,0,0,0);
+      const end = new Date(); end.setHours(23,59,59,999);
+      const { data } = await supabase
+        .from('medication_logs')
+        .select('medication_id, status, event_date')
+        .in('medication_id', medIds)
+        .gte('event_date', start.toISOString())
+        .lt('event_date', end.toISOString());
+      const map: Record<string, boolean> = {};
+      (data || []).forEach((row: any) => {
+        const s = (row.status || '') as string;
+        if (s.startsWith('taken') || s === 'taken') map[row.medication_id] = true;
+      });
+      setTakenTodayByMedId(map);
+    };
+    fetchLogs();
+  }, [medications]);
 
   // Generate schedule items from medications
   useEffect(() => {
@@ -158,14 +182,17 @@ export default function SchedulePage() {
             const medicationTime = new Date();
             medicationTime.setHours(hours, minutes, 0, 0);
             
-            let status: "completed" | "overdue" | "upcoming" = "upcoming";
-            const timeDiff = now.getTime() - medicationTime.getTime();
-            const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-            if (hoursDiff > 2) {
-              status = "overdue";
-            } else if (hoursDiff > 0) {
-              status = "completed";
+            let status: "completed" | "overdue" | "upcoming" | "missed" = "upcoming";
+            const timeDiffMin = (now.getTime() - medicationTime.getTime()) / 60000;
+            const taken = takenTodayByMedId[medication.id] === true;
+            if (timeDiffMin <= 0) {
+              status = taken ? "completed" : "upcoming";
+            } else if (timeDiffMin > 180) {
+              status = taken ? "completed" : "missed";
+            } else if (timeDiffMin > 60) {
+              status = taken ? "completed" : "overdue";
+            } else {
+              status = taken ? "completed" : "upcoming";
             }
 
             items.push({
@@ -174,7 +201,7 @@ export default function SchedulePage() {
               patient: patientName,
               medication: medication.name,
               dosage: dosage,
-              status: status,
+              status: status as any,
               type: type,
               patientId: medication.patient_id,
               medicationId: medication.id
@@ -234,9 +261,7 @@ export default function SchedulePage() {
     const completed = scheduleItems.filter(item => item.status === 'completed').length;
     const upcoming = scheduleItems.filter(item => item.status === 'upcoming').length;
     const overdue = scheduleItems.filter(item => item.status === 'overdue').length;
-    const alerts = overdue; // For now, alerts = overdue items
-
-    return { completed, upcoming, overdue, alerts };
+    return { completed, upcoming, overdue };
   }, [scheduleItems]);
 
   if (patientsLoading || medicationsLoading) {
@@ -283,7 +308,7 @@ export default function SchedulePage() {
             </div>
 
             {/* Today's Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center">
@@ -317,17 +342,7 @@ export default function SchedulePage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center">
-                    <AlertTriangle className="h-8 w-8 text-yellow-500 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Alerts</p>
-                      <p className="text-2xl font-bold text-gray-900">{summaryStats.alerts}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Alerts card removed as requested */}
             </div>
 
             {/* Schedule Timeline */}
@@ -376,9 +391,6 @@ export default function SchedulePage() {
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
                                 {item.status}
                               </span>
-                              <Button size="sm" variant="outline">
-                                View
-                              </Button>
                             </div>
                           </div>
                         ))}

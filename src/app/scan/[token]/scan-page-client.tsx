@@ -42,6 +42,7 @@ export function ScanPageClient({ token }: { token: string }) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [lastCaptureTime, setLastCaptureTime] = useState(0);
+  const [timeliness, setTimeliness] = useState<'on_time' | 'overdue' | 'missed' | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,6 +84,9 @@ export function ScanPageClient({ token }: { token: string }) {
             }
           };
           setScanSession(testSession);
+          // compute timeliness
+          const diffMin = (Date.now() - testDate.getTime()) / 60000;
+          setTimeliness(diffMin > 180 ? 'missed' : diffMin > 60 ? 'overdue' : 'on_time');
           setLoading(false);
           return;
         }
@@ -94,6 +98,10 @@ export function ScanPageClient({ token }: { token: string }) {
         }
         const session: ScanSession = await response.json();
         setScanSession(session);
+        // compute timeliness
+        const sched = new Date(session.scheduled_time);
+        const diffMin = (Date.now() - sched.getTime()) / 60000;
+        setTimeliness(diffMin > 180 ? 'missed' : diffMin > 60 ? 'overdue' : 'on_time');
         setLoading(false);
       } catch (err) {
         setError('Failed to load medication session.');
@@ -191,6 +199,11 @@ export function ScanPageClient({ token }: { token: string }) {
   const startAutoCapture = () => {
     const captureInterval = setInterval(async () => {
       if (!isCameraActive || !videoRef.current || !canvasRef.current) {
+        clearInterval(captureInterval);
+        return;
+      }
+      if (timeliness === 'missed') {
+        // stop capturing if window expired
         clearInterval(captureInterval);
         return;
       }
@@ -541,9 +554,15 @@ export function ScanPageClient({ token }: { token: string }) {
           </h2>
           <div className="text-sm text-gray-600 space-y-1">
             <p><strong>Dosage:</strong> {currentMedication?.strength} {currentMedication?.format}</p>
-            <p><strong>Scheduled Time:</strong> {formatTime(scanSession.created_at)}</p>
+            <p><strong>Scheduled Time:</strong> {formatTime(scanSession.scheduled_time)}</p>
             <p><strong>Instructions:</strong> Take as prescribed</p>
           </div>
+          {timeliness === 'missed' && (
+            <div className="mt-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">Window expired. This dose is marked as missed. Scanning is disabled.</div>
+          )}
+          {timeliness === 'overdue' && (
+            <div className="mt-2 text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">Overdue window: you can still scan, but it will be recorded as overdue.</div>
+          )}
           {token.startsWith('test-') && (
             <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
               <p className="text-xs text-yellow-800">
@@ -560,7 +579,8 @@ export function ScanPageClient({ token }: { token: string }) {
             <div className="space-y-3">
               <Button
                 onClick={startCamera}
-                className="w-full flex items-center p-3 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50"
+                disabled={timeliness === 'missed'}
+                className="w-full flex items-center p-3 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50 disabled:opacity-50"
               >
                 <Camera className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" />
                 <div className="text-left flex-1 min-w-0">
