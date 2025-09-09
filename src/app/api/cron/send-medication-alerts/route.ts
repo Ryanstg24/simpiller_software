@@ -49,7 +49,8 @@ export async function GET(request: Request) {
             first_name,
             last_name,
             phone1,
-            phone1_verified
+            phone1_verified,
+            rtm_status
           )
         )
       `)
@@ -57,7 +58,8 @@ export async function GET(request: Request) {
       .eq('alert_sms', true)
       .eq('medications.status', 'active')
       .not('medications.patients.phone1', 'is', null)
-      .eq('medications.patients.phone1_verified', true);
+      .eq('medications.patients.phone1_verified', true)
+      .eq('medications.patients.rtm_status', 'active');
 
     if (schedulesError) {
       console.error('Error fetching medication schedules:', schedulesError);
@@ -78,6 +80,7 @@ export async function GET(request: Request) {
           last_name: string;
           phone1: string;
           phone1_verified: boolean;
+          rtm_status?: string;
         };
 
         type Medication = {
@@ -95,6 +98,7 @@ export async function GET(request: Request) {
         const patientRelation = medication.patients;
         const patient: Patient | null = Array.isArray(patientRelation) ? (patientRelation[0] ?? null) : patientRelation;
         if (!patient || !patient.phone1) continue;
+        if (patient.rtm_status && patient.rtm_status !== 'active') continue;
 
         // Check if this schedule should trigger an alert now
         const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, currentHour, currentMinute, schedule.alert_advance_minutes);
