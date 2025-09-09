@@ -1,1 +1,7 @@
-{}
+{
+  "functions": {
+    "pages/api/cron/send-medication-alerts.js": {
+      "maxDuration": 30
+    }
+  }
+}
