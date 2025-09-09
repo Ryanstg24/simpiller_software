@@ -5,12 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import ProtectedRoute from '@/components/auth/protected-route';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 
 export default function PopulateSchedulesPage() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    schedulesCreated?: number;
+    errors?: number;
+    details?: string[];
+  } | null>(null);
 
   const populateSchedules = async () => {
     setLoading(true);
@@ -30,7 +36,7 @@ export default function PopulateSchedulesPage() {
       setResult({
         success: false,
         error: 'Failed to populate schedules',
-        details: error
+        details: [String(error)]
       });
     } finally {
       setLoading(false);
@@ -38,7 +44,7 @@ export default function PopulateSchedulesPage() {
   };
 
   return (
-    <ProtectedRoute requiredRole="simpiller_admin">
+    <ProtectedRoute requiredRoles={["simpiller_admin"]}>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <Card>

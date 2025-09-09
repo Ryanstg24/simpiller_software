@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     console.log('🔄 Starting medication schedules population...');
 
@@ -48,8 +48,8 @@ export async function POST(request: Request) {
 
     for (const medication of medications) {
       try {
-        const patient = medication.patients;
-        if (!patient) continue;
+        const patient = medication.patients as any;
+        if (!patient || Array.isArray(patient)) continue;
 
         // Clear existing schedules for this medication
         await supabase
@@ -63,7 +63,15 @@ export async function POST(request: Request) {
           
           for (const timeStr of times) {
             let time = '';
-            let scheduleData: any = {
+            const scheduleData: {
+              medication_id: string;
+              days_of_week: number;
+              is_active: boolean;
+              alert_sms: boolean;
+              alert_email: boolean;
+              alert_advance_minutes: number;
+              time_of_day?: string;
+            } = {
               medication_id: medication.id,
               days_of_week: 127, // All days of week (bitmap: 1=Sunday, 2=Monday, etc.)
               is_active: true,

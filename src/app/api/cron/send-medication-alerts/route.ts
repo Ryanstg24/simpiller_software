@@ -56,9 +56,11 @@ export async function GET(request: Request) {
 
     for (const schedule of schedules || []) {
       try {
-        const medication = schedule.medications;
-        const patient = medication?.patients;
-        if (!patient || !patient.phone1 || !medication) continue;
+        const medication = schedule.medications as any;
+        if (!medication || Array.isArray(medication)) continue;
+        
+        const patient = medication.patients as any;
+        if (!patient || Array.isArray(patient) || !patient.phone1) continue;
 
         // Check if this schedule should trigger an alert now
         const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, currentHour, currentMinute, schedule.alert_advance_minutes);
@@ -149,8 +151,8 @@ export async function GET(request: Request) {
         }
 
       } catch (error) {
-        console.error(`Error processing medication ${medication.id}:`, error);
-        errors.push(`Error processing medication ${medication.id}: ${error}`);
+        console.error(`Error processing schedule ${schedule.id}:`, error);
+        errors.push(`Error processing schedule ${schedule.id}: ${error}`);
       }
     }
 

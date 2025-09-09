@@ -152,13 +152,12 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
 /**
  * Calculate expected number of doses based on schedules
  */
-function calculateExpectedDoses(schedules: any[], startDate: Date): number {
+function calculateExpectedDoses(schedules: Array<{ time_of_day: string; days_of_week: number }>, startDate: Date): number {
   let totalExpected = 0;
   const endDate = new Date();
 
   for (const schedule of schedules) {
     const daysOfWeek = schedule.days_of_week; // Bitmap: 1=Sunday, 2=Monday, etc.
-    const timeOfDay = schedule.time_of_day;
 
     // Count days from startDate to endDate that match the schedule
     const currentDate = new Date(startDate);
