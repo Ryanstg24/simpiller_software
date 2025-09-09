@@ -200,7 +200,7 @@ export default function SchedulePage() {
               patient: patientName,
               medication: medication.name,
               dosage: dosage,
-              status: status as any,
+              status: status,
               type: type,
               patientId: medication.patient_id,
               medicationId: medication.id

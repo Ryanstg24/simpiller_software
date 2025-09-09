@@ -166,7 +166,7 @@ export function useAnalytics() {
               .from('patients')
               .select('id')
               .eq('is_active', true)
-              .then(r => (r.data || []).map((x: any) => x.id))
+              .then(r => (r.data || []).map((x: { id: string }) => x.id))
           ));
         const scores = (adherenceRows || []).map((r: { adherence_score?: number }) => Number(r.adherence_score || 0)).filter((n: number) => !isNaN(n));
         const overallCompliance = scores.length ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 100) / 100 : 0;
