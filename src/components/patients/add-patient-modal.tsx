@@ -80,6 +80,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
     morning_time: '06:00',
     afternoon_time: '12:00',
     evening_time: '18:00',
+    bedtime: '22:00',
     timezone: 'America/New_York'
   });
 
@@ -222,6 +223,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           morning_time: formData.morning_time || null,
           afternoon_time: formData.afternoon_time || null,
           evening_time: formData.evening_time || null,
+          bedtime: (formData as any).bedtime || null,
           timezone: formData.timezone || null,
           
           is_active: true
@@ -276,6 +278,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
         morning_time: '06:00',
         afternoon_time: '12:00',
         evening_time: '18:00',
+        bedtime: '22:00',
         timezone: 'America/New_York'
       });
 
@@ -694,7 +697,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-gray-600 mb-4">
-                  Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their work schedule and timezone.
+                  Define when &quot;morning&quot;, &quot;afternoon&quot;, &quot;evening&quot;, and &quot;bedtime&quot; mean for this patient based on their work schedule and timezone.
                 </p>
                 
                 <div>
@@ -747,7 +750,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                   </select>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Morning Time
@@ -759,6 +762,18 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 06:00</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bedtime
+                    </label>
+                    <input
+                      type="time"
+                      value={(formData as any).bedtime}
+                      onChange={(e) => handleInputChange('bedtime' as any, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Default: 22:00</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

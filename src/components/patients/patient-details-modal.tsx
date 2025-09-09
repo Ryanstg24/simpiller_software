@@ -514,20 +514,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                           <option value="not_applicable">Not Applicable</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
-                        <select
-                          value={formData.risk_level || ''}
-                          onChange={(e) => setFormData({ ...formData, risk_level: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        >
-                          <option value="">Select Risk Level</option>
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                          <option value="critical">Critical</option>
-                        </select>
-                      </div>
+                      {/* Risk Level field removed per request */}
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                         <textarea
@@ -625,9 +612,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Time Preferences</h3>
                     <p className="text-sm text-gray-600 mb-4">
-                      Define when &quot;morning&quot;, &quot;afternoon&quot;, and &quot;evening&quot; mean for this patient based on their work schedule.
+                      Define when &quot;morning&quot;, &quot;afternoon&quot;, &quot;evening&quot;, and &quot;bedtime&quot; mean for this patient based on their work schedule.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
                         <select
@@ -668,6 +655,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                           type="time"
                           value={formData.evening_time || '18:00'}
                           onChange={(e) => setFormData({ ...formData, evening_time: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bedtime</label>
+                        <input
+                          type="time"
+                          value={formData.bedtime || '22:00'}
+                          onChange={(e) => setFormData({ ...formData, bedtime: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         />
                       </div>
@@ -777,12 +773,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                           {patient.rtm_status || 'Not specified'}
                         </span>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRiskLevelColor(patient.risk_level || '')}`}>
-                          {patient.risk_level || 'Not specified'}
-                        </span>
-                      </div>
+                      {/* Risk Level removed from read view */}
                     </div>
                     {patient.notes && (
                       <div className="mt-4">
@@ -831,7 +822,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                     <p className="text-sm text-gray-600 mb-4">
                       Custom times for medication scheduling based on work schedule.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
                         <p className="text-gray-900 font-medium">
@@ -856,6 +847,10 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Evening</label>
                         <p className="text-gray-900 font-medium">{patient.evening_time || '18:00'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bedtime</label>
+                        <p className="text-gray-900 font-medium">{patient.bedtime || '22:00'}</p>
                       </div>
                     </div>
                   </div>

@@ -18,8 +18,10 @@ import { supabase } from '@/lib/supabase';
 interface PatientCycleProgress {
   communicationMinutes: number;
   adherenceMinutes: number;
+  adherenceDays: number; // distinct days with taken logs in cycle
   cycleStart: string | null;
   cycleEnd: string | null;
+  daysLeft: number; // days left in current cycle
 }
 
 export default function PatientsPage() {
@@ -113,7 +115,7 @@ export default function PatientsPage() {
                 .single();
 
               if (medErr || !med) {
-                return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, cycleStart: null, cycleEnd: null }] as const;
+                return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
               }
 
               const { cycleStart, cycleEnd } = computeCurrentCycle(med.created_at as string);
@@ -121,6 +123,7 @@ export default function PatientsPage() {
               // Fetch provider_time_logs within the cycle window
               let communicationMinutes = 0;
               let adherenceMinutes = 0;
+              let adherenceDays = 0;
               try {
                 const { data: logs, error: logsErr } = await supabase
                   .from('provider_time_logs')
@@ -139,14 +142,41 @@ export default function PatientsPage() {
                 // Table might not exist yet in some environments; default to zero
               }
 
+              // Fetch medication_logs to compute adherance days (distinct days with status 'taken')
+              try {
+                const { data: mlogs } = await supabase
+                  .from('medication_logs')
+                  .select('event_date, status')
+                  .eq('patient_id', patient.id)
+                  .gte('event_date', cycleStart.toISOString())
+                  .lt('event_date', cycleEnd.toISOString());
+                if (mlogs && mlogs.length > 0) {
+                  const daySet = new Set<string>();
+                  for (const entry of mlogs as Array<{ event_date: string; status: string }>) {
+                    if (entry.status === 'taken' && entry.event_date) {
+                      const d = new Date(entry.event_date);
+                      const dayKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+                      daySet.add(dayKey);
+                    }
+                  }
+                  adherenceDays = daySet.size;
+                }
+              } catch {}
+
+              const nowLocal = new Date();
+              const msPerDay = 24 * 60 * 60 * 1000;
+              const daysLeft = Math.max(0, Math.ceil((cycleEnd.getTime() - nowLocal.getTime()) / msPerDay));
+
               return [patient.id, {
                 communicationMinutes,
                 adherenceMinutes,
+                adherenceDays,
                 cycleStart: cycleStart.toISOString(),
                 cycleEnd: cycleEnd.toISOString(),
+                daysLeft,
               }] as const;
             } catch {
-              return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, cycleStart: null, cycleEnd: null }] as const;
+              return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
             }
           })
         );
@@ -379,9 +409,16 @@ export default function PatientsPage() {
                         {/* Inline compact progress + actions */}
                         <div className="flex items-center justify-end gap-4 flex-1">
                           {renderProgressBars(patient.id)}
-                          {/* Placeholder compliance score and cycle days; wiring can follow */}
-                          <div className="text-xs text-gray-700 whitespace-nowrap">Compliance: —</div>
-                          <div className="text-xs text-gray-700 whitespace-nowrap">Cycle: 30d</div>
+                          {/* Adherance days and cycle remaining */}
+                          {(() => {
+                            const p = progressByPatientId[patient.id];
+                            return (
+                              <>
+                                <div className="text-xs text-gray-700 whitespace-nowrap">Adherance: {(p?.adherenceDays ?? 0)}/16</div>
+                                <div className="text-xs text-gray-700 whitespace-nowrap">Cycle: {(p?.daysLeft ?? 0)}d</div>
+                              </>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center space-x-3">
                           <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.is_active)}`}>

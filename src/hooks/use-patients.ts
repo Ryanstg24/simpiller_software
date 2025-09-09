@@ -49,6 +49,7 @@ export interface Patient {
   morning_time?: string;
   afternoon_time?: string;
   evening_time?: string;
+  bedtime?: string;
   
   // Joined data
   facilities?: {

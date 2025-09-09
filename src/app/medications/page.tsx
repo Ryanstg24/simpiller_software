@@ -45,6 +45,7 @@ interface Medication {
     morning_time?: string;
     afternoon_time?: string;
     evening_time?: string;
+    bedtime?: string;
     timezone?: string;
   };
 }
@@ -91,6 +92,7 @@ export default function MedicationsPage() {
               morning_time,
               afternoon_time,
               evening_time,
+              bedtime,
               timezone
             )
           `)
@@ -179,6 +181,8 @@ export default function MedicationsPage() {
               return `afternoon (${patient.afternoon_time || '12:00:00'})`;
             case 'evening':
               return `evening (${patient.evening_time || '18:00:00'})`;
+            case 'bedtime':
+              return `bedtime (${patient.bedtime || '22:00:00'})`;
             default:
               return time;
           }
@@ -197,6 +201,8 @@ export default function MedicationsPage() {
           return `afternoon (${patient.afternoon_time || '12:00:00'})`;
         case 'evening':
           return `evening (${patient.evening_time || '18:00:00'})`;
+        case 'bedtime':
+          return `bedtime (${patient.bedtime || '22:00:00'})`;
         default:
           return timeOfDay;
       }

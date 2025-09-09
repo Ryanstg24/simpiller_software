@@ -22,6 +22,7 @@ export async function POST() {
           morning_time,
           afternoon_time,
           evening_time,
+          bedtime,
           timezone
         )
       `)
@@ -55,6 +56,7 @@ export async function POST() {
           morning_time?: string;
           afternoon_time?: string;
           evening_time?: string;
+          bedtime?: string;
           timezone?: string;
         };
 
@@ -113,6 +115,9 @@ export async function POST() {
                   break;
                 case 'evening':
                   time = patient.evening_time || '18:00';
+                  break;
+                case 'bedtime':
+                  time = patient.bedtime || '22:00';
                   break;
                 default:
                   continue;
