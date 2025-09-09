@@ -31,13 +31,8 @@ interface TimeLog {
 }
 
 const ACTIVITY_TYPES = [
-  { value: 'adherence_review', label: 'Adherence Review', defaultMinutes: 5 },
   { value: 'patient_communication', label: 'Patient Communication', defaultMinutes: 10 },
-  { value: 'medication_consultation', label: 'Medication Consultation', defaultMinutes: 15 },
-  { value: 'compliance_check', label: 'Compliance Check', defaultMinutes: 5 },
-  { value: 'follow_up', label: 'Follow-up Call', defaultMinutes: 10 },
-  { value: 'education', label: 'Patient Education', defaultMinutes: 15 },
-  { value: 'assessment', label: 'Patient Assessment', defaultMinutes: 20 },
+  { value: 'adherence_review', label: 'Adherence Review', defaultMinutes: 5 },
   { value: 'other', label: 'Other', defaultMinutes: 5 },
 ];
 
@@ -136,7 +131,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         duration_minutes: formData.duration_minutes,
-        billing_code: formData.billing_code || null,
+        // billing_code removed
       };
 
       if (editingLog) {
@@ -393,18 +388,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Billing Code (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.billing_code}
-                  onChange={(e) => setFormData(prev => ({ ...prev, billing_code: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  placeholder="e.g., 99407, 99408"
-                />
-              </div>
+              {/* Billing Code (Optional) removed */}
             </div>
 
             <div className="flex space-x-3">
