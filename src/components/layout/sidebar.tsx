@@ -30,7 +30,6 @@ const navigation: NavItem[] = [
   { name: 'Medications', href: '/medications', icon: Pill, requiredRole: 'provider' },
   { name: 'Schedule', href: '/schedule', icon: Calendar, requiredRole: 'provider' },
   { name: 'Alerts', href: '/alerts', icon: Bell, requiredRole: 'provider' },
-  { name: 'SMS Alerts', href: '/sms-alerts', icon: Phone, requiredRole: 'organization_admin' },
   { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'organization_admin' },
   { name: 'OCR Test', href: '/ocr-test', icon: Eye, requiredRole: 'organization_admin' },
   { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
