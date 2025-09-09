@@ -2,12 +2,28 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import TwilioService from '@/lib/twilio';
 
+// Ensure Node.js runtime (not Edge) and disable caching
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
-    // Verify the request is from Vercel cron
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
-      return new Response('Unauthorized', { status: 401 });
+    // Verify the request is from Vercel Cron
+    // Per Vercel docs, set CRON_SECRET in project env. Vercel will send
+    // Authorization: Bearer <CRON_SECRET>. They also include x-vercel-cron header.
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    const hasVercelCronHeader = !!request.headers.get('x-vercel-cron');
+    const cronSecret = process.env.CRON_SECRET || process.env.CRON_SECRET_TOKEN;
+
+    if (cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}` && !hasVercelCronHeader) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+    } else {
+      // If no secret configured, require Vercel cron header
+      if (!hasVercelCronHeader) {
+        return new Response('Unauthorized', { status: 401 });
+      }
     }
 
     const now = new Date();
