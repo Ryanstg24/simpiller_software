@@ -223,7 +223,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           morning_time: formData.morning_time || null,
           afternoon_time: formData.afternoon_time || null,
           evening_time: formData.evening_time || null,
-          bedtime: (formData as any).bedtime || null,
+          bedtime: formData.bedtime || null,
           timezone: formData.timezone || null,
           
           is_active: true
@@ -769,8 +769,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                     </label>
                     <input
                       type="time"
-                      value={(formData as any).bedtime}
-                      onChange={(e) => handleInputChange('bedtime' as any, e.target.value)}
+                      value={formData.bedtime}
+                      onChange={(e) => handleInputChange('bedtime', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 22:00</p>
