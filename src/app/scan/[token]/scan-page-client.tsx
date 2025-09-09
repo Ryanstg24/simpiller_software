@@ -9,11 +9,12 @@ import Image from 'next/image';
 interface ScanSession {
   id: string;
   patient_id: string;
-  medication_id: string;
+  medication_ids: string[];
   scan_token: string;
   status: 'pending' | 'completed' | 'failed';
   created_at: string;
   completed_at?: string;
+  scheduled_time: string;
   
   // Joined data
   patients?: {
@@ -21,8 +22,10 @@ interface ScanSession {
     last_name: string;
   };
   medications?: {
-    medication_name: string;
-    dosage: string;
+    id: string;
+    name: string;
+    strength: string;
+    format: string;
   };
 }
 
@@ -63,17 +66,20 @@ export function ScanPageClient({ token }: { token: string }) {
           const testSession: ScanSession = {
             id: token,
             patient_id: 'test-patient',
-            medication_id: 'test-medication',
+            medication_ids: ['test-medication'],
             scan_token: token,
             status: 'pending',
             created_at: testDate.toISOString(),
+            scheduled_time: testDate.toISOString(),
             patients: {
               first_name: patientParam.split(' ')[0] || 'Test',
               last_name: patientParam.split(' ').slice(1).join(' ') || 'Patient'
             },
             medications: {
-              medication_name: medicationParam,
-              dosage: '500mg'
+              id: 'test-medication',
+              name: medicationParam,
+              strength: '500mg',
+              format: 'tablet'
             }
           };
           setScanSession(testSession);
@@ -216,7 +222,7 @@ export function ScanPageClient({ token }: { token: string }) {
             console.log('🔍 Auto-capture: Found medication:', parsed.medicationName);
             
             // Get expected medication from session data
-            const expectedMedication = scanSession?.medications?.medication_name || '';
+            const expectedMedication = scanSession?.medications?.name || '';
             
             if (expectedMedication) {
               const isValid = parsed.medicationNames.some(med => 
@@ -361,7 +367,7 @@ export function ScanPageClient({ token }: { token: string }) {
       if (token.startsWith('test-')) {
         // For test scans, simulate a realistic validation
         const scannedText = ocrData.text.toLowerCase();
-        const expectedMedicationName = currentMedication.medication_name.toLowerCase();
+        const expectedMedicationName = currentMedication.name.toLowerCase();
         
         // Check if the scanned text contains the expected medication name or similar
         const isMatch = scannedText.includes(expectedMedicationName) || 
@@ -380,8 +386,8 @@ export function ScanPageClient({ token }: { token: string }) {
       } else {
         // For real scans, use the actual validation
         const expectedMedication = {
-          medicationName: currentMedication.medication_name,
-          dosage: currentMedication.dosage,
+          medicationName: currentMedication.name,
+          dosage: `${currentMedication.strength} ${currentMedication.format}`,
           patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
         };
         validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
@@ -389,8 +395,8 @@ export function ScanPageClient({ token }: { token: string }) {
 
       console.log('Scan validation result:', {
         sessionToken: token,
-        medicationId: scanSession.medication_id,
-        expectedMedication: currentMedication.medication_name,
+        medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
+        expectedMedication: currentMedication.name,
         scannedText: ocrData.text,
         validation,
         isTestScan: token.startsWith('test-')
@@ -425,9 +431,9 @@ export function ScanPageClient({ token }: { token: string }) {
         },
         body: JSON.stringify({
           scanSessionId: scanSession.id,
-          medicationId: scanSession.medications?.id,
+          medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
           patientId: scanSession.patient_id,
-          scheduleId: scanSession.schedule_id,
+          scheduleId: null, // Will be determined by the API based on medication and time
           scanData: {
             ocrResult,
             labelData,
@@ -531,10 +537,10 @@ export function ScanPageClient({ token }: { token: string }) {
         {/* Current Medication Info */}
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
           <h2 className="text-lg font-medium text-gray-900 mb-2">
-            Scan: {currentMedication?.medication_name}
+            Scan: {currentMedication?.name}
           </h2>
           <div className="text-sm text-gray-600 space-y-1">
-            <p><strong>Dosage:</strong> {currentMedication?.dosage}</p>
+            <p><strong>Dosage:</strong> {currentMedication?.strength} {currentMedication?.format}</p>
             <p><strong>Scheduled Time:</strong> {formatTime(scanSession.created_at)}</p>
             <p><strong>Instructions:</strong> Take as prescribed</p>
           </div>
@@ -594,7 +600,7 @@ export function ScanPageClient({ token }: { token: string }) {
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-600 mb-2">Debug Info:</p>
                 <p className="text-xs text-gray-500">Token: {token}</p>
-                <p className="text-xs text-gray-500">Expected: {scanSession?.medications?.medication_name}</p>
+                <p className="text-xs text-gray-500">Expected: {scanSession?.medications?.name}</p>
                 <p className="text-xs text-gray-500">Patient: {scanSession?.patients?.first_name} {scanSession?.patients?.last_name}</p>
                 <p className="text-xs text-gray-500">User Agent: {navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other'}</p>
               </div>

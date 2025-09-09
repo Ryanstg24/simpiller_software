@@ -29,6 +29,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Find the schedule_id if not provided
+    let finalScheduleId = scheduleId;
+    if (!finalScheduleId) {
+      const { data: schedule } = await supabase
+        .from('medication_schedules')
+        .select('id')
+        .eq('medication_id', medicationId)
+        .eq('is_active', true)
+        .single();
+      finalScheduleId = schedule?.id || null;
+    }
+
     // Create medication log entry
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
     const { data: logEntry, error: logError } = await supabase
@@ -36,7 +48,7 @@ export async function POST(request: NextRequest) {
       .insert({
         medication_id: medicationId,
         patient_id: patientId,
-        schedule_id: scheduleId,
+        schedule_id: finalScheduleId,
         event_key: eventKey,
         event_date: new Date().toISOString(),
         status: 'taken',
