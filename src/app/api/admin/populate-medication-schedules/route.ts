@@ -48,7 +48,15 @@ export async function POST() {
 
     for (const medication of medications) {
       try {
-        const patient = medication.patients as any;
+        const patient = medication.patients as { 
+          id: string; 
+          first_name: string; 
+          last_name: string; 
+          morning_time?: string; 
+          afternoon_time?: string; 
+          evening_time?: string; 
+          timezone?: string; 
+        } | null;
         if (!patient || Array.isArray(patient)) continue;
 
         // Clear existing schedules for this medication

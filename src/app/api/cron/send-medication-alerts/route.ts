@@ -56,10 +56,22 @@ export async function GET(request: Request) {
 
     for (const schedule of schedules || []) {
       try {
-        const medication = schedule.medications as any;
+        const medication = schedule.medications as {
+          id: string;
+          name: string;
+          patient_id: string;
+          status: string;
+          patients: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            phone1: string;
+            phone1_verified: boolean;
+          };
+        } | null;
         if (!medication || Array.isArray(medication)) continue;
         
-        const patient = medication.patients as any;
+        const patient = medication.patients;
         if (!patient || Array.isArray(patient) || !patient.phone1) continue;
 
         // Check if this schedule should trigger an alert now
