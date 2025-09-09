@@ -172,33 +172,28 @@ export default function PatientsPage() {
     const adherPct = Math.round((adher / 80) * 100);
 
     return (
-      <div className="mt-2 space-y-2">
-        {/* Patient Communication 20 min bar */}
-        <div>
-          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-            <span>Patient Communication</span>
-            <span>{progress?.communicationMinutes || 0} / 20 min</span>
+      <div className="flex items-center gap-3 w-full">
+        {/* Patient Communication label + tiny bar */}
+        <div className="flex items-center gap-2 min-w-[180px]">
+          <span className="text-xs text-gray-600 whitespace-nowrap">Patient Communication</span>
+          <div className="w-40 h-1.5 bg-gray-200 rounded">
+            <div className="h-1.5 bg-blue-600 rounded" style={{ width: `${commPct}%` }} />
           </div>
-          <div className="w-full h-2 bg-gray-200 rounded">
-            <div className="h-2 bg-blue-600 rounded" style={{ width: `${commPct}%` }} />
-          </div>
+          <span className="text-xs text-gray-600 whitespace-nowrap">{progress?.communicationMinutes || 0}/20</span>
         </div>
 
-        {/* Adherence Review up to 80 min with 20-min ticks */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-            <span>Adherence Review</span>
-            <span>{progress?.adherenceMinutes || 0} / 80 min</span>
-          </div>
-          <div className="relative w-full h-2 bg-gray-200 rounded">
-            <div className="h-2 bg-purple-600 rounded" style={{ width: `${adherPct}%` }} />
-            {/* tick marks at 20,40,60,80 */}
+        {/* Adherence Review tiny bar with ticks */}
+        <div className="flex items-center gap-2 min-w-[220px]">
+          <span className="text-xs text-gray-600 whitespace-nowrap">Adherence Review</span>
+          <div className="relative w-56 h-1.5 bg-gray-200 rounded">
+            <div className="h-1.5 bg-purple-600 rounded" style={{ width: `${adherPct}%` }} />
             <div className="absolute inset-0 flex justify-between">
               {[20,40,60,80].map((tick) => (
-                <div key={tick} className="h-2 w-px bg-white/70" style={{ left: `${(tick/80)*100}%` }} />
+                <div key={tick} className="h-1.5 w-px bg-white/70" style={{ left: `${(tick/80)*100}%` }} />
               ))}
             </div>
           </div>
+          <span className="text-xs text-gray-600 whitespace-nowrap">{progress?.adherenceMinutes || 0}/80</span>
         </div>
       </div>
     );
@@ -383,12 +378,32 @@ export default function PatientsPage() {
                             </div>
                           </div>
                         </div>
-                        {/* Progress bars */}
-                        <div className="mt-4 w-full">{renderProgressBars(patient.id)}</div>
+                        {/* Inline compact progress + actions */}
+                        <div className="flex items-center justify-end gap-4 flex-1">
+                          {renderProgressBars(patient.id)}
+                          {/* Placeholder compliance score and cycle days; wiring can follow */}
+                          <div className="text-xs text-gray-700 whitespace-nowrap">Compliance: —</div>
+                          <div className="text-xs text-gray-700 whitespace-nowrap">Cycle: 30d</div>
+                        </div>
                         <div className="flex items-center space-x-3">
                           <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.is_active)}`}>
                             {getStatusText(patient.is_active)}
                           </div>
+                          <Button 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPatient(patient);
+                              setIsModalOpen(true);
+                              // open directly to Time Log tab
+                              setTimeout(() => {
+                                const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
+                                el?.click();
+                              }, 0);
+                            }}
+                          >
+                            Add Time Log
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -416,6 +431,7 @@ export default function PatientsPage() {
           setSelectedPatient(null);
         }}
         onPatientUpdated={handlePatientUpdated}
+        initialTab={'timeLog'}
       />
 
       <AddPatientModal

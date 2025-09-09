@@ -15,6 +15,7 @@ interface PatientDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPatientUpdated: () => void;
+  initialTab?: 'details' | 'medications' | 'compliance' | 'timeLog';
 }
 
 interface Medication {
@@ -57,8 +58,8 @@ interface Provider {
   email: string;
 }
 
-export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated }: PatientDetailsModalProps) {
-  const [activeTab, setActiveTab] = useState<'details' | 'medications' | 'compliance' | 'timeLog'>('details');
+export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated, initialTab }: PatientDetailsModalProps) {
+  const [activeTab, setActiveTab] = useState<'details' | 'medications' | 'compliance' | 'timeLog'>(initialTab || 'details');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -70,6 +71,13 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Ensure tab reflects requested initial tab when opening or changing patient
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab || 'details');
+    }
+  }, [isOpen, initialTab, patient?.id]);
 
   // Form data for editing patient
   const [formData, setFormData] = useState<Partial<Patient>>({});
