@@ -3,7 +3,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
@@ -111,8 +110,8 @@ export default function SchedulePage() {
         .gte('event_date', start.toISOString())
         .lt('event_date', end.toISOString());
       const map: Record<string, boolean> = {};
-      (data || []).forEach((row: any) => {
-        const s = (row.status || '') as string;
+      (data || []).forEach((row: { medication_id: string; status?: string }) => {
+        const s = row.status || '';
         if (s.startsWith('taken') || s === 'taken') map[row.medication_id] = true;
       });
       setTakenTodayByMedId(map);

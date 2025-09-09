@@ -70,7 +70,7 @@ export function useAnalytics() {
           }
 
           totalPatients = patientsData?.length || 0;
-          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
+          activePatients = (patientsData || []).filter((p: { rtm_status?: string }) => p.rtm_status === 'active').length;
 
           // Simpiller Admin sees all medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -99,7 +99,7 @@ export function useAnalytics() {
           }
 
           totalPatients = patientsData?.length || 0;
-          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
+          activePatients = (patientsData || []).filter((p: { rtm_status?: string }) => p.rtm_status === 'active').length;
 
           // Organization Admin sees their organization's medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -133,7 +133,7 @@ export function useAnalytics() {
           }
 
           totalPatients = patientsData?.length || 0;
-          activePatients = (patientsData || []).filter(p => (p as any).rtm_status === 'active').length;
+          activePatients = (patientsData || []).filter((p: { rtm_status?: string }) => p.rtm_status === 'active').length;
 
           // Provider sees only their assigned patients' medications
           const { data: medicationsData, error: medicationsError } = await supabase
@@ -168,7 +168,7 @@ export function useAnalytics() {
               .eq('is_active', true)
               .then(r => (r.data || []).map((x: any) => x.id))
           ));
-        const scores = (adherenceRows || []).map(r => Number((r as any).adherence_score || 0)).filter(n => !isNaN(n));
+        const scores = (adherenceRows || []).map((r: { adherence_score?: number }) => Number(r.adherence_score || 0)).filter((n: number) => !isNaN(n));
         const overallCompliance = scores.length ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 100) / 100 : 0;
 
         // Doses today by status
@@ -179,7 +179,7 @@ export function useAnalytics() {
           .select('status')
           .gte('event_date', start.toISOString())
           .lt('event_date', end.toISOString());
-        const todayStatuses = (todayLogs || []).map(r => (r as any).status as string);
+        const todayStatuses = (todayLogs || []).map((r: { status: string }) => r.status);
         const dosesTodayCompleted = todayStatuses.filter(s => s === 'taken' || s.startsWith('taken_')).length;
         const dosesTodayOverdue = todayStatuses.filter(s => s === 'taken_overdue').length;
         const dosesTodayMissed = todayStatuses.filter(s => s === 'missed').length;
