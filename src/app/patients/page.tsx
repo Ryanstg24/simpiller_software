@@ -172,20 +172,18 @@ export default function PatientsPage() {
     const adherPct = Math.round((adher / 80) * 100);
 
     return (
-      <div className="flex items-center gap-3 w-full">
-        {/* Patient Communication label + tiny bar */}
-        <div className="flex items-center gap-2 min-w-[180px]">
-          <span className="text-xs text-gray-600 whitespace-nowrap">Patient Communication</span>
-          <div className="w-40 h-1.5 bg-gray-200 rounded">
+      <div className="flex items-center gap-4 w-full">
+        {/* Patient Communication tiny bar (hover label) */}
+        <div className="flex items-center gap-2 min-w-[160px]">
+          <div className="w-40 h-1.5 bg-gray-200 rounded" title="Patient Communication">
             <div className="h-1.5 bg-blue-600 rounded" style={{ width: `${commPct}%` }} />
           </div>
           <span className="text-xs text-gray-600 whitespace-nowrap">{progress?.communicationMinutes || 0}/20</span>
         </div>
 
-        {/* Adherence Review tiny bar with ticks */}
-        <div className="flex items-center gap-2 min-w-[220px]">
-          <span className="text-xs text-gray-600 whitespace-nowrap">Adherence Review</span>
-          <div className="relative w-56 h-1.5 bg-gray-200 rounded">
+        {/* Adherence Review tiny bar with ticks (hover label) */}
+        <div className="flex items-center gap-2 min-w-[200px]">
+          <div className="relative w-56 h-1.5 bg-gray-200 rounded" title="Adherence Review">
             <div className="h-1.5 bg-purple-600 rounded" style={{ width: `${adherPct}%` }} />
             <div className="absolute inset-0 flex justify-between">
               {[20,40,60,80].map((tick) => (
@@ -390,7 +388,7 @@ export default function PatientsPage() {
                             {getStatusText(patient.is_active)}
                           </div>
                           <Button 
-                            variant="secondary" 
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                             size="sm"
                             onClick={() => {
                               setSelectedPatient(patient);
