@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,14 @@ import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+
+interface PatientCycleProgress {
+  communicationMinutes: number;
+  adherenceMinutes: number;
+  cycleStart: string | null;
+  cycleEnd: string | null;
+}
 
 export default function PatientsPage() {
   const userInfo = useUserDisplay();
@@ -22,6 +30,8 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [progressByPatientId, setProgressByPatientId] = useState<Record<string, PatientCycleProgress>>({});
+  const [progressLoading, setProgressLoading] = useState(false);
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return patients;
@@ -67,6 +77,131 @@ export default function PatientsPage() {
 
   const handleAddSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['patients'] });
+  };
+
+  // Helper to compute the current 30-day cycle window given a start date
+  const computeCurrentCycle = (startISO: string) => {
+    const start = new Date(startISO);
+    const now = new Date();
+    const cycleMs = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = now.getTime() - start.getTime();
+    const cyclesPassed = Math.floor(elapsed / cycleMs);
+    const cycleStart = new Date(start.getTime() + cyclesPassed * cycleMs);
+    const cycleEnd = new Date(cycleStart.getTime() + cycleMs);
+    return { cycleStart, cycleEnd };
+  };
+
+  // Load cycle-based progress for each patient
+  useEffect(() => {
+    const loadProgress = async () => {
+      if (!patients || patients.length === 0) {
+        setProgressByPatientId({});
+        return;
+      }
+      setProgressLoading(true);
+      try {
+        const results = await Promise.all(
+          patients.map(async (patient: Patient) => {
+            try {
+              // Find earliest medication for this patient to anchor the cycle
+              const { data: med, error: medErr } = await supabase
+                .from('medications')
+                .select('created_at')
+                .eq('patient_id', patient.id)
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .single();
+
+              if (medErr || !med) {
+                return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, cycleStart: null, cycleEnd: null }] as const;
+              }
+
+              const { cycleStart, cycleEnd } = computeCurrentCycle(med.created_at as string);
+
+              // Fetch provider_time_logs within the cycle window
+              let communicationMinutes = 0;
+              let adherenceMinutes = 0;
+              try {
+                const { data: logs, error: logsErr } = await supabase
+                  .from('provider_time_logs')
+                  .select('activity_type, duration_minutes, start_time')
+                  .eq('patient_id', patient.id)
+                  .gte('start_time', cycleStart.toISOString())
+                  .lt('start_time', cycleEnd.toISOString());
+
+                if (!logsErr && logs) {
+                  for (const log of logs as Array<{ activity_type: string; duration_minutes: number }>) {
+                    if (log.activity_type === 'patient_communication') communicationMinutes += Number(log.duration_minutes || 0);
+                    if (log.activity_type === 'adherence_review') adherenceMinutes += Number(log.duration_minutes || 0);
+                  }
+                }
+              } catch (e) {
+                // Table might not exist yet in some environments; default to zero
+              }
+
+              return [patient.id, {
+                communicationMinutes,
+                adherenceMinutes,
+                cycleStart: cycleStart.toISOString(),
+                cycleEnd: cycleEnd.toISOString(),
+              }] as const;
+            } catch {
+              return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, cycleStart: null, cycleEnd: null }] as const;
+            }
+          })
+        );
+
+        const map: Record<string, PatientCycleProgress> = {};
+        for (const [id, val] of results) {
+          map[id] = val;
+        }
+        setProgressByPatientId(map);
+      } finally {
+        setProgressLoading(false);
+      }
+    };
+
+    loadProgress();
+  }, [patients]);
+
+  const renderProgressBars = (patientId: string) => {
+    const progress = progressByPatientId[patientId];
+    const comm = Math.min(progress?.communicationMinutes || 0, 20);
+    const adher = Math.min(progress?.adherenceMinutes || 0, 80);
+    const commPct = Math.round((comm / 20) * 100);
+    const adherPct = Math.round((adher / 80) * 100);
+
+    return (
+      <div className="mt-2 space-y-2">
+        {/* Patient Communication 20 min bar */}
+        <div>
+          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <span>Patient Communication</span>
+            <span>{progress?.communicationMinutes || 0} / 20 min</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded">
+            <div className="h-2 bg-blue-600 rounded" style={{ width: `${commPct}%` }} />
+          </div>
+        </div>
+
+        {/* Adherence Review up to 80 min with 20-min ticks */}
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <span>Adherence Review</span>
+            <span>{progress?.adherenceMinutes || 0} / 80 min</span>
+          </div>
+          <div className="relative w-full h-2 bg-gray-200 rounded">
+            <div className="h-2 bg-purple-600 rounded" style={{ width: `${adherPct}%` }} />
+            {/* tick marks at 20,40,60,80 */}
+            <div className="absolute inset-0 flex justify-between">
+              {[20,40,60,80].map((tick) => (
+                <div key={tick} className="h-2 w-px bg-white/70" style={{ left: `${(tick/80)*100}%` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -241,15 +376,15 @@ export default function PatientsPage() {
                               {patient.patient_id_alt && (
                                 <span>ID: {patient.patient_id_alt}</span>
                               )}
-                              {patient.date_of_birth && (
-                                <span>Age: {calculateAge(patient.date_of_birth)}</span>
-                              )}
+                              {/* Age removed per request */}
                               {patient.email && (
                                 <span>{patient.email}</span>
                               )}
                             </div>
                           </div>
                         </div>
+                        {/* Progress bars */}
+                        <div className="mt-4 w-full">{renderProgressBars(patient.id)}</div>
                         <div className="flex items-center space-x-3">
                           <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.is_active)}`}>
                             {getStatusText(patient.is_active)}
