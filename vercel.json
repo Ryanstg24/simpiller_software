@@ -1,6 +1,12 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/send-medication-alerts",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "functions": {
-    "pages/api/cron/send-medication-alerts.js": {
+    "src/app/api/cron/send-medication-alerts/route.ts": {
       "maxDuration": 30
     }
   }
