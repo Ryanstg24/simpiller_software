@@ -48,16 +48,22 @@ export async function POST() {
 
     for (const medication of medications) {
       try {
-        const patient = medication.patients as { 
-          id: string; 
-          first_name: string; 
-          last_name: string; 
-          morning_time?: string; 
-          afternoon_time?: string; 
-          evening_time?: string; 
-          timezone?: string; 
-        } | null;
-        if (!patient || Array.isArray(patient)) continue;
+        type Patient = {
+          id: string;
+          first_name: string;
+          last_name: string;
+          morning_time?: string;
+          afternoon_time?: string;
+          evening_time?: string;
+          timezone?: string;
+        };
+
+        const patientsRelation = (medication as { patients: Patient | Patient[] | null }).patients;
+        const patient: Patient | null = Array.isArray(patientsRelation)
+          ? (patientsRelation[0] ?? null)
+          : patientsRelation;
+
+        if (!patient) continue;
 
         // Clear existing schedules for this medication
         await supabase

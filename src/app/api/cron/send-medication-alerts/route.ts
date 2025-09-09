@@ -72,23 +72,29 @@ export async function GET(request: Request) {
 
     for (const schedule of schedules || []) {
       try {
-        const medication = schedule.medications as {
+        type Patient = {
+          id: string;
+          first_name: string;
+          last_name: string;
+          phone1: string;
+          phone1_verified: boolean;
+        };
+
+        type Medication = {
           id: string;
           name: string;
           patient_id: string;
           status: string;
-          patients: {
-            id: string;
-            first_name: string;
-            last_name: string;
-            phone1: string;
-            phone1_verified: boolean;
-          };
-        } | null;
-        if (!medication || Array.isArray(medication)) continue;
-        
-        const patient = medication.patients;
-        if (!patient || Array.isArray(patient) || !patient.phone1) continue;
+          patients: Patient | Patient[] | null;
+        };
+
+        const medsRelation = (schedule as { medications: Medication | Medication[] | null }).medications;
+        const medication: Medication | null = Array.isArray(medsRelation) ? (medsRelation[0] ?? null) : medsRelation;
+        if (!medication) continue;
+
+        const patientRelation = medication.patients;
+        const patient: Patient | null = Array.isArray(patientRelation) ? (patientRelation[0] ?? null) : patientRelation;
+        if (!patient || !patient.phone1) continue;
 
         // Check if this schedule should trigger an alert now
         const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, currentHour, currentMinute, schedule.alert_advance_minutes);
