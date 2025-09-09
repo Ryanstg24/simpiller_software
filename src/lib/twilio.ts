@@ -70,16 +70,21 @@ export class TwilioService {
    * Send medication reminder SMS with scan link
    */
   static async sendMedicationReminder(reminder: MedicationReminder): Promise<boolean> {
-    const medicationList = reminder.medicationNames.join(', ');
     const time = new Date(reminder.scheduledTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
     });
 
+    // Format patient name as first name + last initial for HIPAA compliance
+    const nameParts = reminder.patientName.split(' ');
+    const firstName = nameParts[0];
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
+    const displayName = `${firstName} ${lastInitial}`;
+
     const message = {
       to: reminder.patientPhone,
-      body: `Hi ${reminder.patientName}! It's time to take your medication(s): ${medicationList} at ${time}. Please scan your medication label to confirm: ${reminder.scanLink}`,
+      body: `Hi ${displayName}! It's time to take your ${time} medication. Please scan your medication label to confirm: ${reminder.scanLink}`,
     };
 
     return this.sendSMS(message);
@@ -89,16 +94,21 @@ export class TwilioService {
    * Send follow-up reminder if medication not scanned
    */
   static async sendFollowUpReminder(reminder: MedicationReminder): Promise<boolean> {
-    const medicationList = reminder.medicationNames.join(', ');
     const time = new Date(reminder.scheduledTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
     });
 
+    // Format patient name as first name + last initial for HIPAA compliance
+    const nameParts = reminder.patientName.split(' ');
+    const firstName = nameParts[0];
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
+    const displayName = `${firstName} ${lastInitial}`;
+
     const message = {
       to: reminder.patientPhone,
-      body: `Reminder: ${reminder.patientName}, please don't forget to take ${medicationList} at ${time}. Scan here: ${reminder.scanLink}`,
+      body: `Reminder: ${displayName}, please don't forget to take your ${time} medication. Scan here: ${reminder.scanLink}`,
     };
 
     return this.sendSMS(message);

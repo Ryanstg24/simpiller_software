@@ -14,32 +14,39 @@ export async function GET(request: Request) {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
 
-    // Get all active medications that need to be taken at the current time
-    const { data: medications, error: medicationsError } = await supabase
-      .from('medications')
+    // Get all active medication schedules that need to be taken at the current time
+    const { data: schedules, error: schedulesError } = await supabase
+      .from('medication_schedules')
       .select(`
         id,
-        medication_name,
-        dosage,
         time_of_day,
-        frequency_per_day,
-        patient_id,
-        patients (
+        is_active,
+        alert_sms,
+        alert_advance_minutes,
+        medications (
           id,
-          first_name,
-          last_name,
-          phone1,
-          phone1_verified
+          name,
+          patient_id,
+          status,
+          patients (
+            id,
+            first_name,
+            last_name,
+            phone1,
+            phone1_verified
+          )
         )
       `)
-      .eq('status', 'active')
-      .not('patients.phone1', 'is', null)
-      .eq('patients.phone1_verified', true);
+      .eq('is_active', true)
+      .eq('alert_sms', true)
+      .eq('medications.status', 'active')
+      .not('medications.patients.phone1', 'is', null)
+      .eq('medications.patients.phone1_verified', true);
 
-    if (medicationsError) {
-      console.error('Error fetching medications:', medicationsError);
+    if (schedulesError) {
+      console.error('Error fetching medication schedules:', schedulesError);
       return NextResponse.json(
-        { error: 'Failed to fetch medications' },
+        { error: 'Failed to fetch medication schedules' },
         { status: 500 }
       );
     }
@@ -47,34 +54,32 @@ export async function GET(request: Request) {
     const alertsSent = [];
     const errors = [];
 
-    for (const medication of medications || []) {
+    for (const schedule of schedules || []) {
       try {
-        const patient = medication.patients?.[0]; // Get first patient from array
-        if (!patient || !patient.phone1) continue;
+        const medication = schedule.medications;
+        const patient = medication?.patients;
+        if (!patient || !patient.phone1 || !medication) continue;
 
-        // Parse time_of_day to check if it matches current time
-        const timeOfDay = medication.time_of_day;
-        if (!timeOfDay) continue;
-
-        // Check if this medication should be taken now
-        const shouldSendAlert = checkIfMedicationDue(timeOfDay, currentHour, currentMinute);
+        // Check if this schedule should trigger an alert now
+        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, currentHour, currentMinute, schedule.alert_advance_minutes);
         
         if (!shouldSendAlert) continue;
 
-        // Check if we already sent an alert for this medication today
+        // Check if we already sent an alert for this medication schedule today
         const today = now.toISOString().split('T')[0];
         const { data: existingAlert } = await supabase
           .from('medication_alerts')
           .select('id')
           .eq('patient_id', patient.id)
-          .eq('medication_ids', [medication.id])
+          .eq('medication_id', medication.id)
+          .eq('schedule_id', schedule.id)
           .gte('sent_at', `${today}T00:00:00`)
           .lte('sent_at', `${today}T23:59:59`)
-          .eq('alert_type', 'sms_reminder')
+          .eq('alert_type', 'sms')
           .single();
 
         if (existingAlert) {
-          console.log(`Alert already sent today for medication ${medication.id}`);
+          console.log(`Alert already sent today for medication ${medication.id} schedule ${schedule.id}`);
           continue;
         }
 
@@ -107,7 +112,7 @@ export async function GET(request: Request) {
         // Send SMS reminder
         const reminder = {
           patientName: `${patient.first_name} ${patient.last_name}`,
-          medicationNames: [medication.medication_name],
+          medicationNames: [medication.name],
           scheduledTime: now.toISOString(),
           scanLink,
           patientPhone: formattedPhone,
@@ -118,24 +123,27 @@ export async function GET(request: Request) {
         if (smsSent) {
           // Log the alert
           await supabase
-            .from('medication_alerts')
+            .from('alerts')
             .insert({
               patient_id: patient.id,
-              medication_ids: [medication.id],
-              alert_type: 'sms_reminder',
+              medication_id: medication.id,
+              schedule_id: schedule.id,
+              alert_type: 'sms',
               scheduled_time: now.toISOString(),
               sent_at: now.toISOString(),
               status: 'sent',
-              scan_session_id: scanSession.id,
+              message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${new Date(now).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} medication. Please scan your medication label to confirm: ${scanLink}`,
+              recipient: formattedPhone,
             });
 
           alertsSent.push({
             patientId: patient.id,
             medicationId: medication.id,
+            scheduleId: schedule.id,
             scanSessionId: scanSession.id,
           });
 
-          console.log(`SMS alert sent to ${patient.first_name} ${patient.last_name} for ${medication.medication_name}`);
+          console.log(`SMS alert sent to ${patient.first_name} ${patient.last_name} for ${medication.name}`);
         } else {
           errors.push(`Failed to send SMS for medication ${medication.id}`);
         }
@@ -168,22 +176,17 @@ export async function GET(request: Request) {
 /**
  * Check if a medication should be taken at the current time
  */
-function checkIfMedicationDue(timeOfDay: string, currentHour: number, currentMinute: number): boolean {
-  // Parse time_of_day which could be formats like:
-  // "morning (06:00:00)", "afternoon (12:00:00)", "evening (18:00:00)"
-  // or "custom (14:30:00)"
+function checkIfMedicationDue(timeOfDay: string, currentHour: number, currentMinute: number, advanceMinutes: number = 15): boolean {
+  // timeOfDay is now in HH:MM:SS format from medication_schedules table
+  const medicationTime = timeOfDay;
   
-  const timeMatch = timeOfDay.match(/\((\d{2}:\d{2}:\d{2})\)/);
-  if (!timeMatch) return false;
-
-  const medicationTime = timeMatch[1];
-  
-  // Allow a 5-minute window around the scheduled time
+  // Allow advance notification window (default 15 minutes before)
   const currentMinutes = currentHour * 60 + currentMinute;
   const medicationMinutes = timeToMinutes(medicationTime);
   
-  const timeDiff = Math.abs(currentMinutes - medicationMinutes);
-  return timeDiff <= 5; // 5-minute window
+  // Check if current time is within the advance window before the scheduled time
+  const timeDiff = medicationMinutes - currentMinutes;
+  return timeDiff >= 0 && timeDiff <= advanceMinutes;
 }
 
 /**

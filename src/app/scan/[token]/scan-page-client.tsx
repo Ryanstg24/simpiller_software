@@ -243,6 +243,9 @@ export function ScanPageClient({ token }: { token: string }) {
                   setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
                   setScanComplete(true);
                   setIsProcessing(false);
+                  
+                  // Log the successful scan
+                  await logSuccessfulScan();
                 } catch (error) {
                   console.error('Auto-process error:', error);
                   setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
@@ -290,6 +293,9 @@ export function ScanPageClient({ token }: { token: string }) {
             setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
             setScanComplete(true);
             setIsProcessing(false);
+            
+            // Log the successful scan
+            await logSuccessfulScan();
           } catch (error) {
             console.error('Auto-process error:', error);
             setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
@@ -316,6 +322,9 @@ export function ScanPageClient({ token }: { token: string }) {
             setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
             setScanComplete(true);
             setIsProcessing(false);
+            
+            // Log the successful scan
+            await logSuccessfulScan();
           } catch (error) {
             console.error('Auto-process error:', error);
             setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
@@ -402,6 +411,39 @@ export function ScanPageClient({ token }: { token: string }) {
       setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const logSuccessfulScan = async () => {
+    if (!scanSession) return;
+    
+    try {
+      const response = await fetch('/api/scan/log-success', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scanSessionId: scanSession.id,
+          medicationId: scanSession.medications?.id,
+          patientId: scanSession.patient_id,
+          scheduleId: scanSession.schedule_id,
+          scanData: {
+            ocrResult,
+            labelData,
+            imageData,
+            timestamp: new Date().toISOString()
+          }
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Scan logged successfully');
+      } else {
+        console.error('❌ Failed to log scan:', await response.text());
+      }
+    } catch (error) {
+      console.error('❌ Error logging scan:', error);
     }
   };
 

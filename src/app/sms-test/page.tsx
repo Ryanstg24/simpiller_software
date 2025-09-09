@@ -269,7 +269,14 @@ export default function SMSTestPage() {
                             <p><strong>Body:</strong></p>
                             <div className="bg-white p-3 rounded border text-gray-800">
                               {result.reminder.patientName && result.reminder.medicationNames && (
-                                `Hi ${result.reminder.patientName}! It's time to take your medication(s): ${result.reminder.medicationNames.join(', ')} at ${new Date(result.reminder.scheduledTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}. Please scan your medication label to confirm: ${result.scanLink}`
+                                (() => {
+                                  const time = new Date(result.reminder.scheduledTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                  const nameParts = result.reminder.patientName.split(' ');
+                                  const firstName = nameParts[0];
+                                  const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
+                                  const displayName = `${firstName} ${lastInitial}`;
+                                  return `Hi ${displayName}! It's time to take your ${time} medication. Please scan your medication label to confirm: ${result.scanLink}`;
+                                })()
                               )}
                             </div>
                           </div>
