@@ -84,22 +84,33 @@ export async function GET(request: Request) {
     // Diagnostic: if no schedules, try to inspect recent rows to understand why
     if (!schedules || schedules.length === 0) {
       try {
+        type DiagPatient = { id: string; rtm_status?: string | null; phone1?: string | null; timezone?: string | null };
+        type DiagMedication = { id: string; status: string; patients: DiagPatient | DiagPatient[] | null };
+        type DiagScheduleRow = { id: string; time_of_day: string; is_active: boolean; alert_sms: boolean; medications: DiagMedication | DiagMedication[] | null };
+
         const { data: diagSchedules } = await supabaseAdmin
           .from('medication_schedules')
           .select(`id, time_of_day, is_active, alert_sms, medications ( id, status, patients ( id, rtm_status, phone1, timezone ) )`)
           .limit(20);
+        const diagSample = (diagSchedules as DiagScheduleRow[] | null) || [];
         console.log('[CRON][DIAG] Sample schedules', {
-          sampleCount: (diagSchedules || []).length,
-          sample: (diagSchedules || []).map((s: any) => ({
-            id: s.id,
-            time_of_day: s.time_of_day,
-            is_active: s.is_active,
-            alert_sms: s.alert_sms,
-            medStatus: Array.isArray(s.medications) ? s.medications[0]?.status : s.medications?.status,
-            patientStatus: Array.isArray(s.medications) ? s.medications[0]?.patients?.rtm_status : s.medications?.patients?.rtm_status,
-            hasPhone: !!(Array.isArray(s.medications) ? s.medications[0]?.patients?.phone1 : s.medications?.patients?.phone1),
-            tz: Array.isArray(s.medications) ? s.medications[0]?.patients?.timezone : s.medications?.patients?.timezone,
-          }))
+          sampleCount: diagSample.length,
+          sample: diagSample.map((s: DiagScheduleRow) => {
+            const meds = s.medications;
+            const med = Array.isArray(meds) ? meds[0] : meds;
+            const pat = med?.patients;
+            const patient = Array.isArray(pat) ? pat[0] : pat;
+            return {
+              id: s.id,
+              time_of_day: s.time_of_day,
+              is_active: s.is_active,
+              alert_sms: s.alert_sms,
+              medStatus: med?.status,
+              patientStatus: patient?.rtm_status,
+              hasPhone: !!patient?.phone1,
+              tz: patient?.timezone,
+            };
+          })
         });
       } catch (e) {
         console.warn('[CRON][DIAG] Failed to fetch sample schedules', e);
