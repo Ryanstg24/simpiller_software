@@ -154,7 +154,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      setUserRoles([]);
+      setPasswordChangeRequired(false);
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in signOut:', error);
+      // Even if there's an error, clear the local state
+      setUser(null);
+      setSession(null);
+      setUserRoles([]);
+      setPasswordChangeRequired(false);
+      throw error;
+    }
   };
 
   // Computed properties for role checking

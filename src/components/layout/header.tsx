@@ -36,8 +36,15 @@ export function Header({ title, subtitle, user }: HeaderProps) {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/login');
+    try {
+      await signOut();
+      // Force redirect to login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force redirect to login page as fallback
+      window.location.href = '/login';
+    }
   };
 
   const handleSettings = () => {

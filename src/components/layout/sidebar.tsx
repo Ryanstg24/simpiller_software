@@ -46,7 +46,15 @@ export function Sidebar({ currentPage = '/' }: SidebarProps) {
   const { signOut, user, isSimpillerAdmin, isOrganizationAdmin, isProvider } = useAuth();
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+      // Force redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force redirect to login page as fallback
+      window.location.href = '/login';
+    }
   };
 
   // Filter navigation items based on user roles (fine-grained)
