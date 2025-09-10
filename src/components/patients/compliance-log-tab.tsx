@@ -49,7 +49,10 @@ interface MedicationLogData {
   status: string;
   event_date: string;
   created_at: string;
+  taken_at?: string;
   raw_scan_data?: string;
+  scanned_medication_name?: string;
+  scanned_dosage?: string;
   medications?: {
     name: string;
     strength: string;
@@ -101,7 +104,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           // Transform the data to match the expected interface
-          const transformedLogs = (logsData as any[] || []).map((log) => {
+          const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => {
             // Handle both old and new data formats
             let medicationName = '';
             let dosage = '';
