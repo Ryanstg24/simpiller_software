@@ -16,7 +16,7 @@ interface ScheduleItem {
   patient: string;
   medication: string;
   dosage: string;
-  status: "completed" | "overdue" | "upcoming";
+  status: "completed" | "overdue" | "upcoming" | "missed";
   type: string;
   patientId: string;
   medicationId: string;
@@ -224,6 +224,7 @@ export default function SchedulePage() {
     switch (status) {
       case 'completed': return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'overdue': return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'missed': return <XCircle className="h-5 w-5 text-red-600" />;
       case 'upcoming': return <Clock className="h-5 w-5 text-blue-500" />;
       default: return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
     }
@@ -233,6 +234,7 @@ export default function SchedulePage() {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
       case 'overdue': return 'bg-red-100 text-red-800';
+      case 'missed': return 'bg-red-200 text-red-900';
       case 'upcoming': return 'bg-blue-100 text-blue-800';
       default: return 'bg-yellow-100 text-yellow-800';
     }
