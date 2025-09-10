@@ -209,15 +209,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           postal_code: formData.postal_code || null,
           country: formData.country,
           
-          // Medical Information
-          ssn: formData.ssn || null,
-          emergency_contact_name: formData.emergency_contact_name || null,
-          emergency_contact_phone: formData.emergency_contact_phone || null,
-          
           // Medical Status
           rtm_status: formData.rtm_status || null,
-          risk_level: formData.risk_level || null,
-          notes: formData.notes || null,
           
           // Time Preferences
           morning_time: formData.morning_time || null,
@@ -611,32 +604,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    SSN (Last 4 digits)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.ssn}
-                    onChange={(e) => handleInputChange('ssn', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="Enter last 4 digits of SSN"
-                    maxLength={4}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Adherence Score
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
-                      Will be calculated from medication scanning data
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      This field will be automatically populated based on patient medication adherence tracking
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       RTM Status
@@ -653,36 +621,6 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
                       <option value="not_applicable">Not Applicable</option>
                     </select>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Risk Level
-                  </label>
-                  <select
-                    value={formData.risk_level}
-                    onChange={(e) => handleInputChange('risk_level', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  >
-                    <option value="">Select risk level</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                    placeholder="Enter any additional notes"
-                    rows={3}
-                  />
                 </div>
               </CardContent>
             </Card>
