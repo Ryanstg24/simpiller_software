@@ -42,6 +42,21 @@ interface ComplianceScore {
   created_at: string;
 }
 
+interface MedicationLogData {
+  id: string;
+  medication_id: string;
+  patient_id: string;
+  status: string;
+  event_date: string;
+  created_at: string;
+  raw_scan_data?: string;
+  medications?: {
+    name: string;
+    strength: string;
+    format: string;
+  };
+}
+
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
@@ -52,10 +67,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     try {
       setLoading(true);
 
-      // For now, use mock data since the full medication scanning tables might not be deployed yet
-      // This ensures the component works on Vercel deployment
-      const mockLogs: MedicationLog[] = [];
-      const mockScores: ComplianceScore[] = [];
+      // Mock data for fallback (currently unused but kept for future use)
+      // const mockLogs: MedicationLog[] = [];
+      // const mockScores: ComplianceScore[] = [];
 
       // Fetch real medication logs
       try {
@@ -84,7 +98,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           // Transform the data to match the expected interface
-          const transformedLogs = (logsData || []).map((log: any) => ({
+          const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => ({
             id: log.id,
             patient_id: log.patient_id,
             medication_id: log.medication_id,
