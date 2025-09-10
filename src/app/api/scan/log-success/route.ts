@@ -207,12 +207,37 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     const roundedScore = Math.max(0, Math.min(100, Math.round(complianceScore)));
 
     // Persist rolling 30-day adherence (compliance) score on patient
-    const { error: patientUpdateError } = await supabaseAdmin
-      .from('patients')
-      .update({ adherence_score: roundedScore })
-      .eq('id', patientId);
-    if (patientUpdateError) {
-      console.error('Error updating patient adherence_score:', patientUpdateError);
+    // Try to update adherence_score, but don't fail if the column doesn't exist or has constraints
+    try {
+      console.log(`Attempting to update adherence_score to ${roundedScore} for patient ${patientId}`);
+      
+      const { error: patientUpdateError } = await supabaseAdmin
+        .from('patients')
+        .update({ adherence_score: roundedScore })
+        .eq('id', patientId);
+      
+      if (patientUpdateError) {
+        console.error('Error updating patient adherence_score:', patientUpdateError);
+        console.log('Adherence score update failed, but scan logging will continue');
+        
+        // Try to get more info about the patient record
+        const { data: patientData, error: patientFetchError } = await supabaseAdmin
+          .from('patients')
+          .select('id, first_name, last_name, adherence_score')
+          .eq('id', patientId)
+          .single();
+        
+        if (patientFetchError) {
+          console.error('Error fetching patient data:', patientFetchError);
+        } else {
+          console.log('Current patient data:', patientData);
+        }
+      } else {
+        console.log(`Successfully updated adherence score to ${roundedScore}% for patient ${patientId}`);
+      }
+    } catch (updateError) {
+      console.error('Exception updating patient adherence_score:', updateError);
+      console.log('Adherence score update failed, but scan logging will continue');
     }
 
     console.log(`Overall compliance score for patient ${patientId}: ${roundedScore}% (${takenDoses}/${totalExpectedDoses} doses, calculated: ${complianceScore.toFixed(2)}%)`);
