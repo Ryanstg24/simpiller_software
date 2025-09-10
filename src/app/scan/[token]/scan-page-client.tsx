@@ -43,6 +43,8 @@ export function ScanPageClient({ token }: { token: string }) {
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [lastCaptureTime, setLastCaptureTime] = useState(0);
   const [timeliness, setTimeliness] = useState<'on_time' | 'overdue' | 'missed' | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [showManualConfirmation, setShowManualConfirmation] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -375,36 +377,13 @@ export function ScanPageClient({ token }: { token: string }) {
         throw new Error('No medication found for current index');
       }
 
-      // For test scans, create a more realistic validation
-      let validation;
-      if (token.startsWith('test-')) {
-        // For test scans, simulate a realistic validation
-        const scannedText = ocrData.text.toLowerCase();
-        const expectedMedicationName = currentMedication.name.toLowerCase();
-        
-        // Check if the scanned text contains the expected medication name or similar
-        const isMatch = scannedText.includes(expectedMedicationName) || 
-                       scannedText.includes('medication') || 
-                       scannedText.includes('tablet') ||
-                       scannedText.includes('capsule') ||
-                       scannedText.includes('mg') ||
-                       scannedText.includes('prescription');
-        
-        validation = {
-          isValid: isMatch,
-          confidence: isMatch ? 0.85 : 0.25,
-          matchedFields: isMatch ? ['medicationName'] : [],
-          errors: isMatch ? [] : ['Medication name not found in scanned text']
-        };
-      } else {
-        // For real scans, use the actual validation
-        const expectedMedication = {
-          medicationName: currentMedication.name,
-          dosage: `${currentMedication.strength} ${currentMedication.format}`,
-          patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
-        };
-        validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
-      }
+      // Always use strict validation - no test mode bypass
+      const expectedMedication = {
+        medicationName: currentMedication.name,
+        dosage: `${currentMedication.strength} ${currentMedication.format}`,
+        patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
+      };
+      validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
 
       console.log('Scan validation result:', {
         sessionToken: token,
@@ -415,14 +394,39 @@ export function ScanPageClient({ token }: { token: string }) {
         isTestScan: token.startsWith('test-')
       });
 
-      // Determine success based on validation
-      const isSuccess = validation.isValid && validation.confidence > 0.5;
+      // Determine success based on validation - require high confidence
+      const isSuccess = validation.isValid && validation.confidence > 0.8;
       
-      setScanComplete(true);
-      setScanSession(prev => prev ? { 
-        ...prev, 
-        status: isSuccess ? 'completed' : 'failed' 
-      } : null);
+      if (isSuccess) {
+        // Success - log the scan and mark as completed
+        setScanComplete(true);
+        setScanSession(prev => prev ? { 
+          ...prev, 
+          status: 'completed' 
+        } : null);
+        await logSuccessfulScan();
+      } else {
+        // Failed validation
+        const newRetryCount = retryCount + 1;
+        setRetryCount(newRetryCount);
+        
+        if (newRetryCount >= 3) {
+          // After 3 failed attempts, show manual confirmation
+          setShowManualConfirmation(true);
+          setScanComplete(true);
+          setScanSession(prev => prev ? { 
+            ...prev, 
+            status: 'failed' 
+          } : null);
+        } else {
+          // Show retry message
+          setScanComplete(true);
+          setScanSession(prev => prev ? { 
+            ...prev, 
+            status: 'failed' 
+          } : null);
+        }
+      }
 
     } catch (error) {
       console.error('Error processing image:', error);
@@ -475,6 +479,7 @@ export function ScanPageClient({ token }: { token: string }) {
     setIsCameraActive(false);
     setCameraError(null);
     setLastCaptureTime(0);
+    setShowManualConfirmation(false);
     stopCamera();
   };
 
@@ -856,23 +861,50 @@ export function ScanPageClient({ token }: { token: string }) {
               </div>
             ) : (
               <div className="text-red-700">
-                <p className="text-lg font-medium mb-2">❌ Scan Failed</p>
-                <p>{scanSession.status === 'failed' ? 'Failed to process image. Please try again.' : 'The scanned medication does not match your prescription.'}</p>
-                <p className="mt-2">Please try again with a clearer photo of the medication label.</p>
-                <div className="mt-4 flex space-x-3">
-                  <Button
-                    onClick={resetScanState}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Try Again
-                  </Button>
-                  <Button
-                    onClick={() => window.close()}
-                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-                  >
-                    Close Tab
-                  </Button>
-                </div>
+                {showManualConfirmation ? (
+                  <>
+                    <p className="text-lg font-medium mb-2">❌ Unable to Verify Medication</p>
+                    <p>After 3 attempts, we couldn't verify your medication. Did you take your medication as prescribed?</p>
+                    <div className="mt-4 flex space-x-3">
+                      <Button
+                        onClick={async () => {
+                          // Log as manually confirmed
+                          await logSuccessfulScan();
+                          setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                      >
+                        Yes, I Took It
+                      </Button>
+                      <Button
+                        onClick={() => window.close()}
+                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                      >
+                        No, I Didn't Take It
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-medium mb-2">❌ Scan Failed</p>
+                    <p>The scanned medication does not match your prescription.</p>
+                    <p className="mt-2">Attempt {retryCount} of 3. Please try again with a clearer photo of the medication label.</p>
+                    <div className="mt-4 flex space-x-3">
+                      <Button
+                        onClick={resetScanState}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Try Again
+                      </Button>
+                      <Button
+                        onClick={() => window.close()}
+                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                      >
+                        Close Tab
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

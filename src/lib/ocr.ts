@@ -332,10 +332,18 @@ export class OCRService {
       totalChecks++;
       const expectedMed = expectedMedication.medicationName.toLowerCase();
       
-      // Check single medication name
+      // Check single medication name - require exact match or very close match
       if (labelData.medicationName) {
-        const labelMed = labelData.medicationName.toLowerCase();
-        if (labelMed.includes(expectedMed) || expectedMed.includes(labelMed)) {
+        const labelMed = labelData.medicationName.toLowerCase().trim();
+        const expectedMedTrimmed = expectedMed.trim();
+        
+        // Exact match
+        if (labelMed === expectedMedTrimmed) {
+          matches.medicationName = true;
+          score += 1;
+        }
+        // Very close match (at least 80% of characters match)
+        else if (this.calculateStringSimilarity(labelMed, expectedMedTrimmed) >= 0.8) {
           matches.medicationName = true;
           score += 1;
         }
@@ -394,7 +402,7 @@ export class OCRService {
     }
 
     const confidence = totalChecks > 0 ? score / totalChecks : 0;
-    const isValid = confidence >= 0.5; // At least 50% match required
+    const isValid = confidence >= 0.8; // At least 80% match required for strict validation
 
     return {
       isValid,
@@ -424,6 +432,50 @@ export class OCRService {
    */
   static canvasToBase64(canvas: HTMLCanvasElement): string {
     return canvas.toDataURL('image/jpeg', 0.8);
+  }
+
+  /**
+   * Calculate string similarity using Levenshtein distance
+   */
+  static calculateStringSimilarity(str1: string, str2: string): number {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    const distance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  static levenshteinDistance(str1: string, str2: string): number {
+    const matrix = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
   }
 }
 
