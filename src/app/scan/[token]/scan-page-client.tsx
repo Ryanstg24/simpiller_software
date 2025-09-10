@@ -383,7 +383,7 @@ export function ScanPageClient({ token }: { token: string }) {
         dosage: `${currentMedication.strength} ${currentMedication.format}`,
         patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
       };
-      validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
+      const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
 
       console.log('Scan validation result:', {
         sessionToken: token,
