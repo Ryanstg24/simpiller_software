@@ -864,7 +864,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 {showManualConfirmation ? (
                   <>
                     <p className="text-lg font-medium mb-2">❌ Unable to Verify Medication</p>
-                    <p>After 3 attempts, we couldn't verify your medication. Did you take your medication as prescribed?</p>
+                    <p>After 3 attempts, we couldn&apos;t verify your medication. Did you take your medication as prescribed?</p>
                     <div className="mt-4 flex space-x-3">
                       <Button
                         onClick={async () => {
@@ -880,7 +880,7 @@ export function ScanPageClient({ token }: { token: string }) {
                         onClick={() => window.close()}
                         className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
                       >
-                        No, I Didn't Take It
+                        No, I Didn&apos;t Take It
                       </Button>
                     </div>
                   </>
