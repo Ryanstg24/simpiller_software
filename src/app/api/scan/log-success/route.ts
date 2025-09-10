@@ -203,16 +203,19 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     // Calculate overall compliance score
     const complianceScore = totalExpectedDoses > 0 ? (takenDoses / totalExpectedDoses) * 100 : 100;
 
+    // Ensure compliance score is an integer between 0 and 100
+    const roundedScore = Math.max(0, Math.min(100, Math.round(complianceScore)));
+
     // Persist rolling 30-day adherence (compliance) score on patient
     const { error: patientUpdateError } = await supabaseAdmin
       .from('patients')
-      .update({ adherence_score: Math.round(complianceScore * 100) / 100 })
+      .update({ adherence_score: roundedScore })
       .eq('id', patientId);
     if (patientUpdateError) {
       console.error('Error updating patient adherence_score:', patientUpdateError);
     }
 
-    console.log(`Overall compliance score for patient ${patientId}: ${complianceScore.toFixed(2)}% (${takenDoses}/${totalExpectedDoses} doses)`);
+    console.log(`Overall compliance score for patient ${patientId}: ${roundedScore}% (${takenDoses}/${totalExpectedDoses} doses, calculated: ${complianceScore.toFixed(2)}%)`);
 
   } catch (error) {
     console.error('Error updating compliance score:', error);
