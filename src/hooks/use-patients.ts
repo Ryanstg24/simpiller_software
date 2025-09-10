@@ -139,7 +139,12 @@ export function usePatients() {
         return [];
       }
 
-      const { data, error } = await withTimeout(query, 15000, 'Patients load timed out');
+      type SupabaseResponse<T> = { data: T[] | null; error: unknown };
+      const { data, error } = await withTimeout(
+        query as unknown as Promise<SupabaseResponse<Patient>>,
+        15000,
+        'Patients load timed out'
+      );
 
       if (error) {
         console.error('Error fetching patients:', error);
