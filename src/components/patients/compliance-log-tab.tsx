@@ -54,7 +54,7 @@ interface MedicationLogData {
     name: string;
     strength: string;
     format: string;
-  };
+  }[];
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
@@ -102,12 +102,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             id: log.id,
             patient_id: log.patient_id,
             medication_id: log.medication_id,
-            status: log.status,
+            status: log.status as 'taken' | 'missed' | 'pending' | 'verified' | 'failed' | 'skipped',
             taken_at: log.event_date,
             created_at: log.created_at,
-            medications: log.medications ? [{
-              medication_name: log.medications.name,
-              dosage: `${log.medications.strength} ${log.medications.format}`
+            medications: log.medications && log.medications.length > 0 ? [{
+              medication_name: log.medications[0].name,
+              dosage: `${log.medications[0].strength} ${log.medications[0].format}`
             }] : []
           }));
           setLogs(transformedLogs);
@@ -126,14 +126,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           .order('month_year', { ascending: false });
 
         if (scoresError) {
-          console.warn('Compliance scores table not available yet, using mock data:', scoresError);
-          setComplianceScores(mockScores);
+          console.warn('Compliance scores table not available yet, using empty data:', scoresError);
+          setComplianceScores([]);
         } else {
           setComplianceScores(scoresData || []);
         }
       } catch (error) {
-        console.warn('Error fetching compliance scores, using mock data:', error);
-        setComplianceScores(mockScores);
+        console.warn('Error fetching compliance scores, using empty data:', error);
+        setComplianceScores([]);
       }
 
     } catch (error) {
