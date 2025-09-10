@@ -84,7 +84,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           // Transform the data to match the expected interface
-          const transformedLogs = (logsData || []).map(log => ({
+          const transformedLogs = (logsData || []).map((log: any) => ({
             id: log.id,
             patient_id: log.patient_id,
             medication_id: log.medication_id,
