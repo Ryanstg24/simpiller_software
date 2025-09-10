@@ -80,6 +80,7 @@ export async function GET(request: Request) {
           phone1: string;
           phone1_verified: boolean;
           rtm_status?: string;
+          timezone?: string;
         };
 
         type Medication = {
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
         if (patient.rtm_status && patient.rtm_status !== 'active') continue;
 
         // Determine patient's local time (defaults to America/New_York if missing)
-        const timeZone = (patient as any).timezone || 'America/New_York';
+        const timeZone = patient.timezone || 'America/New_York';
         const localNowStr = now.toLocaleString('en-US', { timeZone });
         const localNow = new Date(localNowStr);
         const localHour = localNow.getHours();
