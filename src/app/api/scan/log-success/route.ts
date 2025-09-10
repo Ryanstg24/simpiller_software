@@ -206,14 +206,28 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     // Ensure compliance score is an integer between 0 and 100
     const roundedScore = Math.max(0, Math.min(100, Math.round(complianceScore)));
 
+    // Map numeric score to string value required by database constraint
+    let adherenceScoreString: string;
+    if (roundedScore >= 90) {
+      adherenceScoreString = 'excellent';
+    } else if (roundedScore >= 70) {
+      adherenceScoreString = 'good';
+    } else if (roundedScore >= 50) {
+      adherenceScoreString = 'fair';
+    } else if (roundedScore > 0) {
+      adherenceScoreString = 'poor';
+    } else {
+      adherenceScoreString = 'unknown';
+    }
+
     // Persist rolling 30-day adherence (compliance) score on patient
     // Try to update adherence_score, but don't fail if the column doesn't exist or has constraints
     try {
-      console.log(`Attempting to update adherence_score to ${roundedScore} for patient ${patientId}`);
+      console.log(`Attempting to update adherence_score to ${adherenceScoreString} (${roundedScore}%) for patient ${patientId}`);
       
       const { error: patientUpdateError } = await supabaseAdmin
         .from('patients')
-        .update({ adherence_score: roundedScore })
+        .update({ adherence_score: adherenceScoreString })
         .eq('id', patientId);
       
       if (patientUpdateError) {
@@ -233,7 +247,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
           console.log('Current patient data:', patientData);
         }
       } else {
-        console.log(`Successfully updated adherence score to ${roundedScore}% for patient ${patientId}`);
+        console.log(`Successfully updated adherence score to ${adherenceScoreString} (${roundedScore}%) for patient ${patientId}`);
       }
     } catch (updateError) {
       console.error('Exception updating patient adherence_score:', updateError);
