@@ -16,7 +16,6 @@ interface Medication {
   quantity: number;
   frequency: number;
   time_of_day?: string;
-  custom_time?: string;
   with_food: boolean;
   avoid_alcohol: boolean;
   impairment_warning: boolean;
@@ -107,7 +106,6 @@ export function MedicationModal({
         quantity: 0,
         frequency: 1,
         time_of_day: '',
-        custom_time: '',
         with_food: false,
         avoid_alcohol: false,
         impairment_warning: false,
@@ -193,7 +191,7 @@ export function MedicationModal({
       // Whitelist fields that are actual DB columns; explicitly omit joined objects like `patients`
       const allowedKeys: Array<keyof Medication | 'patient_id' | 'prescribed_by_id'> = [
         'name', 'strength', 'format', 'dose_count', 'quantity', 'frequency',
-        'time_of_day', 'custom_time', 'with_food', 'avoid_alcohol', 'impairment_warning',
+        'time_of_day', 'with_food', 'avoid_alcohol', 'impairment_warning',
         'special_instructions', 'rx_number', 'rx_filled_date', 'rx_refills', 'status',
         'start_date', 'end_date', 'patient_id', 'prescribed_by_id'
       ];
@@ -562,36 +560,7 @@ export function MedicationModal({
                   </div>
                   
                   {/* Custom Time Option */}
-                  <div>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.time_of_day === 'custom'}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Clear other times and set custom
-                            setFormData({ ...formData, time_of_day: 'custom', custom_time: formData.custom_time || '' });
-                          } else {
-                            // Remove custom
-                            setFormData({ ...formData, time_of_day: '', custom_time: '' });
-                          }
-                        }}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Custom Time</span>
-                    </label>
-                    {formData.time_of_day === 'custom' && (
-                      <div className="mt-2 ml-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Custom Time</label>
-                        <input
-                          type="time"
-                          value={formData.custom_time || ''}
-                          onChange={(e) => setFormData({ ...formData, custom_time: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        />
-                      </div>
-                    )}
-                  </div>
+                  {/* Custom Time removed */}
                 </div>
               </div>
 

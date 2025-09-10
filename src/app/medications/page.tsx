@@ -25,7 +25,6 @@ interface Medication {
   quantity: number;
   frequency: number;
   time_of_day?: string;
-  custom_time?: string;
   with_food: boolean;
   avoid_alcohol: boolean;
   impairment_warning: boolean;
@@ -165,9 +164,7 @@ export default function MedicationsPage() {
       return timeOfDay; // Already formatted
     }
     
-    if (timeOfDay.startsWith('Custom:')) {
-      return timeOfDay;
-    }
+    // Custom time removed
     
     // Handle comma-separated times (new checkbox format)
     if (timeOfDay.includes(',')) {
@@ -543,7 +540,7 @@ export default function MedicationsPage() {
                                   <Clock className="h-4 w-4 mr-1" />
                                   <div>
                                     {(() => {
-                                      const timeDisplay = formatTimeDisplay(medication.time_of_day || medication.custom_time || '', medication.patients);
+                                      const timeDisplay = formatTimeDisplay(medication.time_of_day || '', medication.patients);
                                       const times = medication.time_of_day?.split(',').filter(t => t.trim()) || [];
                                       
                                       if (times.length > 1) {

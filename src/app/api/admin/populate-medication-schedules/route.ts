@@ -13,7 +13,6 @@ export async function POST() {
         patient_id,
         name,
         time_of_day,
-        custom_time,
         status,
         patients (
           id,
@@ -102,8 +101,6 @@ export async function POST() {
               if (timeMatch) {
                 time = timeMatch[1];
               }
-            } else if (timeStr === 'custom' && medication.custom_time) {
-              time = medication.custom_time;
             } else {
               // Use patient's time preferences
               switch (timeStr.toLowerCase()) {
