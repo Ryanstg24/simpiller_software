@@ -53,7 +53,8 @@ export default function PatientsPage() {
   };
 
   const handlePatientUpdated = () => {
-    // React Query will automatically refetch
+    // Force refresh of patients so modal shows latest values without closing
+    queryClient.invalidateQueries({ queryKey: ['patients'] });
   };
 
   const getStatusColor = (isActive: boolean) => {
@@ -80,6 +81,16 @@ export default function PatientsPage() {
   const handleAddSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['patients'] });
   };
+
+  // Keep selectedPatient in sync with latest data from React Query so the modal reflects updates immediately
+  useEffect(() => {
+    if (selectedPatient) {
+      const updated = patients.find((p: Patient) => p.id === selectedPatient.id);
+      if (updated && (updated !== selectedPatient)) {
+        setSelectedPatient(updated);
+      }
+    }
+  }, [patients]);
 
   // Helper to compute the current 30-day cycle window given a start date
   const computeCurrentCycle = (startISO: string) => {

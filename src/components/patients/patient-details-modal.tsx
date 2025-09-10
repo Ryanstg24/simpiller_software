@@ -250,8 +250,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         console.error('Error updating patient:', error);
         alert('Failed to update patient. Please try again.');
       } else {
-        setIsEditing(false);
         onPatientUpdated();
+        // Keep modal open and switch to read mode with fresh data so user sees updates immediately
+        setIsEditing(false);
         alert('Patient updated successfully!');
       }
     } catch (error) {

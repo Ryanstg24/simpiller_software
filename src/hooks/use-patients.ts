@@ -73,6 +73,22 @@ export interface Patient {
 export function usePatients() {
   const { isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user } = useAuth();
 
+  // Simple timeout wrapper for queries to avoid indefinite loading
+  function withTimeout<T>(promise: Promise<T>, ms: number, message = 'Request timed out'): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(message)), ms);
+      promise
+        .then((value) => {
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
   const {
     data: patients = [],
     isLoading: loading,
@@ -123,7 +139,7 @@ export function usePatients() {
         return [];
       }
 
-      const { data, error } = await query;
+      const { data, error } = await withTimeout(query, 15000, 'Patients load timed out');
 
       if (error) {
         console.error('Error fetching patients:', error);
@@ -133,6 +149,10 @@ export function usePatients() {
       return data || [];
     },
     enabled: !!user, // Only run query if user is authenticated
+    retry: 1,
+    retryDelay: (attempt) => Math.min(2000 * attempt, 4000),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
