@@ -76,8 +76,16 @@ export async function POST() {
           .eq('medication_id', medication.id);
 
         // Parse time_of_day to create schedules
+        console.log('[Populate] Processing medication', { 
+          id: medication.id, 
+          name: medication.name, 
+          time_of_day: medication.time_of_day,
+          patientId: patient.id 
+        });
+        
         if (medication.time_of_day) {
           const times = medication.time_of_day.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+          console.log('[Populate] Parsed times:', times);
           
           for (const timeStr of times) {
             let time = '';
@@ -98,15 +106,16 @@ export async function POST() {
               alert_advance_minutes: 15
             };
 
-            // Extract time from format like "morning (06:00:00)"
+            // Handle both formats: "morning (06:00:00)" and just "morning"
             if (timeStr.includes('(') && timeStr.includes(')')) {
+              // Extract time from format like "morning (06:00:00)"
               const timeMatch = timeStr.match(/\(([^)]+)\)/);
               if (timeMatch) {
                 time = timeMatch[1];
               }
             } else {
-              // Use patient's time preferences
-              switch (timeStr.toLowerCase()) {
+              // Use patient's time preferences for simple time names
+              switch (timeStr.toLowerCase().trim()) {
                 case 'morning':
                   time = patient.morning_time || '06:00';
                   break;
@@ -120,6 +129,7 @@ export async function POST() {
                   time = patient.bedtime || '22:00';
                   break;
                 default:
+                  console.log('[Populate] Unknown time string:', timeStr);
                   continue;
               }
             }
