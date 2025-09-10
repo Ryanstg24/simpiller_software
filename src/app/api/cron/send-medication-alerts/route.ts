@@ -341,7 +341,7 @@ export async function GET(request: Request) {
                   scheduled_time: now.toISOString(),
                   sent_at: now.toISOString(),
                   status: 'sent',
-                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${localNow.toLocaleTimeString('en-US', { timeZone, hour: 'numeric', minute: '2-digit', hour12: true })} medications. Please scan your medication label to confirm: ${scanLink}`,
+                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(firstSchedule.time_of_day)} medications. Please scan your medication label to confirm: ${scanLink}`,
                   recipient: formattedPhone,
                 });
             }
@@ -419,4 +419,19 @@ function checkIfMedicationDue(
 function timeToMinutes(timeString: string): number {
   const [hours, minutes] = timeString.split(':').map(Number);
   return hours * 60 + minutes;
+}
+
+/**
+ * Format time for SMS display (e.g., "2:45 PM")
+ */
+function formatTimeForSMS(timeString: string): string {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  
+  return date.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit', 
+    hour12: true 
+  });
 } 
