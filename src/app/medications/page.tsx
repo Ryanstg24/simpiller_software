@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Search, Pill, User, ChevronDown, ChevronRight, Clock, AlertTriangle, Users, Bell, Activity } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { usePatients } from "@/hooks/use-patients";
+import { usePatients, Patient } from "@/hooks/use-patients";
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import React from "react";
@@ -80,7 +80,7 @@ export default function MedicationsPage() {
 
       try {
         setMedicationsLoading(true);
-        const patientIds = patients.map(p => p.id);
+        const patientIds = patients.map((p: Patient) => p.id);
         
         const { data, error } = await supabase
           .from('medications')
@@ -256,7 +256,7 @@ export default function MedicationsPage() {
       if (patients.length === 0) return;
 
       try {
-        const patientIds = patients.map(p => p.id);
+        const patientIds = patients.map((p: Patient) => p.id);
         
         const { data, error } = await supabase
           .from('medications')
