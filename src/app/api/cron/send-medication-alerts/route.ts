@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     }
 
     const now = new Date();
+    console.log('[CRON] send-medication-alerts start', { utcNow: now.toISOString() });
 
     // Use service-role client for RLS-safe reads and writes
     const supabaseAdmin = createClient(
@@ -119,7 +120,22 @@ export async function GET(request: Request) {
         const localMinute = localNow.getMinutes();
 
         // Check if this schedule should trigger an alert now based on patient's local time
-        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, schedule.alert_advance_minutes ?? 15, 7);
+        const advance = schedule.alert_advance_minutes ?? 15;
+        const tolerance = 7;
+        console.log('[CRON] Candidate schedule check', {
+          scheduleId: (schedule as { id: string }).id,
+          medicationId: medication.id,
+          patientId: patient.id,
+          timezone: timeZone,
+          scheduleTime: schedule.time_of_day,
+          localNowIso: localNow.toISOString(),
+          localHour,
+          localMinute,
+          advance,
+          tolerance
+        });
+        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, advance, tolerance);
+        console.log('[CRON] shouldSendAlert', { scheduleId: (schedule as { id: string }).id, medicationId: medication.id, patientId: patient.id, shouldSendAlert });
         
         if (!shouldSendAlert) continue;
 
@@ -127,6 +143,7 @@ export async function GET(request: Request) {
         const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate());
         const startIso = new Date(today.getTime() - (localNow.getTime() - now.getTime())).toISOString();
         const endIso = new Date(new Date(today.getTime() + 24*60*60*1000).getTime() - (localNow.getTime() - now.getTime())).toISOString();
+        console.log('[CRON] Existing alert window (UTC)', { startIso, endIso });
         const { data: existingAlert } = await supabaseAdmin
           .from('medication_alerts')
           .select('id')
@@ -139,7 +156,7 @@ export async function GET(request: Request) {
           .single();
 
         if (existingAlert) {
-          console.log(`Alert already sent today for medication ${medication.id} schedule ${schedule.id}`);
+          console.log('[CRON] Alert already sent today', { medicationId: medication.id, scheduleId: schedule.id, patientId: patient.id });
           continue;
         }
 
@@ -148,6 +165,7 @@ export async function GET(request: Request) {
         const tzOffsetMs = localNow.getTime() - now.getTime();
         const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
         const scheduledUtcIso = new Date(scheduledLocal.getTime() - tzOffsetMs).toISOString();
+        console.log('[CRON] Creating scan session', { scheduleId: schedule.id, medicationId: medication.id, patientId: patient.id, scheduledLocal: scheduledLocal.toISOString(), scheduledUtcIso });
 
         // Create scan session
         const { data: scanSession, error: sessionError } = await supabaseAdmin
@@ -185,6 +203,7 @@ export async function GET(request: Request) {
         };
 
         const smsSent = await TwilioService.sendMedicationReminder(reminder);
+        console.log('[CRON] SMS attempted', { medicationId: medication.id, patientId: patient.id, smsSent });
 
         if (smsSent) {
           // Log the alert
@@ -209,8 +228,9 @@ export async function GET(request: Request) {
             scanSessionId: scanSession.id,
           });
 
-          console.log(`SMS alert sent to ${patient.first_name} ${patient.last_name} for ${medication.name}`);
+          console.log('[CRON] SMS alert sent', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id, scanSessionId: scanSession.id });
         } else {
+          console.warn('[CRON] Failed to send SMS', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id });
           errors.push(`Failed to send SMS for medication ${medication.id}`);
         }
 
@@ -220,6 +240,7 @@ export async function GET(request: Request) {
       }
     }
 
+    console.log('[CRON] Summary', { alertsSent: alertsSent.length, errors: errors.length });
     return NextResponse.json({
       success: true,
       alertsSent: alertsSent.length,
