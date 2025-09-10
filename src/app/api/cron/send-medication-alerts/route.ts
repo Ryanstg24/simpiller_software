@@ -120,6 +120,9 @@ export async function GET(request: Request) {
     const alertsSent = [];
     const errors = [];
 
+    // Group schedules by patient and scheduled time to create one session per patient per time
+    const scheduleGroups = new Map<string, typeof schedules>();
+    
     for (const schedule of schedules || []) {
       try {
         type Patient = {
@@ -181,42 +184,115 @@ export async function GET(request: Request) {
         
         if (!shouldSendAlert) continue;
 
-        // Check if we already sent an alert for this medication schedule today
+        // Create a unique key for this patient and scheduled time
+        const [hh, mm] = String(schedule.time_of_day).split(':').map(Number);
+        const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
+        const groupKey = `${patient.id}-${scheduledLocal.toISOString()}`;
+        
+        if (!scheduleGroups.has(groupKey)) {
+          scheduleGroups.set(groupKey, []);
+        }
+        scheduleGroups.get(groupKey)!.push(schedule);
+        
+      } catch (error) {
+        console.error(`Error processing schedule ${schedule.id}:`, error);
+        errors.push(`Error processing schedule ${schedule.id}: ${error}`);
+      }
+    }
+
+    // Process each group (one session per patient per time)
+    for (const [groupKey, groupSchedules] of scheduleGroups) {
+      try {
+        // Get patient and medication info from the first schedule (all schedules in group have same patient/time)
+        const firstSchedule = groupSchedules[0];
+        type Patient = {
+          id: string;
+          first_name: string;
+          last_name: string;
+          phone1: string;
+          phone1_verified: boolean;
+          rtm_status?: string;
+          timezone?: string;
+        };
+
+        type Medication = {
+          id: string;
+          name: string;
+          patient_id: string;
+          status: string;
+          patients: Patient | Patient[] | null;
+        };
+
+        const medsRelation = (firstSchedule as { medications: Medication | Medication[] | null }).medications;
+        const medication: Medication | null = Array.isArray(medsRelation) ? (medsRelation[0] ?? null) : medsRelation;
+        if (!medication) continue;
+
+        const patientRelation = medication.patients;
+        const patient: Patient | null = Array.isArray(patientRelation) ? (patientRelation[0] ?? null) : patientRelation;
+        if (!patient || !patient.phone1) continue;
+        if (patient.rtm_status && patient.rtm_status !== 'active') continue;
+
+        // Determine patient's local time (defaults to America/New_York if missing)
+        const timeZone = patient.timezone || 'America/New_York';
+        const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
+        const localNow = new Date(localNowStr);
+
+        // Check if we already sent an alert for this patient today at this time
         const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate());
         const startIso = new Date(today.getTime() - (localNow.getTime() - now.getTime())).toISOString();
         const endIso = new Date(new Date(today.getTime() + 24*60*60*1000).getTime() - (localNow.getTime() - now.getTime())).toISOString();
         console.log('[CRON] Existing alert window (UTC)', { startIso, endIso });
+        
+        // Check if any alert was already sent for this patient today
         const { data: existingAlert } = await supabaseAdmin
-          .from('medication_alerts')
+          .from('alerts')
           .select('id')
           .eq('patient_id', patient.id)
-          .eq('medication_id', medication.id)
-          .eq('schedule_id', schedule.id)
           .gte('sent_at', startIso)
           .lt('sent_at', endIso)
           .eq('alert_type', 'sms')
           .single();
 
         if (existingAlert) {
-          console.log('[CRON] Alert already sent today', { medicationId: medication.id, scheduleId: schedule.id, patientId: patient.id });
+          console.log('[CRON] Alert already sent today for patient', { patientId: patient.id });
           continue;
         }
 
+        // Collect all medication IDs and names for this group
+        const medicationIds: string[] = [];
+        const medicationNames: string[] = [];
+        
+        for (const schedule of groupSchedules) {
+          const scheduleMedsRelation = (schedule as { medications: Medication | Medication[] | null }).medications;
+          const scheduleMedication: Medication | null = Array.isArray(scheduleMedsRelation) ? (scheduleMedsRelation[0] ?? null) : scheduleMedsRelation;
+          if (scheduleMedication) {
+            medicationIds.push(scheduleMedication.id);
+            medicationNames.push(scheduleMedication.name);
+          }
+        }
+
         // Compute the scheduled time for TODAY in the patient's timezone, then convert to UTC ISO
-        const [hh, mm] = String(schedule.time_of_day).split(':').map(Number);
+        const [hh, mm] = String(firstSchedule.time_of_day).split(':').map(Number);
         const tzOffsetMs = localNow.getTime() - now.getTime();
         const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
         const scheduledUtcIso = new Date(scheduledLocal.getTime() - tzOffsetMs).toISOString();
-        console.log('[CRON] Creating scan session', { scheduleId: schedule.id, medicationId: medication.id, patientId: patient.id, scheduledLocal: scheduledLocal.toISOString(), scheduledUtcIso });
+        console.log('[CRON] Creating scan session for group', { 
+          groupKey, 
+          patientId: patient.id, 
+          medicationCount: medicationIds.length,
+          medicationIds,
+          scheduledLocal: scheduledLocal.toISOString(), 
+          scheduledUtcIso 
+        });
 
-        // Create scan session
-        const sessionToken = `cron-${medication.id}-${Date.now()}`;
+        // Create scan session with all medications
+        const sessionToken = `cron-${patient.id}-${Date.now()}`;
         const { data: scanSession, error: sessionError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .insert({
             patient_id: patient.id,
             session_token: sessionToken,
-            medication_ids: [medication.id],
+            medication_ids: medicationIds,
             scheduled_time: scheduledUtcIso,
             expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
             is_active: true
@@ -226,7 +302,7 @@ export async function GET(request: Request) {
 
         if (sessionError) {
           console.error('Error creating scan session:', sessionError);
-          errors.push(`Failed to create scan session for medication ${medication.id}`);
+          errors.push(`Failed to create scan session for patient ${patient.id}`);
           continue;
         }
 
@@ -237,50 +313,60 @@ export async function GET(request: Request) {
         // Format phone number
         const formattedPhone = TwilioService.formatPhoneNumber(patient.phone1);
 
-        // Send SMS reminder
+        // Send SMS reminder with all medication names
         const reminder = {
           patientName: `${patient.first_name} ${patient.last_name}`,
-          medicationNames: [medication.name],
+          medicationNames: medicationNames,
           scheduledTime: scheduledUtcIso,
           scanLink,
           patientPhone: formattedPhone,
         };
 
         const smsSent = await TwilioService.sendMedicationReminder(reminder);
-        console.log('[CRON] SMS attempted', { medicationId: medication.id, patientId: patient.id, smsSent });
+        console.log('[CRON] SMS attempted', { patientId: patient.id, medicationCount: medicationIds.length, smsSent });
 
         if (smsSent) {
-          // Log the alert
-          await supabaseAdmin
-            .from('alerts')
-            .insert({
-              patient_id: patient.id,
-              medication_id: medication.id,
-              schedule_id: schedule.id,
-              alert_type: 'sms',
-              scheduled_time: now.toISOString(),
-              sent_at: now.toISOString(),
-              status: 'sent',
-              message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${new Date(now).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} medication. Please scan your medication label to confirm: ${scanLink}`,
-              recipient: formattedPhone,
-            });
+          // Log alerts for each medication
+          for (const schedule of groupSchedules) {
+            const scheduleMedsRelation = (schedule as { medications: Medication | Medication[] | null }).medications;
+            const scheduleMedication: Medication | null = Array.isArray(scheduleMedsRelation) ? (scheduleMedsRelation[0] ?? null) : scheduleMedsRelation;
+            if (scheduleMedication) {
+              await supabaseAdmin
+                .from('alerts')
+                .insert({
+                  patient_id: patient.id,
+                  medication_id: scheduleMedication.id,
+                  schedule_id: schedule.id,
+                  alert_type: 'sms',
+                  scheduled_time: now.toISOString(),
+                  sent_at: now.toISOString(),
+                  status: 'sent',
+                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${new Date(now).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} medications. Please scan your medication label to confirm: ${scanLink}`,
+                  recipient: formattedPhone,
+                });
+            }
+          }
 
           alertsSent.push({
             patientId: patient.id,
-            medicationId: medication.id,
-            scheduleId: schedule.id,
+            medicationIds: medicationIds,
+            scheduleIds: groupSchedules.map(s => s.id),
             scanSessionToken: scanSession.session_token,
           });
 
-          console.log('[CRON] SMS alert sent', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id, scanSessionToken: scanSession.session_token });
+          console.log('[CRON] SMS alert sent', { 
+            patientId: patient.id, 
+            medicationCount: medicationIds.length,
+            scanSessionToken: scanSession.session_token 
+          });
         } else {
-          console.warn('[CRON] Failed to send SMS', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id });
-          errors.push(`Failed to send SMS for medication ${medication.id}`);
+          console.warn('[CRON] Failed to send SMS', { patientId: patient.id, medicationCount: medicationIds.length });
+          errors.push(`Failed to send SMS for patient ${patient.id}`);
         }
 
       } catch (error) {
-        console.error(`Error processing schedule ${schedule.id}:`, error);
-        errors.push(`Error processing schedule ${schedule.id}: ${error}`);
+        console.error(`Error processing schedule group ${groupKey}:`, error);
+        errors.push(`Error processing schedule group ${groupKey}: ${error}`);
       }
     }
 
