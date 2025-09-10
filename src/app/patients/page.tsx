@@ -144,10 +144,14 @@ export default function PatientsPage() {
                   .lt('start_time', cycleEnd.toISOString());
 
                 if (!logsErr && logs) {
+                  console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - Found ${logs.length} time logs in cycle`);
                   for (const log of logs as Array<{ activity_type: string; duration_minutes: number }>) {
+                    console.log(`[Progress] Log: ${log.activity_type} - ${log.duration_minutes} minutes`);
                     if (log.activity_type === 'patient_communication') communicationMinutes += Number(log.duration_minutes || 0);
                     if (log.activity_type === 'adherence_review') adherenceMinutes += Number(log.duration_minutes || 0);
                   }
+                } else {
+                  console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - No time logs found or error:`, logsErr);
                 }
               } catch (e) {
                 // Table might not exist yet in some environments; default to zero
@@ -179,14 +183,18 @@ export default function PatientsPage() {
               const msPerDay = 24 * 60 * 60 * 1000;
               const daysLeft = Math.max(0, Math.ceil((cycleEnd.getTime() - nowLocal.getTime()) / msPerDay));
 
-              return [patient.id, {
+              const result = {
                 communicationMinutes,
                 adherenceMinutes,
                 adherenceDays,
                 cycleStart: cycleStart.toISOString(),
                 cycleEnd: cycleEnd.toISOString(),
                 daysLeft,
-              }] as const;
+              };
+              
+              console.log(`[Progress] Final result for ${patient.first_name} ${patient.last_name}:`, result);
+              
+              return [patient.id, result] as const;
             } catch {
               return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
             }
@@ -419,7 +427,7 @@ export default function PatientsPage() {
                           </div>
                         </div>
                         {/* Inline compact progress + actions */}
-                        <div className="flex items-center justify-end gap-4 flex-1">
+                        <div className="flex items-center justify-end gap-8 flex-1 ml-8">
                           {renderProgressBars(patient.id)}
                           {/* Adherence days and cycle remaining */}
                           {(() => {
