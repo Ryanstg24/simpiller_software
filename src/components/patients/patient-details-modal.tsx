@@ -271,7 +271,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       if (error) {
         console.error('Error updating patient:', error);
         try { console.error('Update payload (on error):', JSON.stringify(updateData)); } catch {}
-        const message = (error as any)?.message || 'Failed to update patient. Please try again.';
+        const message = (typeof error === 'object' && error && 'message' in (error as Record<string, unknown>) && typeof (error as Record<string, unknown>).message === 'string')
+          ? (error as Record<string, unknown>).message as string
+          : 'Failed to update patient. Please try again.';
         alert(message);
       } else {
         onPatientUpdated();
