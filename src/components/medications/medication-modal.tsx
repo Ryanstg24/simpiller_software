@@ -90,11 +90,12 @@ export function MedicationModal({
       setSelectedPatient(medication.patient_id);
       
       // Use patient's time preferences if available, otherwise use defaults
+      const fallbackPatient = patients.find((p: Patient) => p.id === medication.patient_id);
       setTimePreferences({
-        morning: medication.patients?.morning_time || '06:00',
-        afternoon: medication.patients?.afternoon_time || '12:00',
-        evening: medication.patients?.evening_time || '18:00',
-        bedtime: medication.patients?.bedtime || '22:00'
+        morning: (medication.patients?.morning_time || fallbackPatient?.morning_time) || '06:00',
+        afternoon: (medication.patients?.afternoon_time || fallbackPatient?.afternoon_time) || '12:00',
+        evening: (medication.patients?.evening_time || fallbackPatient?.evening_time) || '18:00',
+        bedtime: (medication.patients?.bedtime || fallbackPatient?.bedtime) || '22:00'
       });
     } else if (mode === 'add') {
       // Reset form for adding new medication

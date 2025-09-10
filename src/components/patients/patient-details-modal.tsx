@@ -49,6 +49,15 @@ interface Medication {
   created_at?: string;
   updated_at?: string;
   last_dose_at?: string;
+  patients?: {
+    first_name: string;
+    last_name: string;
+    morning_time?: string;
+    afternoon_time?: string;
+    evening_time?: string;
+    bedtime?: string;
+    timezone?: string;
+  };
 }
 
 interface Provider {
@@ -93,7 +102,18 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     try {
       const { data, error } = await supabase
         .from('medications')
-        .select('*')
+        .select(`
+          *,
+          patients (
+            first_name,
+            last_name,
+            morning_time,
+            afternoon_time,
+            evening_time,
+            bedtime,
+            timezone
+          )
+        `)
         .eq('patient_id', patient.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
