@@ -79,6 +79,7 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
+    console.log('[CRON] Schedules fetched', { count: (schedules || []).length });
 
     const alertsSent = [];
     const errors = [];
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
 
         // Determine patient's local time (defaults to America/New_York if missing)
         const timeZone = patient.timezone || 'America/New_York';
-        const localNowStr = now.toLocaleString('en-US', { timeZone });
+        const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
         const localNow = new Date(localNowStr);
         const localHour = localNow.getHours();
         const localMinute = localNow.getMinutes();
@@ -122,6 +123,8 @@ export async function GET(request: Request) {
         // Check if this schedule should trigger an alert now based on patient's local time
         const advance = schedule.alert_advance_minutes ?? 15;
         const tolerance = 7;
+        const schedMinutes = timeToMinutes(schedule.time_of_day);
+        const nowMinutes = localHour * 60 + localMinute;
         console.log('[CRON] Candidate schedule check', {
           scheduleId: (schedule as { id: string }).id,
           medicationId: medication.id,
@@ -132,7 +135,10 @@ export async function GET(request: Request) {
           localHour,
           localMinute,
           advance,
-          tolerance
+          tolerance,
+          schedMinutes,
+          nowMinutes,
+          delta: schedMinutes - nowMinutes
         });
         const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, advance, tolerance);
         console.log('[CRON] shouldSendAlert', { scheduleId: (schedule as { id: string }).id, medicationId: medication.id, patientId: patient.id, shouldSendAlert });
