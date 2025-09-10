@@ -135,19 +135,18 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Calculate and update patient compliance score
+ * Calculate and update patient compliance score for ALL medications
  */
 async function updateComplianceScore(patientId: string, medicationId: string) {
   try {
-    // Get all medication logs for this patient and medication in the last 30 days
+    // Get all medication logs for this patient in the last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const { data: logs, error: logsError } = await supabase
       .from('medication_logs')
-      .select('status, event_date')
+      .select('medication_id, status, event_date')
       .eq('patient_id', patientId)
-      .eq('medication_id', medicationId)
       .gte('event_date', thirtyDaysAgo.toISOString())
       .order('event_date', { ascending: true });
 
@@ -156,11 +155,24 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       return;
     }
 
-    // Get expected doses (from medication schedules)
+    // Get all active medications for this patient
+    const { data: medications, error: medicationsError } = await supabase
+      .from('medications')
+      .select('id')
+      .eq('patient_id', patientId)
+      .eq('status', 'active');
+
+    if (medicationsError) {
+      console.error('Error fetching medications for compliance:', medicationsError);
+      return;
+    }
+
+    // Get all schedules for this patient's medications
+    const medicationIds = medications.map(m => m.id);
     const { data: schedules, error: schedulesError } = await supabase
       .from('medication_schedules')
-      .select('time_of_day, days_of_week')
-      .eq('medication_id', medicationId)
+      .select('medication_id, time_of_day, days_of_week')
+      .in('medication_id', medicationIds)
       .eq('is_active', true);
 
     if (schedulesError) {
@@ -168,12 +180,19 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       return;
     }
 
-    // Calculate compliance score
-    const totalExpectedDoses = calculateExpectedDoses(schedules, thirtyDaysAgo);
+    // Calculate total expected doses across all medications
+    const totalExpectedDoses = schedules.reduce((total, schedule) => {
+      const scheduleData = [{ time_of_day: schedule.time_of_day, days_of_week: schedule.days_of_week }];
+      return total + calculateExpectedDoses(scheduleData, thirtyDaysAgo);
+    }, 0);
+
+    // Calculate total taken doses across all medications
     const takenDoses = logs.filter(log => log.status === 'taken').length;
+    
+    // Calculate overall compliance score
     const complianceScore = totalExpectedDoses > 0 ? (takenDoses / totalExpectedDoses) * 100 : 100;
 
-    // Persist rolling 30-day adherance (compliance) score on patient
+    // Persist rolling 30-day adherence (compliance) score on patient
     const { error: patientUpdateError } = await supabase
       .from('patients')
       .update({ adherence_score: Math.round(complianceScore * 100) / 100 })
@@ -182,7 +201,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       console.error('Error updating patient adherence_score:', patientUpdateError);
     }
 
-    console.log(`Compliance score for patient ${patientId}, medication ${medicationId}: ${complianceScore.toFixed(2)}%`);
+    console.log(`Overall compliance score for patient ${patientId}: ${complianceScore.toFixed(2)}% (${takenDoses}/${totalExpectedDoses} doses)`);
 
   } catch (error) {
     console.error('Error updating compliance score:', error);
