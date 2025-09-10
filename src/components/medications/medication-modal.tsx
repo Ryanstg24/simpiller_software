@@ -190,17 +190,29 @@ export function MedicationModal({
         prescribed_by_id: user?.id
       };
 
-      // Remove fields that don't exist in the database schema
-      const { custom_time, ...dataToSend } = medicationData;
+      // Whitelist fields that are actual DB columns; explicitly omit joined objects like `patients`
+      const allowedKeys: Array<keyof Medication | 'patient_id' | 'prescribed_by_id'> = [
+        'name', 'strength', 'format', 'dose_count', 'quantity', 'frequency',
+        'time_of_day', 'custom_time', 'with_food', 'avoid_alcohol', 'impairment_warning',
+        'special_instructions', 'rx_number', 'rx_filled_date', 'rx_refills', 'status',
+        'start_date', 'end_date', 'patient_id', 'prescribed_by_id'
+      ];
+      const dataToSend: Record<string, unknown> = {};
+      for (const key of allowedKeys) {
+        const value = (medicationData as Record<string, unknown>)[key as string];
+        if (value !== undefined) {
+          dataToSend[key as string] = value;
+        }
+      }
 
-      console.log('Attempting to create medication with data:', JSON.stringify(dataToSend, null, 2));
+      console.log(`Attempting to ${mode === 'edit' ? 'update' : 'create'} medication with data:`, JSON.stringify(dataToSend, null, 2));
       console.log('Current user:', user?.id);
       console.log('Selected patient:', selectedPatient);
 
       if (mode === 'edit' && medication?.id) {
         const { error } = await supabase
           .from('medications')
-          .update(medicationData)
+          .update(dataToSend)
           .eq('id', medication.id);
 
         if (error) {
