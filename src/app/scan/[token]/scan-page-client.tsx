@@ -521,102 +521,59 @@ export function ScanPageClient({ token }: { token: string }) {
   }
 
   const currentMedication = scanSession.medications;
-  const progress = 100; // Assuming a single scan for now
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Simplified Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Medication Scan</h1>
-              <p className="text-sm text-gray-600">{scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-600">Progress</div>
-              <div className="text-lg font-semibold text-blue-600">
-                100%
-              </div>
-            </div>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="mt-3 bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
+        <div className="max-w-md mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-900 text-center">Medication Scan</h1>
         </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6">
-        {/* Current Medication Info */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-2">
-            Scan: {currentMedication?.name}
-          </h2>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p><strong>Dosage:</strong> {currentMedication?.strength} {currentMedication?.format}</p>
-            <p><strong>Scheduled Time:</strong> {formatTime(scanSession.scheduled_time)}</p>
-            <p><strong>Instructions:</strong> Take as prescribed</p>
+        {/* Show warnings if needed */}
+        {timeliness === 'missed' && (
+          <div className="mb-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-4 py-3">Window expired. This dose is marked as missed. Scanning is disabled.</div>
+        )}
+        {timeliness === 'overdue' && (
+          <div className="mb-6 text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-4 py-3">Overdue window: you can still scan, but it will be recorded as overdue.</div>
+        )}
+        {token.startsWith('test-') && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p className="text-sm text-yellow-800">
+              🧪 Test Mode - This is a demonstration scan
+            </p>
           </div>
-          {timeliness === 'missed' && (
-            <div className="mt-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">Window expired. This dose is marked as missed. Scanning is disabled.</div>
-          )}
-          {timeliness === 'overdue' && (
-            <div className="mt-2 text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">Overdue window: you can still scan, but it will be recorded as overdue.</div>
-          )}
-          {token.startsWith('test-') && (
-            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-              <p className="text-xs text-yellow-800">
-                🧪 Test Mode - This is a demonstration scan
-              </p>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Scan Method Selection */}
+        {/* Simplified Scan Options */}
         {!imageData && !isCameraActive && (
-          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">How would you like to scan your medication?</h3>
-            <div className="space-y-3">
-              <Button
-                onClick={startCamera}
-                disabled={timeliness === 'missed'}
-                className="w-full flex items-center p-3 border-2 border-blue-500 rounded-lg hover:bg-blue-50 transition-colors bg-blue-50 disabled:opacity-50"
-              >
-                <Camera className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" />
-                <div className="text-left flex-1 min-w-0">
-                  <div className="font-medium text-gray-900">📱 Live Camera Preview</div>
-                  <div className="text-sm text-gray-600 truncate">Recommended: See live camera feed and capture automatically</div>
-                </div>
-              </Button>
-              
-              <label className="w-full flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                <Camera className="h-5 w-5 text-purple-600 mr-3 flex-shrink-0" />
-                <div className="text-left flex-1 min-w-0">
-                  <div className="font-medium text-gray-900">📷 Native Camera (Fallback)</div>
-                  <div className="text-sm text-gray-600">Use iOS camera app - includes Take Photo, Upload Photo, and Choose from Library options</div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*;capture=camera"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              
-            </div>
+          <div className="space-y-6">
+            {/* Primary Scan Button */}
+            <Button
+              onClick={startCamera}
+              disabled={timeliness === 'missed'}
+              className="w-full bg-blue-600 text-white text-xl font-bold py-6 px-8 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              SCAN NOW
+            </Button>
             
-            {/* Instructions */}
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>📱 For best results:</strong> Use &quot;Live Camera Preview&quot; first. It will automatically capture and process when your medication is detected.
-              </p>
-              <p className="text-xs text-blue-700 mt-2">
-                <strong>Fallback:</strong> If the live camera doesn&apos;t work, try &quot;Native Camera&quot; which gives you Take Photo, Upload Photo, and Choose from Library options.
+            {/* Alternative Scan Button */}
+            <label className="w-full bg-gray-100 text-gray-700 text-lg font-medium py-4 px-6 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer border-2 border-gray-300 block text-center">
+              ALTERNATIVE SCAN
+              <input
+                type="file"
+                accept="image/*;capture=camera"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+            
+            {/* Simple Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-800 text-center">
+                <strong>For best results:</strong> Use "SCAN NOW" first. It will automatically capture and process when your medication is detected.
               </p>
             </div>
             
@@ -802,8 +759,8 @@ export function ScanPageClient({ token }: { token: string }) {
           </div>
         )}
 
-        {/* OCR Results */}
-        {ocrResult && labelData && (
+        {/* OCR Results - Hidden for production */}
+        {/* {ocrResult && labelData && (
           <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Extracted Information</h3>
             <div className="space-y-2 text-sm">
@@ -822,7 +779,7 @@ export function ScanPageClient({ token }: { token: string }) {
               <p><strong>Confidence:</strong> {(ocrResult.confidence * 100).toFixed(1)}%</p>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Scan Result */}
         {scanComplete && (
