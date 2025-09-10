@@ -69,7 +69,6 @@ export async function GET(request: Request) {
       .eq('alert_sms', true)
       .eq('medications.status', 'active')
       .not('medications.patients.phone1', 'is', null)
-      .eq('medications.patients.phone1_verified', true)
       .eq('medications.patients.rtm_status', 'active');
 
     if (schedulesError) {
@@ -120,7 +119,7 @@ export async function GET(request: Request) {
         const localMinute = localNow.getMinutes();
 
         // Check if this schedule should trigger an alert now based on patient's local time
-        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, schedule.alert_advance_minutes, 5);
+        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, schedule.alert_advance_minutes ?? 15, 7);
         
         if (!shouldSendAlert) continue;
 
