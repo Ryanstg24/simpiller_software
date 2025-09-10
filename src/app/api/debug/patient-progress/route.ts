@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (patientError) {
+      console.error('Patient error:', patientError);
       return NextResponse.json(
-        { error: 'Patient not found' },
+        { error: `Patient not found: ${patientError.message}` },
         { status: 404 }
       );
     }

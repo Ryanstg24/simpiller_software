@@ -135,6 +135,9 @@ export default function PatientsPage() {
               let communicationMinutes = 0;
               let adherenceMinutes = 0;
               let adherenceDays = 0;
+              
+              console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - Cycle: ${cycleStart.toISOString()} to ${cycleEnd.toISOString()}`);
+              
               try {
                 const { data: logs, error: logsErr } = await supabase
                   .from('provider_time_logs')
@@ -143,18 +146,24 @@ export default function PatientsPage() {
                   .gte('start_time', cycleStart.toISOString())
                   .lt('start_time', cycleEnd.toISOString());
 
-                if (!logsErr && logs) {
-                  console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - Found ${logs.length} time logs in cycle`);
-                  for (const log of logs as Array<{ activity_type: string; duration_minutes: number }>) {
-                    console.log(`[Progress] Log: ${log.activity_type} - ${log.duration_minutes} minutes`);
-                    if (log.activity_type === 'patient_communication') communicationMinutes += Number(log.duration_minutes || 0);
-                    if (log.activity_type === 'adherence_review') adherenceMinutes += Number(log.duration_minutes || 0);
+                if (logsErr) {
+                  console.log(`[Progress] Error fetching time logs:`, logsErr);
+                } else if (logs && logs.length > 0) {
+                  console.log(`[Progress] Found ${logs.length} time logs in cycle`);
+                  for (const log of logs as Array<{ activity_type: string; duration_minutes: number; start_time: string }>) {
+                    console.log(`[Progress] Log: ${log.activity_type} - ${log.duration_minutes} minutes at ${log.start_time}`);
+                    if (log.activity_type === 'patient_communication') {
+                      communicationMinutes += Number(log.duration_minutes || 0);
+                    }
+                    if (log.activity_type === 'adherence_review') {
+                      adherenceMinutes += Number(log.duration_minutes || 0);
+                    }
                   }
                 } else {
-                  console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - No time logs found or error:`, logsErr);
+                  console.log(`[Progress] No time logs found for patient ${patient.first_name} ${patient.last_name}`);
                 }
               } catch (e) {
-                // Table might not exist yet in some environments; default to zero
+                console.log(`[Progress] Exception fetching time logs:`, e);
               }
 
               // Fetch medication_logs to compute adherance days (distinct days with status 'taken')
@@ -220,6 +229,9 @@ export default function PatientsPage() {
     const adher = Math.min(progress?.adherenceMinutes || 0, 80);
     const commPct = Math.round((comm / 20) * 100);
     const adherPct = Math.round((adher / 80) * 100);
+    
+    // Debug logging
+    console.log(`[ProgressBar] Patient ${patientId}: comm=${comm}/20 (${commPct}%), adher=${adher}/80 (${adherPct}%)`);
 
     return (
       <div className="flex items-center gap-4 w-full">
