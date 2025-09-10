@@ -82,7 +82,10 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             status,
             event_date,
             created_at,
+            taken_at,
             raw_scan_data,
+            scanned_medication_name,
+            scanned_dosage,
             medications (
               name,
               strength,
@@ -98,18 +101,43 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           // Transform the data to match the expected interface
-          const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => ({
-            id: log.id,
-            patient_id: log.patient_id,
-            medication_id: log.medication_id,
-            status: log.status as 'taken' | 'missed' | 'pending' | 'verified' | 'failed' | 'skipped',
-            taken_at: log.event_date,
-            created_at: log.created_at,
-            medications: log.medications && log.medications.length > 0 ? [{
-              medication_name: log.medications[0].name,
-              dosage: `${log.medications[0].strength} ${log.medications[0].format}`
-            }] : []
-          }));
+          const transformedLogs = (logsData as any[] || []).map((log) => {
+            // Handle both old and new data formats
+            let medicationName = '';
+            let dosage = '';
+            
+            // Try to get medication info from joined data first
+            if (log.medications && log.medications.length > 0) {
+              medicationName = log.medications[0].name;
+              dosage = `${log.medications[0].strength} ${log.medications[0].format}`;
+            } 
+            // Fallback to scanned data (for older logs)
+            else if (log.scanned_medication_name) {
+              medicationName = log.scanned_medication_name;
+              dosage = log.scanned_dosage || '';
+            }
+            
+            // Normalize status values
+            let normalizedStatus = log.status;
+            if (log.status === 'verified') {
+              normalizedStatus = 'taken';
+            } else if (log.status === 'failed') {
+              normalizedStatus = 'failed';
+            }
+            
+            return {
+              id: log.id,
+              patient_id: log.patient_id,
+              medication_id: log.medication_id,
+              status: normalizedStatus as 'taken' | 'missed' | 'pending' | 'verified' | 'failed' | 'skipped',
+              taken_at: log.taken_at || log.event_date,
+              created_at: log.created_at,
+              medications: medicationName ? [{
+                medication_name: medicationName,
+                dosage: dosage
+              }] : []
+            };
+          });
           setLogs(transformedLogs);
         }
       } catch (error) {
