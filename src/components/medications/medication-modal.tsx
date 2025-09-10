@@ -225,6 +225,13 @@ export function MedicationModal({
         }
       }
 
+      // Auto-populate medication schedules after any add/edit so CRON sees updates
+      try {
+        await fetch('/api/admin/populate-medication-schedules', { method: 'POST' });
+      } catch (e) {
+        console.warn('Populate medication schedules failed (non-blocking):', e);
+      }
+
       onSuccess();
       onClose();
       alert(`Medication ${mode === 'edit' ? 'updated' : 'created'} successfully!`);

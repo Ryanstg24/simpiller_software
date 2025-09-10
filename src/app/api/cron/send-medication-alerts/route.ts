@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import TwilioService from '@/lib/twilio';
 
 // Ensure Node.js runtime (not Edge) and disable caching
@@ -28,8 +28,20 @@ export async function GET(request: Request) {
 
     const now = new Date();
 
+    // Use service-role client for RLS-safe reads and writes
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     // Get all active medication schedules that need to be taken at the current time
-    const { data: schedules, error: schedulesError } = await supabase
+    const { data: schedules, error: schedulesError } = await supabaseAdmin
       .from('medication_schedules')
       .select(`
         id,
@@ -113,15 +125,17 @@ export async function GET(request: Request) {
         if (!shouldSendAlert) continue;
 
         // Check if we already sent an alert for this medication schedule today
-        const today = now.toISOString().split('T')[0];
-        const { data: existingAlert } = await supabase
+        const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate());
+        const startIso = new Date(today.getTime() - (localNow.getTime() - now.getTime())).toISOString();
+        const endIso = new Date(new Date(today.getTime() + 24*60*60*1000).getTime() - (localNow.getTime() - now.getTime())).toISOString();
+        const { data: existingAlert } = await supabaseAdmin
           .from('medication_alerts')
           .select('id')
           .eq('patient_id', patient.id)
           .eq('medication_id', medication.id)
           .eq('schedule_id', schedule.id)
-          .gte('sent_at', `${today}T00:00:00`)
-          .lte('sent_at', `${today}T23:59:59`)
+          .gte('sent_at', startIso)
+          .lt('sent_at', endIso)
           .eq('alert_type', 'sms')
           .single();
 
@@ -137,7 +151,7 @@ export async function GET(request: Request) {
         const scheduledUtcIso = new Date(scheduledLocal.getTime() - tzOffsetMs).toISOString();
 
         // Create scan session
-        const { data: scanSession, error: sessionError } = await supabase
+        const { data: scanSession, error: sessionError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .insert({
             patient_id: patient.id,
@@ -175,7 +189,7 @@ export async function GET(request: Request) {
 
         if (smsSent) {
           // Log the alert
-          await supabase
+          await supabaseAdmin
             .from('alerts')
             .insert({
               patient_id: patient.id,
