@@ -30,7 +30,7 @@ const navigation: NavItem[] = [
   { name: 'Medications', href: '/medications', icon: Pill, requiredRole: 'provider' },
   { name: 'Schedule', href: '/schedule', icon: Calendar, requiredRole: 'provider' },
   { name: 'Alerts', href: '/alerts', icon: Bell, requiredRole: 'provider' },
-  { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'organization_admin' },
+  { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'simpiller_admin' },
   { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
   { name: 'Facilities', href: '/facilities', icon: Building2, requiredRole: 'organization_admin' },
   { name: 'Pharmacies', href: '/pharmacies', icon: Building2, requiredRole: 'organization_admin' },
@@ -43,21 +43,19 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage = '/' }: SidebarProps) {
-  const { signOut, user, isSimpillerAdmin, isOrganizationAdmin } = useAuth();
+  const { signOut, user, isSimpillerAdmin, isOrganizationAdmin, isProvider } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
   };
 
-  // Filter navigation items based on user roles
+  // Filter navigation items based on user roles (fine-grained)
   const filteredNavigation = navigation.filter(item => {
-    // Simpiller admins can see everything
-    if (isSimpillerAdmin) return true;
-    
-    // For non-Simpiller admins, apply role-based filtering
-    if (!item.requiredRole) return true;
-    if (item.requiredRole === 'simpiller_admin') return false; // Only Simpiller admins
-    if (item.requiredRole === 'organization_admin') return isOrganizationAdmin;
+    const role = item.requiredRole;
+    if (!role) return true;
+    if (role === 'simpiller_admin') return isSimpillerAdmin;
+    if (role === 'organization_admin') return isOrganizationAdmin; // Simpiller admins do not see org-admin-only items
+    if (role === 'provider') return isSimpillerAdmin || isOrganizationAdmin || isProvider;
     return true;
   });
 
