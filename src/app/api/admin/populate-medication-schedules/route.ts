@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST() {
   try {
-    console.log('🔄 Starting medication schedules population...');
+    console.log('[Populate] Starting medication schedules population');
 
     // Get all active medications with their patient time preferences
     const { data: medications, error: medicationsError } = await supabase
@@ -28,7 +28,7 @@ export async function POST() {
       .eq('status', 'active');
 
     if (medicationsError) {
-      console.error('Error fetching medications:', medicationsError);
+      console.error('[Populate] Error fetching medications:', medicationsError);
       return NextResponse.json(
         { error: 'Failed to fetch medications' },
         { status: 500 }
@@ -36,12 +36,15 @@ export async function POST() {
     }
 
     if (!medications || medications.length === 0) {
+      console.log('[Populate] No active medications found');
       return NextResponse.json({
         success: true,
         message: 'No active medications found',
         schedulesCreated: 0
       });
     }
+
+    console.log('[Populate] Medications loaded', { count: medications.length });
 
     let schedulesCreated = 0;
     const errors = [];
@@ -138,21 +141,22 @@ export async function POST() {
                 .insert(scheduleData);
 
               if (scheduleError) {
-                console.error(`Error creating schedule for medication ${medication.id}:`, scheduleError);
+                console.error('[Populate] Error creating schedule', { medicationId: medication.id, time, scheduleError });
                 errors.push(`Failed to create schedule for ${medication.name}: ${scheduleError.message}`);
               } else {
                 schedulesCreated++;
-                console.log(`✅ Created schedule for ${medication.name} at ${time}`);
+                console.log('[Populate] Created schedule', { medication: medication.name, time });
               }
             }
           }
         }
       } catch (error) {
-        console.error(`Error processing medication ${medication.id}:`, error);
+        console.error('[Populate] Error processing medication', { medicationId: medication.id, error });
         errors.push(`Error processing ${medication.name}: ${error}`);
       }
     }
 
+    console.log('[Populate] Summary', { schedulesCreated, errors: errors.length });
     return NextResponse.json({
       success: true,
       message: `Medication schedules populated successfully`,
