@@ -102,16 +102,22 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           console.log('Fetched medication logs:', logsData?.length || 0, 'records for patient', patient.id);
+          console.log('Raw logs data:', logsData);
           // Transform the data to match the expected interface
           const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => {
             // Handle medication info from joined data
             let medicationName = '';
             let dosage = '';
             
+            console.log('Processing log:', log.id, 'medication_id:', log.medication_id, 'medications:', log.medications);
+            
             // Get medication info from joined data
             if (log.medications && log.medications.length > 0) {
               medicationName = log.medications[0].name;
               dosage = `${log.medications[0].strength} ${log.medications[0].format}`;
+              console.log('Found medication:', medicationName, dosage);
+            } else {
+              console.log('No medication data found for log:', log.id);
             }
             
             // Normalize status values - medication_logs uses 'taken', 'missed', 'skipped'
