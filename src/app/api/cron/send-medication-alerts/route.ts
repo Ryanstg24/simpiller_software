@@ -341,7 +341,7 @@ export async function GET(request: Request) {
                   scheduled_time: now.toISOString(),
                   sent_at: now.toISOString(),
                   status: 'sent',
-                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(firstSchedule.time_of_day)} medications. Please scan your medication label to confirm: ${scanLink}`,
+                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(schedule.time_of_day)} medications. Please scan your medication label to confirm: ${scanLink}`,
                   recipient: formattedPhone,
                 });
             }
