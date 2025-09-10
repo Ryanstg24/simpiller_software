@@ -81,6 +81,31 @@ export async function GET(request: Request) {
     }
     console.log('[CRON] Schedules fetched', { count: (schedules || []).length });
 
+    // Diagnostic: if no schedules, try to inspect recent rows to understand why
+    if (!schedules || schedules.length === 0) {
+      try {
+        const { data: diagSchedules } = await supabaseAdmin
+          .from('medication_schedules')
+          .select(`id, time_of_day, is_active, alert_sms, medications ( id, status, patients ( id, rtm_status, phone1, timezone ) )`)
+          .limit(20);
+        console.log('[CRON][DIAG] Sample schedules', {
+          sampleCount: (diagSchedules || []).length,
+          sample: (diagSchedules || []).map((s: any) => ({
+            id: s.id,
+            time_of_day: s.time_of_day,
+            is_active: s.is_active,
+            alert_sms: s.alert_sms,
+            medStatus: Array.isArray(s.medications) ? s.medications[0]?.status : s.medications?.status,
+            patientStatus: Array.isArray(s.medications) ? s.medications[0]?.patients?.rtm_status : s.medications?.patients?.rtm_status,
+            hasPhone: !!(Array.isArray(s.medications) ? s.medications[0]?.patients?.phone1 : s.medications?.patients?.phone1),
+            tz: Array.isArray(s.medications) ? s.medications[0]?.patients?.timezone : s.medications?.patients?.timezone,
+          }))
+        });
+      } catch (e) {
+        console.warn('[CRON][DIAG] Failed to fetch sample schedules', e);
+      }
+    }
+
     const alertsSent = [];
     const errors = [];
 
