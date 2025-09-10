@@ -57,12 +57,23 @@ export default function PatientsPage() {
     queryClient.invalidateQueries({ queryKey: ['patients'] });
   };
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+  const getStatusColor = (rtmStatus: string) => {
+    switch (rtmStatus?.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const getStatusText = (isActive: boolean) => {
-    return isActive ? 'Active' : 'Inactive';
+  const getStatusText = (rtmStatus: string) => {
+    return rtmStatus || 'Inactive';
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -126,6 +137,7 @@ export default function PatientsPage() {
                 .single();
 
               if (medErr || !med) {
+                console.log(`[Progress] No medication found for patient ${patient.first_name} ${patient.last_name} - setting all to 0`);
                 return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
               }
 
@@ -148,6 +160,9 @@ export default function PatientsPage() {
 
                 if (logsErr) {
                   console.log(`[Progress] Error fetching time logs:`, logsErr);
+                  // If there's an error, keep values at 0
+                  communicationMinutes = 0;
+                  adherenceMinutes = 0;
                 } else if (logs && logs.length > 0) {
                   console.log(`[Progress] Found ${logs.length} time logs in cycle`);
                   for (const log of logs as Array<{ activity_type: string; duration_minutes: number; start_time: string }>) {
@@ -160,10 +175,16 @@ export default function PatientsPage() {
                     }
                   }
                 } else {
-                  console.log(`[Progress] No time logs found for patient ${patient.first_name} ${patient.last_name}`);
+                  console.log(`[Progress] No time logs found for patient ${patient.first_name} ${patient.last_name} - setting to 0`);
+                  // Explicitly set to 0 when no logs found
+                  communicationMinutes = 0;
+                  adherenceMinutes = 0;
                 }
               } catch (e) {
                 console.log(`[Progress] Exception fetching time logs:`, e);
+                // If there's an exception, keep values at 0
+                communicationMinutes = 0;
+                adherenceMinutes = 0;
               }
 
               // Fetch medication_logs to compute adherance days (distinct days with status 'taken')
@@ -204,7 +225,8 @@ export default function PatientsPage() {
               console.log(`[Progress] Final result for ${patient.first_name} ${patient.last_name}:`, result);
               
               return [patient.id, result] as const;
-            } catch {
+            } catch (error) {
+              console.log(`[Progress] Exception for patient ${patient.first_name} ${patient.last_name}:`, error);
               return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
             }
           })
@@ -232,6 +254,11 @@ export default function PatientsPage() {
     
     // Debug logging
     console.log(`[ProgressBar] Patient ${patientId}: comm=${comm}/20 (${commPct}%), adher=${adher}/80 (${adherPct}%)`);
+    
+    // Safety check: if no progress data, show empty bars
+    if (!progress || (comm === 0 && adher === 0)) {
+      console.log(`[ProgressBar] No progress data for patient ${patientId} - showing empty bars`);
+    }
 
     return (
       <div className="flex items-center gap-4 w-full">
@@ -439,7 +466,7 @@ export default function PatientsPage() {
                           </div>
                         </div>
                         {/* Inline compact progress + actions */}
-                        <div className="flex items-center justify-end gap-8 flex-1 ml-8">
+                        <div className="flex items-center justify-end gap-4 flex-1 ml-8">
                           {renderProgressBars(patient.id)}
                           {/* Adherence days and cycle remaining */}
                           {(() => {
@@ -447,14 +474,14 @@ export default function PatientsPage() {
                             return (
                               <>
                                 <div className="text-xs text-gray-700 whitespace-nowrap">Adherence: {(p?.adherenceDays ?? 0)}/16</div>
-                                <div className="text-xs text-gray-700 whitespace-nowrap">Cycle: {(p?.daysLeft ?? 0)}d</div>
+                                <div className="text-xs text-gray-700 whitespace-nowrap ml-4">Cycle: {(p?.daysLeft ?? 0)}d</div>
                               </>
                             );
                           })()}
                         </div>
                         <div className="flex items-center space-x-3">
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.is_active)}`}>
-                            {getStatusText(patient.is_active)}
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.rtm_status || '')}`}>
+                            {getStatusText(patient.rtm_status || '')}
                           </div>
                           <Button 
                             className="bg-blue-600 hover:bg-blue-700 text-white"
