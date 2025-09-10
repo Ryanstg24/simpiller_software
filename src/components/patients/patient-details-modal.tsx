@@ -220,10 +220,10 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       for (const key of Object.keys(formData) as Array<keyof Patient>) {
         if (!allowedFields.has(key as string)) continue;
         const newValue = formData[key];
-        const oldValue = (patient as any)[key];
+        const oldValue = patient[key];
         // Only include changed fields; treat undefined as omit
         if (newValue !== undefined && newValue !== oldValue) {
-          (updateData as any)[key] = newValue;
+          (updateData as unknown as Record<string, unknown>)[key as string] = newValue as unknown;
         }
       }
 
@@ -240,7 +240,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         .update(updateData)
         .eq('id', patient.id);
 
-      const timeoutPromise = new Promise<{ error: any }>((resolve) => {
+      const timeoutPromise = new Promise<{ error: unknown }>((resolve) => {
         setTimeout(() => resolve({ error: new Error('Request timed out') }), 15000);
       });
 
@@ -301,15 +301,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     }
   };
 
-  const getRiskLevelColor = (level: string) => {
-    switch (level) {
-      case 'low': return 'text-green-600 bg-green-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'high': return 'text-orange-600 bg-orange-100';
-      case 'critical': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+  // getRiskLevelColor removed (risk level feature deprecated)
 
   const calculateAge = (dateOfBirth: string) => {
     if (!dateOfBirth) return null;
