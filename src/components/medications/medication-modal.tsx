@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Pill } from 'lucide-react';
-import { usePatients } from '@/hooks/use-patients';
+import { usePatients, Patient } from '@/hooks/use-patients';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
 
@@ -115,7 +115,7 @@ export function MedicationModal({
       if (selectedPatientId) {
         setSelectedPatient(selectedPatientId);
         // Set time preferences for the selected patient
-        const patient = patients.find(p => p.id === selectedPatientId);
+        const patient = patients.find((p: Patient) => p.id === selectedPatientId);
         if (patient) {
           setTimePreferences({
             morning: patient.morning_time || '06:00',
@@ -130,7 +130,7 @@ export function MedicationModal({
   // Update time preferences when patient changes
   useEffect(() => {
     if (selectedPatient && mode === 'add') {
-      const patient = patients.find(p => p.id === selectedPatient);
+      const patient = patients.find((p: Patient) => p.id === selectedPatient);
       if (patient) {
         setTimePreferences({
           morning: patient.morning_time || '06:00',
@@ -311,7 +311,7 @@ export function MedicationModal({
                       required
                     >
                       <option value="">Select a patient</option>
-                      {patients.map((patient) => (
+                      {patients.map((patient: Patient) => (
                         <option key={patient.id} value={patient.id}>
                           {patient.first_name} {patient.last_name}
                         </option>
