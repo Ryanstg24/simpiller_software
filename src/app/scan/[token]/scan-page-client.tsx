@@ -10,8 +10,8 @@ interface ScanSession {
   id: string;
   patient_id: string;
   medication_ids: string[];
-  scan_token: string;
-  status: 'pending' | 'completed' | 'failed';
+  session_token: string;
+  is_active: boolean;
   created_at: string;
   completed_at?: string;
   scheduled_time: string;
@@ -70,8 +70,8 @@ export function ScanPageClient({ token }: { token: string }) {
             id: token,
             patient_id: 'test-patient',
             medication_ids: ['test-medication'],
-            scan_token: token,
-            status: 'pending',
+            session_token: token,
+            is_active: true,
             created_at: testDate.toISOString(),
             scheduled_time: testDate.toISOString(),
             patients: {
@@ -260,8 +260,8 @@ export function ScanPageClient({ token }: { token: string }) {
                   // Simulate the processing that would happen in processImage
                   await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
                   
-                  // Update scan session status to completed
-                  setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+                  // Update scan session to completed
+                  setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                   setScanComplete(true);
                   setIsProcessing(false);
                   
@@ -269,7 +269,7 @@ export function ScanPageClient({ token }: { token: string }) {
                   await logSuccessfulScan();
                 } catch (error) {
                   console.error('Auto-process error:', error);
-                  setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
+                  setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                   setIsProcessing(false);
                 }
               }
@@ -311,7 +311,7 @@ export function ScanPageClient({ token }: { token: string }) {
           setIsProcessing(true);
           try {
             await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
-            setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
             setScanComplete(true);
             setIsProcessing(false);
             
@@ -319,7 +319,7 @@ export function ScanPageClient({ token }: { token: string }) {
             await logSuccessfulScan();
           } catch (error) {
             console.error('Auto-process error:', error);
-            setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
+            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
             setIsProcessing(false);
           }
         }
@@ -340,7 +340,7 @@ export function ScanPageClient({ token }: { token: string }) {
           setIsProcessing(true);
           try {
             await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
-            setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
             setScanComplete(true);
             setIsProcessing(false);
             
@@ -348,7 +348,7 @@ export function ScanPageClient({ token }: { token: string }) {
             await logSuccessfulScan();
           } catch (error) {
             console.error('Auto-process error:', error);
-            setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
+            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
             setIsProcessing(false);
           }
         }
@@ -402,7 +402,7 @@ export function ScanPageClient({ token }: { token: string }) {
         setScanComplete(true);
         setScanSession(prev => prev ? { 
           ...prev, 
-          status: 'completed' 
+          is_active: false 
         } : null);
         await logSuccessfulScan();
       } else {
@@ -416,14 +416,14 @@ export function ScanPageClient({ token }: { token: string }) {
           setScanComplete(true);
           setScanSession(prev => prev ? { 
             ...prev, 
-            status: 'failed' 
+            is_active: false 
           } : null);
         } else {
           // Show retry message
           setScanComplete(true);
           setScanSession(prev => prev ? { 
             ...prev, 
-            status: 'failed' 
+            is_active: false 
           } : null);
         }
       }
@@ -431,7 +431,7 @@ export function ScanPageClient({ token }: { token: string }) {
     } catch (error) {
       console.error('Error processing image:', error);
       setScanComplete(true);
-      setScanSession(prev => prev ? { ...prev, status: 'failed' } : null);
+      setScanSession(prev => prev ? { ...prev, is_active: false } : null);
     } finally {
       setIsProcessing(false);
     }
@@ -827,20 +827,20 @@ export function ScanPageClient({ token }: { token: string }) {
         {/* Scan Result */}
         {scanComplete && (
           <div className={`bg-white rounded-lg shadow-sm border p-4 mb-6 ${
-            scanSession.status === 'completed' ? 'border-green-200' : 'border-red-200'
+            !scanSession.is_active ? 'border-green-200' : 'border-red-200'
           }`}>
             <div className="flex items-center mb-4">
-              {scanSession.status === 'completed' ? (
+              {!scanSession.is_active ? (
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
               ) : (
                 <XCircle className="h-5 w-5 text-red-500 mr-2" />
               )}
               <h3 className="text-lg font-medium text-gray-900">
-                {scanSession.status === 'completed' ? 'Scan Successful!' : 'Scan Failed'}
+                {!scanSession.is_active ? 'Scan Successful!' : 'Scan Failed'}
               </h3>
             </div>
             
-            {scanSession.status === 'completed' ? (
+            {!scanSession.is_active ? (
               <div className="text-green-700">
                 <p className="text-lg font-medium mb-2">✅ Medication verified successfully!</p>
                 <p>Your compliance has been recorded. You can now close this tab.</p>
@@ -870,7 +870,7 @@ export function ScanPageClient({ token }: { token: string }) {
                         onClick={async () => {
                           // Log as manually confirmed
                           await logSuccessfulScan();
-                          setScanSession(prev => prev ? { ...prev, status: 'completed' } : null);
+                          setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                         }}
                         className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
                       >

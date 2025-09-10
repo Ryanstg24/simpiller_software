@@ -837,7 +837,11 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Adherence Score</label>
-                        <p className="text-gray-900 font-medium">{patient.adherence_score || 'Not calculated'}</p>
+                        <p className="text-gray-900 font-medium">
+                          {patient.adherence_score !== null && patient.adherence_score !== undefined 
+                            ? `${patient.adherence_score.toFixed(1)}%` 
+                            : 'Not calculated'}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">RTM Status</label>

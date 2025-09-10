@@ -57,9 +57,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       const mockLogs: MedicationLog[] = [];
       const mockScores: ComplianceScore[] = [];
 
-      // Try to fetch real data, but handle errors gracefully
+      // Fetch real medication logs
       try {
-        // Fetch medication logs with a simpler query first
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
           .select(`
@@ -67,24 +66,41 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             medication_id,
             patient_id,
             status,
+            event_date,
             created_at,
+            raw_scan_data,
             medications (
-              medication_name,
-              dosage
+              name,
+              strength,
+              format
             )
           `)
           .eq('patient_id', patient.id)
-          .order('created_at', { ascending: false });
+          .order('event_date', { ascending: false })
+          .limit(50); // Limit to recent logs
 
         if (logsError) {
-          console.warn('Medication logs table not available yet, using mock data:', logsError);
-          setLogs(mockLogs);
+          console.error('Error fetching medication logs:', logsError);
+          setLogs([]);
         } else {
-          setLogs(logsData || []);
+          // Transform the data to match the expected interface
+          const transformedLogs = (logsData || []).map(log => ({
+            id: log.id,
+            patient_id: log.patient_id,
+            medication_id: log.medication_id,
+            status: log.status,
+            taken_at: log.event_date,
+            created_at: log.created_at,
+            medications: log.medications ? [{
+              medication_name: log.medications.name,
+              dosage: `${log.medications.strength} ${log.medications.format}`
+            }] : []
+          }));
+          setLogs(transformedLogs);
         }
       } catch (error) {
-        console.warn('Error fetching medication logs, using mock data:', error);
-        setLogs(mockLogs);
+        console.error('Error fetching medication logs:', error);
+        setLogs([]);
       }
 
       // Try to fetch compliance scores
@@ -132,6 +148,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'taken':
+        return 'text-green-600 bg-green-100';
+      case 'missed':
+        return 'text-red-600 bg-red-100';
+      case 'skipped':
+        return 'text-yellow-600 bg-yellow-100';
       case 'verified':
         return 'text-green-600 bg-green-100';
       case 'failed':

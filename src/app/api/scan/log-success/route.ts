@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Scan window expired. Marked as missed.' }, { status: 400 });
     }
 
-    // Update scan session status to completed
+    // Update scan session to completed
     const { error: sessionError } = await supabase
       .from('medication_scan_sessions')
       .update({ 
-        status: 'completed',
+        is_active: false,
         completed_at: new Date().toISOString()
       })
       .eq('id', scanSessionId);
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         schedule_id: finalScheduleId,
         event_key: eventKey,
         event_date: new Date().toISOString(),
-        status: timeliness === 'overdue' ? 'taken_overdue' : 'taken_on_time',
+        status: 'taken',
         qr_code_scanned: scanData?.qrCode || null,
         raw_scan_data: JSON.stringify(scanData),
         source: 'qr_scan',
