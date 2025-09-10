@@ -49,10 +49,9 @@ interface MedicationLogData {
   status: string;
   event_date: string;
   created_at: string;
-  taken_at?: string;
   raw_scan_data?: string;
-  scanned_medication_name?: string;
-  scanned_dosage?: string;
+  qr_code_scanned?: string;
+  source?: string;
   medications?: {
     name: string;
     strength: string;
@@ -85,10 +84,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             status,
             event_date,
             created_at,
-            taken_at,
             raw_scan_data,
-            scanned_medication_name,
-            scanned_dosage,
+            qr_code_scanned,
+            source,
             medications (
               name,
               strength,
@@ -103,24 +101,20 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           console.error('Error fetching medication logs:', logsError);
           setLogs([]);
         } else {
+          console.log('Fetched medication logs:', logsData?.length || 0, 'records for patient', patient.id);
           // Transform the data to match the expected interface
           const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => {
-            // Handle both old and new data formats
+            // Handle medication info from joined data
             let medicationName = '';
             let dosage = '';
             
-            // Try to get medication info from joined data first
+            // Get medication info from joined data
             if (log.medications && log.medications.length > 0) {
               medicationName = log.medications[0].name;
               dosage = `${log.medications[0].strength} ${log.medications[0].format}`;
-            } 
-            // Fallback to scanned data (for older logs)
-            else if (log.scanned_medication_name) {
-              medicationName = log.scanned_medication_name;
-              dosage = log.scanned_dosage || '';
             }
             
-            // Normalize status values
+            // Normalize status values - medication_logs uses 'taken', 'missed', 'skipped'
             let normalizedStatus = log.status;
             if (log.status === 'verified') {
               normalizedStatus = 'taken';
@@ -133,7 +127,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               patient_id: log.patient_id,
               medication_id: log.medication_id,
               status: normalizedStatus as 'taken' | 'missed' | 'pending' | 'verified' | 'failed' | 'skipped',
-              taken_at: log.taken_at || log.event_date,
+              taken_at: log.event_date, // Use event_date as taken_at
               created_at: log.created_at,
               medications: medicationName ? [{
                 medication_name: medicationName,
@@ -141,6 +135,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               }] : []
             };
           });
+          console.log('Transformed logs:', transformedLogs.length, 'records');
           setLogs(transformedLogs);
         }
       } catch (error) {
