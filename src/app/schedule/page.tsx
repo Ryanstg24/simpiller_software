@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { usePatients } from "@/hooks/use-patients";
+import { usePatients, Patient } from "@/hooks/use-patients";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -60,7 +60,7 @@ export default function SchedulePage() {
 
       try {
         setMedicationsLoading(true);
-        const patientIds = patients.map(p => p.id);
+        const patientIds = patients.map((p: Patient) => p.id);
         
         const { data, error } = await supabase
           .from('medications')

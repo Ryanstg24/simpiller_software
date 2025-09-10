@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { Patient } from '@/hooks/use-patients';
@@ -219,8 +219,23 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
     return `${mins}m`;
   };
 
-  const getTotalTime = () => {
-    return timeLogs.reduce((total, log) => total + log.duration_minutes, 0);
+  // Month filter helpers
+  const filteredTimeLogs = useMemo(() => {
+    if (!selectedMonth) return timeLogs;
+    const [yearStr, monthStr] = selectedMonth.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1; // 0-based
+    // Use UTC boundaries to avoid TZ spillover
+    const monthStart = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
+    const nextMonthStart = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0));
+    return timeLogs.filter((log) => {
+      const when = log.start_time ? new Date(log.start_time) : new Date(log.created_at);
+      return when >= monthStart && when < nextMonthStart;
+    });
+  }, [timeLogs, selectedMonth]);
+
+  const getTotalTime = (logs: TimeLog[]) => {
+    return logs.reduce((total, log) => total + (Number(log.duration_minutes) || 0), 0);
   };
 
   const getActivityTypeLabel = (value: string) => {
@@ -280,19 +295,19 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
-              {formatDuration(getTotalTime())}
+              {formatDuration(getTotalTime(filteredTimeLogs))}
             </div>
             <div className="text-sm text-gray-600">Total Time</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
-              {timeLogs.length}
+              {filteredTimeLogs.length}
             </div>
             <div className="text-sm text-gray-600">Total Entries</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {timeLogs.length > 0 ? Math.round(getTotalTime() / timeLogs.length) : 0}m
+              {filteredTimeLogs.length > 0 ? Math.round(getTotalTime(filteredTimeLogs) / filteredTimeLogs.length) : 0}m
             </div>
             <div className="text-sm text-gray-600">Average Duration</div>
           </div>
@@ -413,7 +428,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
       {/* Time Logs List */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h4 className="text-lg font-medium text-gray-900 mb-4">Time Log History</h4>
-        {timeLogs.length === 0 ? (
+        {filteredTimeLogs.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No time logs found</p>
@@ -423,7 +438,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {timeLogs.map((log) => (
+            {filteredTimeLogs.map((log) => (
               <div key={log.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -433,7 +448,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
                         {getActivityTypeLabel(log.activity_type)}
                       </span>
                       <span className="text-sm text-gray-500">
-                        {formatDate(log.created_at)}
+                        {formatDate(log.start_time || log.created_at)}
                       </span>
                     </div>
                     
@@ -467,7 +482,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
                           activity_type: log.activity_type,
                           description: log.description || '',
                           duration_minutes: log.duration_minutes,
-                          date: log.created_at.split('T')[0], // Set date to the log's creation date
+                          date: (log.start_time || log.created_at).split('T')[0], // Set date to the log's start date
                           billing_code: log.billing_code || '',
                         });
                         setShowCustomDuration(false); // Ensure custom duration is off when editing
