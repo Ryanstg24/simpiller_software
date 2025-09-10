@@ -36,6 +36,7 @@ interface Medication {
     morning_time?: string;
     afternoon_time?: string;
     evening_time?: string;
+    bedtime?: string;
     timezone?: string;
   };
 }
@@ -67,7 +68,8 @@ export function MedicationModal({
   const [timePreferences, setTimePreferences] = useState({
     morning: '06:00',
     afternoon: '12:00',
-    evening: '18:00'
+    evening: '18:00',
+    bedtime: '22:00'
   });
 
   useEffect(() => {
@@ -91,7 +93,8 @@ export function MedicationModal({
       setTimePreferences({
         morning: medication.patients?.morning_time || '06:00',
         afternoon: medication.patients?.afternoon_time || '12:00',
-        evening: medication.patients?.evening_time || '18:00'
+        evening: medication.patients?.evening_time || '18:00',
+        bedtime: medication.patients?.bedtime || '22:00'
       });
     } else if (mode === 'add') {
       // Reset form for adding new medication
@@ -120,7 +123,8 @@ export function MedicationModal({
           setTimePreferences({
             morning: patient.morning_time || '06:00',
             afternoon: patient.afternoon_time || '12:00',
-            evening: patient.evening_time || '18:00'
+            evening: patient.evening_time || '18:00',
+            bedtime: patient.bedtime || '22:00'
           });
         }
       }
@@ -135,7 +139,8 @@ export function MedicationModal({
         setTimePreferences({
           morning: patient.morning_time || '06:00',
           afternoon: patient.afternoon_time || '12:00',
-          evening: patient.evening_time || '18:00'
+          evening: patient.evening_time || '18:00',
+          bedtime: patient.bedtime || '22:00'
         });
       }
     }
@@ -459,6 +464,22 @@ export function MedicationModal({
                         />
                         <span className="text-sm text-gray-700">Evening ({timePreferences.evening})</span>
                       </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={(() => {
+                            const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
+                            const isChecked = currentTimes.some(t => {
+                              const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
+                              return timePart === 'bedtime';
+                            });
+                            return isChecked;
+                          })()}
+                          onChange={(e) => handleTimeSelection('bedtime', e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Bedtime ({timePreferences.bedtime})</span>
+                      </label>
                     </div>
                     
                     {/* Validation Error */}
@@ -508,6 +529,7 @@ export function MedicationModal({
                                   case 'morning': return `Morning (${timePreferences.morning})`;
                                   case 'afternoon': return `Afternoon (${timePreferences.afternoon})`;
                                   case 'evening': return `Evening (${timePreferences.evening})`;
+                                  case 'bedtime': return `Bedtime (${timePreferences.bedtime})`;
                                   default: return time;
                                 }
                               }).join(', ')}
