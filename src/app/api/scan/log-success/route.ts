@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service-role client for RLS-safe operations
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Pull scheduled_time to determine on_time/overdue/missed windows
-    const { data: sessionRow } = await supabase
+    const { data: sessionRow } = await supabaseAdmin
       .from('medication_scan_sessions')
       .select('scheduled_time')
       .eq('id', scanSessionId)
@@ -30,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // If scan window expired, mark missed and block success
     if (timeliness === 'missed') {
-      await supabase
+      await supabaseAdmin
         .from('medication_logs')
         .insert({
           medication_id: medicationId,
@@ -46,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update scan session to completed
-    const { error: sessionError } = await supabase
+    const { error: sessionError } = await supabaseAdmin
       .from('medication_scan_sessions')
       .update({ 
         is_active: false
@@ -64,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Find the schedule_id if not provided
     let finalScheduleId = scheduleId;
     if (!finalScheduleId) {
-      const { data: schedule } = await supabase
+      const { data: schedule } = await supabaseAdmin
         .from('medication_schedules')
         .select('id')
         .eq('medication_id', medicationId)
@@ -75,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     // Create medication log entry (this also feeds Adherance log)
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
-    const { data: logEntry, error: logError } = await supabase
+    const { data: logEntry, error: logError } = await supabaseAdmin
       .from('medication_logs')
       .insert({
         medication_id: medicationId,
@@ -103,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update medication last_dose_at
-    const { error: medicationError } = await supabase
+    const { error: medicationError } = await supabaseAdmin
       .from('medications')
       .update({ 
         last_dose_at: new Date().toISOString()
@@ -142,7 +154,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: logs, error: logsError } = await supabase
+    const { data: logs, error: logsError } = await supabaseAdmin
       .from('medication_logs')
       .select('medication_id, status, event_date')
       .eq('patient_id', patientId)
@@ -155,7 +167,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     }
 
     // Get all active medications for this patient
-    const { data: medications, error: medicationsError } = await supabase
+    const { data: medications, error: medicationsError } = await supabaseAdmin
       .from('medications')
       .select('id')
       .eq('patient_id', patientId)
@@ -168,7 +180,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
 
     // Get all schedules for this patient's medications
     const medicationIds = medications.map(m => m.id);
-    const { data: schedules, error: schedulesError } = await supabase
+    const { data: schedules, error: schedulesError } = await supabaseAdmin
       .from('medication_schedules')
       .select('medication_id, time_of_day, days_of_week')
       .in('medication_id', medicationIds)
@@ -192,7 +204,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
     const complianceScore = totalExpectedDoses > 0 ? (takenDoses / totalExpectedDoses) * 100 : 100;
 
     // Persist rolling 30-day adherence (compliance) score on patient
-    const { error: patientUpdateError } = await supabase
+    const { error: patientUpdateError } = await supabaseAdmin
       .from('patients')
       .update({ adherence_score: Math.round(complianceScore * 100) / 100 })
       .eq('id', patientId);
