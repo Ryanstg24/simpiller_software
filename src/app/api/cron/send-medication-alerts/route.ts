@@ -27,8 +27,6 @@ export async function GET(request: Request) {
     }
 
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
 
     // Get all active medication schedules that need to be taken at the current time
     const { data: schedules, error: schedulesError } = await supabase
@@ -50,7 +48,8 @@ export async function GET(request: Request) {
             last_name,
             phone1,
             phone1_verified,
-            rtm_status
+            rtm_status,
+            timezone
           )
         )
       `)
@@ -100,8 +99,15 @@ export async function GET(request: Request) {
         if (!patient || !patient.phone1) continue;
         if (patient.rtm_status && patient.rtm_status !== 'active') continue;
 
-        // Check if this schedule should trigger an alert now
-        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, currentHour, currentMinute, schedule.alert_advance_minutes);
+        // Determine patient's local time (defaults to America/New_York if missing)
+        const timeZone = (patient as any).timezone || 'America/New_York';
+        const localNowStr = now.toLocaleString('en-US', { timeZone });
+        const localNow = new Date(localNowStr);
+        const localHour = localNow.getHours();
+        const localMinute = localNow.getMinutes();
+
+        // Check if this schedule should trigger an alert now based on patient's local time
+        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, schedule.alert_advance_minutes, 5);
         
         if (!shouldSendAlert) continue;
 
@@ -123,13 +129,19 @@ export async function GET(request: Request) {
           continue;
         }
 
+        // Compute the scheduled time for TODAY in the patient's timezone, then convert to UTC ISO
+        const [hh, mm] = String(schedule.time_of_day).split(':').map(Number);
+        const tzOffsetMs = localNow.getTime() - now.getTime();
+        const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
+        const scheduledUtcIso = new Date(scheduledLocal.getTime() - tzOffsetMs).toISOString();
+
         // Create scan session
         const { data: scanSession, error: sessionError } = await supabase
           .from('medication_scan_sessions')
           .insert({
             patient_id: patient.id,
             medication_ids: [medication.id],
-            scheduled_time: now.toISOString(),
+            scheduled_time: scheduledUtcIso,
             status: 'pending',
             expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
           })
@@ -153,7 +165,7 @@ export async function GET(request: Request) {
         const reminder = {
           patientName: `${patient.first_name} ${patient.last_name}`,
           medicationNames: [medication.name],
-          scheduledTime: now.toISOString(),
+          scheduledTime: scheduledUtcIso,
           scanLink,
           patientPhone: formattedPhone,
         };
@@ -216,7 +228,13 @@ export async function GET(request: Request) {
 /**
  * Check if a medication should be taken at the current time
  */
-function checkIfMedicationDue(timeOfDay: string, currentHour: number, currentMinute: number, advanceMinutes: number = 15): boolean {
+function checkIfMedicationDue(
+  timeOfDay: string,
+  currentHour: number,
+  currentMinute: number,
+  advanceMinutes: number = 15,
+  toleranceMinutes: number = 0
+): boolean {
   // timeOfDay is now in HH:MM:SS format from medication_schedules table
   const medicationTime = timeOfDay;
   
@@ -226,7 +244,8 @@ function checkIfMedicationDue(timeOfDay: string, currentHour: number, currentMin
   
   // Check if current time is within the advance window before the scheduled time
   const timeDiff = medicationMinutes - currentMinutes;
-  return timeDiff >= 0 && timeDiff <= advanceMinutes;
+  // Also allow a small tolerance after the exact time in case the cron runs slightly late
+  return (timeDiff >= -toleranceMinutes && timeDiff <= advanceMinutes);
 }
 
 /**
