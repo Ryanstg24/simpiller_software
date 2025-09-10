@@ -221,7 +221,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       const baseAllowedFields = [
         'first_name', 'middle_name', 'last_name', 'suffix',
         'date_of_birth', 'gender', 'gender_identity', 'race', 'ethnicity',
-        'phone1', 'phone1_verified', 'phone2', 'phone3', 'email', 'email_verified',
+        'phone1', /* 'phone1_verified' removed for non-admin updates */ 'phone2', 'phone3', 'email', /* 'email_verified' removed */
         'street1', 'street2', 'city', 'state', 'postal_code', 'country',
         'rtm_status', 'notes',
         'timezone', 'morning_time', 'afternoon_time', 'evening_time', 'bedtime',
@@ -247,6 +247,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         }
       }
 
+      console.log('Patient updateData payload:', updateData);
+
       // If nothing changed, short-circuit
       if (Object.keys(updateData).length === 0) {
         setIsEditing(false);
@@ -268,7 +270,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
       if (error) {
         console.error('Error updating patient:', error);
-        alert('Failed to update patient. Please try again.');
+        try { console.error('Update payload (on error):', JSON.stringify(updateData)); } catch {}
+        const message = (error as any)?.message || 'Failed to update patient. Please try again.';
+        alert(message);
       } else {
         onPatientUpdated();
         // Keep modal open and switch to read mode with fresh data so user sees updates immediately
