@@ -573,7 +573,7 @@ export function ScanPageClient({ token }: { token: string }) {
             {/* Simple Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-blue-800 text-center">
-                <strong>For best results:</strong> Use "SCAN NOW" first. It will automatically capture and process when your medication is detected.
+                <strong>For best results:</strong> Use &quot;SCAN NOW&quot; first. It will automatically capture and process when your medication is detected.
               </p>
             </div>
             
