@@ -49,8 +49,7 @@ export async function POST(request: NextRequest) {
     const { error: sessionError } = await supabase
       .from('medication_scan_sessions')
       .update({ 
-        is_active: false,
-        completed_at: new Date().toISOString()
+        is_active: false
       })
       .eq('id', scanSessionId);
 
