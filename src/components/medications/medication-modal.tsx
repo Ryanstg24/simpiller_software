@@ -161,22 +161,15 @@ export function MedicationModal({
     const selectedTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
     const frequency = formData.frequency || 1;
     
-    // Skip validation for custom time
-    if (formData.time_of_day === 'custom') {
-      if (!formData.custom_time) {
-        alert('Please enter a custom time.');
-        return;
-      }
-    } else {
-      if (selectedTimes.length === 0) {
-        alert(`Please select ${frequency} time(s) of day for medication administration (frequency is set to ${frequency}).`);
-        return;
-      }
-      
-      if (selectedTimes.length !== frequency) {
-        alert(`Frequency is set to ${frequency} but you have selected ${selectedTimes.length} time(s). Please ensure the number of selected times matches the frequency.`);
-        return;
-      }
+    // Require selected times to match frequency
+    if (selectedTimes.length === 0) {
+      alert(`Please select ${frequency} time(s) of day for medication administration (frequency is set to ${frequency}).`);
+      return;
+    }
+    
+    if (selectedTimes.length !== frequency) {
+      alert(`Frequency is set to ${frequency} but you have selected ${selectedTimes.length} time(s). Please ensure the number of selected times matches the frequency.`);
+      return;
     }
 
     try {
