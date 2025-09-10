@@ -277,6 +277,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         alert(message);
       } else {
         onPatientUpdated();
+        
+        // Auto-populate medication schedules after patient update (in case time preferences changed)
+        try {
+          await fetch('/api/admin/populate-medication-schedules', { method: 'POST' });
+        } catch (e) {
+          console.warn('Populate medication schedules failed (non-blocking):', e);
+        }
+        
         // Keep modal open and switch to read mode with fresh data so user sees updates immediately
         setIsEditing(false);
         alert('Patient updated successfully!');

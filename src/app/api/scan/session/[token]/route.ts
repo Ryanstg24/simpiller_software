@@ -21,6 +21,7 @@ export async function GET(
     const { token } = await params;
     
     console.log('[Session API] Fetching session for token:', token);
+    console.log('[Session API] Request URL:', request.url);
 
     // Fetch the scan session by session_token
     const { data: session, error: sessionError } = await supabaseAdmin

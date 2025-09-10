@@ -341,7 +341,7 @@ export async function GET(request: Request) {
                   scheduled_time: now.toISOString(),
                   sent_at: now.toISOString(),
                   status: 'sent',
-                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${new Date(now).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} medications. Please scan your medication label to confirm: ${scanLink}`,
+                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${localNow.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} medications. Please scan your medication label to confirm: ${scanLink}`,
                   recipient: formattedPhone,
                 });
             }

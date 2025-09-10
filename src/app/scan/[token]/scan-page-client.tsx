@@ -92,7 +92,7 @@ export function ScanPageClient({ token }: { token: string }) {
         }
 
         // Load real session data
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/scan/session/${token}`);
+        const response = await fetch(`/api/scan/session/${token}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

@@ -275,6 +275,13 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
         timezone: 'America/New_York'
       });
 
+      // Auto-populate medication schedules after patient creation (in case time preferences are set)
+      try {
+        await fetch('/api/admin/populate-medication-schedules', { method: 'POST' });
+      } catch (e) {
+        console.warn('Populate medication schedules failed (non-blocking):', e);
+      }
+
       // Show success message and close modal
       alert('Patient created successfully!');
       onSuccess();
