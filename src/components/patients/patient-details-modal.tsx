@@ -196,46 +196,55 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
     try {
       setLoading(true);
-      // Whitelist fields allowed to be updated to avoid 400/406 errors from joined/read-only fields
-      const updateData: Partial<Patient> = {
-        organization_id: formData.organization_id as string,
-        facility_id: formData.facility_id ?? undefined,
-        assigned_provider_id: formData.assigned_provider_id ?? undefined,
-        patient_id_alt: formData.patient_id_alt ?? undefined,
-        first_name: formData.first_name as string,
-        middle_name: formData.middle_name ?? undefined,
-        last_name: formData.last_name as string,
-        suffix: formData.suffix ?? undefined,
-        date_of_birth: formData.date_of_birth ?? undefined,
-        gender: formData.gender ?? undefined,
-        gender_identity: formData.gender_identity ?? undefined,
-        race: formData.race ?? undefined,
-        ethnicity: formData.ethnicity ?? undefined,
-        phone1: formData.phone1 ?? undefined,
-        phone1_verified: (formData.phone1_verified as boolean) ?? false,
-        phone2: formData.phone2 ?? undefined,
-        phone3: formData.phone3 ?? undefined,
-        email: formData.email ?? undefined,
-        email_verified: (formData.email_verified as boolean) ?? false,
-        street1: formData.street1 ?? undefined,
-        street2: formData.street2 ?? undefined,
-        city: formData.city ?? undefined,
-        state: formData.state ?? undefined,
-        postal_code: formData.postal_code ?? undefined,
-        country: (formData.country as string) || 'US',
-        rtm_status: formData.rtm_status ?? undefined,
-        morning_time: formData.morning_time ?? undefined,
-        afternoon_time: formData.afternoon_time ?? undefined,
-        evening_time: formData.evening_time ?? undefined,
-        bedtime: formData.bedtime ?? undefined,
-        timezone: formData.timezone ?? undefined,
-        is_active: (formData.is_active as boolean) ?? true,
-      };
+      // Build minimal update with only changed fields and respecting role-based edit permissions
+      const isAdmin = isSimpillerAdmin || isOrganizationAdmin;
+      const baseAllowedFields = [
+        'first_name', 'middle_name', 'last_name', 'suffix',
+        'date_of_birth', 'gender', 'gender_identity', 'race', 'ethnicity',
+        'phone1', 'phone1_verified', 'phone2', 'phone3', 'email', 'email_verified',
+        'street1', 'street2', 'city', 'state', 'postal_code', 'country',
+        'rtm_status', 'notes',
+        'timezone', 'morning_time', 'afternoon_time', 'evening_time', 'bedtime',
+        'is_active', 'patient_id_alt'
+      ] as const;
+      const adminOnlyFields = [
+        'organization_id', 'facility_id', 'assigned_provider_id', 'assigned_pharmacy_id'
+      ] as const;
 
-      const { error } = await supabase
+      const allowedFields = new Set<string>([
+        ...baseAllowedFields,
+        ...(isAdmin ? adminOnlyFields : [])
+      ]);
+
+      const updateData: Partial<Patient> = {};
+      for (const key of Object.keys(formData) as Array<keyof Patient>) {
+        if (!allowedFields.has(key as string)) continue;
+        const newValue = formData[key];
+        const oldValue = (patient as any)[key];
+        // Only include changed fields; treat undefined as omit
+        if (newValue !== undefined && newValue !== oldValue) {
+          (updateData as any)[key] = newValue;
+        }
+      }
+
+      // If nothing changed, short-circuit
+      if (Object.keys(updateData).length === 0) {
+        setIsEditing(false);
+        alert('No changes to save.');
+        return;
+      }
+
+      // Timeout safeguard in case the request hangs
+      const updatePromise = supabase
         .from('patients')
         .update(updateData)
         .eq('id', patient.id);
+
+      const timeoutPromise = new Promise<{ error: any }>((resolve) => {
+        setTimeout(() => resolve({ error: new Error('Request timed out') }), 15000);
+      });
+
+      const { error } = await Promise.race([updatePromise, timeoutPromise]);
 
       if (error) {
         console.error('Error updating patient:', error);
