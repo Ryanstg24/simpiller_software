@@ -323,6 +323,27 @@ CREATE TABLE medication_logs (
 );
 
 -- =============================================
+-- MEDICATION SCAN SESSIONS (QR code scan sessions)
+-- =============================================
+CREATE TABLE medication_scan_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  medication_ids UUID[] NOT NULL, -- Array of medication IDs for this session
+  scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'expired')),
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Trigger for medication_scan_sessions updated_at
+CREATE TRIGGER update_medication_scan_sessions_updated_at
+  BEFORE UPDATE ON medication_scan_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================
 -- ALERTS (Medication reminders)
 -- =============================================
 CREATE TABLE alerts (

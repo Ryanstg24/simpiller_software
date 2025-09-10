@@ -210,14 +210,16 @@ export async function GET(request: Request) {
         console.log('[CRON] Creating scan session', { scheduleId: schedule.id, medicationId: medication.id, patientId: patient.id, scheduledLocal: scheduledLocal.toISOString(), scheduledUtcIso });
 
         // Create scan session
+        const sessionToken = `cron-${medication.id}-${Date.now()}`;
         const { data: scanSession, error: sessionError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .insert({
             patient_id: patient.id,
+            session_token: sessionToken,
             medication_ids: [medication.id],
             scheduled_time: scheduledUtcIso,
-            status: 'pending',
             expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
+            is_active: true
           })
           .select()
           .single();
@@ -230,7 +232,7 @@ export async function GET(request: Request) {
 
         // Generate scan link
         const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://simpiller-software.vercel.app';
-        const scanLink = `${baseUrl}/scan/${scanSession.id}`;
+        const scanLink = `${baseUrl}/scan/${scanSession.session_token}`;
 
         // Format phone number
         const formattedPhone = TwilioService.formatPhoneNumber(patient.phone1);
@@ -267,10 +269,10 @@ export async function GET(request: Request) {
             patientId: patient.id,
             medicationId: medication.id,
             scheduleId: schedule.id,
-            scanSessionId: scanSession.id,
+            scanSessionToken: scanSession.session_token,
           });
 
-          console.log('[CRON] SMS alert sent', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id, scanSessionId: scanSession.id });
+          console.log('[CRON] SMS alert sent', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id, scanSessionToken: scanSession.session_token });
         } else {
           console.warn('[CRON] Failed to send SMS', { patientId: patient.id, medicationId: medication.id, scheduleId: schedule.id });
           errors.push(`Failed to send SMS for medication ${medication.id}`);
