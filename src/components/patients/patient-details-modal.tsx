@@ -196,9 +196,45 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
     try {
       setLoading(true);
+      // Whitelist fields allowed to be updated to avoid 400/406 errors from joined/read-only fields
+      const updateData: Partial<Patient> = {
+        organization_id: formData.organization_id as string,
+        facility_id: (formData as any).facility_id || null,
+        assigned_provider_id: (formData as any).assigned_provider_id || null,
+        patient_id_alt: (formData as any).patient_id_alt || null,
+        first_name: (formData as any).first_name,
+        middle_name: (formData as any).middle_name || null,
+        last_name: (formData as any).last_name,
+        suffix: (formData as any).suffix || null,
+        date_of_birth: (formData as any).date_of_birth || null,
+        gender: (formData as any).gender || null,
+        gender_identity: (formData as any).gender_identity || null,
+        race: (formData as any).race || null,
+        ethnicity: (formData as any).ethnicity || null,
+        phone1: (formData as any).phone1 || null,
+        phone1_verified: (formData as any).phone1_verified ?? false,
+        phone2: (formData as any).phone2 || null,
+        phone3: (formData as any).phone3 || null,
+        email: (formData as any).email || null,
+        email_verified: (formData as any).email_verified ?? false,
+        street1: (formData as any).street1 || null,
+        street2: (formData as any).street2 || null,
+        city: (formData as any).city || null,
+        state: (formData as any).state || null,
+        postal_code: (formData as any).postal_code || null,
+        country: (formData as any).country || 'US',
+        rtm_status: (formData as any).rtm_status || null,
+        morning_time: (formData as any).morning_time || null,
+        afternoon_time: (formData as any).afternoon_time || null,
+        evening_time: (formData as any).evening_time || null,
+        bedtime: (formData as any).bedtime || null,
+        timezone: (formData as any).timezone || null,
+        is_active: (formData as any).is_active ?? true,
+      };
+
       const { error } = await supabase
         .from('patients')
-        .update(formData)
+        .update(updateData)
         .eq('id', patient.id);
 
       if (error) {
