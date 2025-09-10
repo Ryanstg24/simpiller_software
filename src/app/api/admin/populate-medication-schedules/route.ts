@@ -1,12 +1,24 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST() {
   try {
     console.log('[Populate] Starting medication schedules population');
 
+    // Use service-role client for RLS-safe reads and writes
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     // Get all active medications with their patient time preferences
-    const { data: medications, error: medicationsError } = await supabase
+    const { data: medications, error: medicationsError } = await supabaseAdmin
       .from('medications')
       .select(`
         id,
@@ -70,7 +82,7 @@ export async function POST() {
         if (!patient) continue;
 
         // Clear existing schedules for this medication
-        await supabase
+        await supabaseAdmin
           .from('medication_schedules')
           .delete()
           .eq('medication_id', medication.id);
@@ -80,7 +92,14 @@ export async function POST() {
           id: medication.id, 
           name: medication.name, 
           time_of_day: medication.time_of_day,
-          patientId: patient.id 
+          patientId: patient.id,
+          patientName: `${patient.first_name} ${patient.last_name}`,
+          patientTimes: {
+            morning: patient.morning_time,
+            afternoon: patient.afternoon_time,
+            evening: patient.evening_time,
+            bedtime: patient.bedtime
+          }
         });
         
         if (medication.time_of_day) {
@@ -144,9 +163,10 @@ export async function POST() {
 
             if (time) {
               scheduleData.time_of_day = time;
+              console.log('[Populate] Creating schedule with data:', scheduleData);
 
               // Create the schedule
-              const { error: scheduleError } = await supabase
+              const { error: scheduleError } = await supabaseAdmin
                 .from('medication_schedules')
                 .insert(scheduleData);
 
@@ -157,6 +177,8 @@ export async function POST() {
                 schedulesCreated++;
                 console.log('[Populate] Created schedule', { medication: medication.name, time });
               }
+            } else {
+              console.log('[Populate] No time resolved for timeStr:', timeStr);
             }
           }
         }
