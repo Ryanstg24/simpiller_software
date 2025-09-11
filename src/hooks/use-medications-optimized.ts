@@ -79,7 +79,7 @@ export function useMedicationsOptimized() {
     return data || [];
   };
 
-  const cacheKey = `medications-${user?.id}-${patients.length}`;
+  const cacheKey = `medications-${user?.id}-${patients?.length || 0}`;
 
   const result = useDataCache({
     cacheKey,
