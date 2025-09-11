@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
@@ -48,7 +51,7 @@ interface BillingSummary {
   total_revenue_potential: number;
 }
 
-export default function BillingPage() {
+function BillingPageContent() {
   const { userOrganizationId, isOrganizationAdmin, isBilling } = useAuth();
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
@@ -368,16 +371,16 @@ export default function BillingPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Organization Billing</h1>
-          <p className="mt-2 text-gray-600">Track and export billing data for CPT codes</p>
+          <h1 className="text-3xl font-bold text-black">Organization Billing</h1>
+          <p className="mt-2 text-black">Track and export billing data for CPT codes</p>
         </div>
 
         {/* Date Range Selector */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Billing Period</h2>
+          <h2 className="text-lg font-medium text-black mb-4">Billing Period</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+              <label className="block text-sm font-medium text-black mb-2">Start Date</label>
               <input
                 type="date"
                 value={dateRange.start}
@@ -386,7 +389,7 @@ export default function BillingPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+              <label className="block text-sm font-medium text-black mb-2">End Date</label>
               <input
                 type="date"
                 value={dateRange.end}
@@ -395,7 +398,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={fetchBillingData} className="w-full">
+              <Button onClick={fetchBillingData} className="w-full bg-black text-white hover:bg-gray-800">
                 <Calendar className="h-4 w-4 mr-2" />
                 Update Data
               </Button>
@@ -405,7 +408,7 @@ export default function BillingPage() {
 
         {/* Filtering Options */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Filter Data</h2>
+          <h2 className="text-lg font-medium text-black mb-4">Filter Data</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="flex items-center">
               <input
@@ -415,7 +418,7 @@ export default function BillingPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, showOnlyEligible: e.target.checked }))}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="showOnlyEligible" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="showOnlyEligible" className="ml-2 text-sm text-black">
                 Show Only Eligible
               </label>
             </div>
@@ -427,7 +430,7 @@ export default function BillingPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, cpt_98975: e.target.checked }))}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="cpt_98975" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="cpt_98975" className="ml-2 text-sm text-black">
                 CPT 98975 Only
               </label>
             </div>
@@ -439,7 +442,7 @@ export default function BillingPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, cpt_98976_77: e.target.checked }))}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="cpt_98976_77" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="cpt_98976_77" className="ml-2 text-sm text-black">
                 CPT 98976/77 Only
               </label>
             </div>
@@ -451,7 +454,7 @@ export default function BillingPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, cpt_98980: e.target.checked }))}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="cpt_98980" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="cpt_98980" className="ml-2 text-sm text-black">
                 CPT 98980 Only
               </label>
             </div>
@@ -463,7 +466,7 @@ export default function BillingPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, cpt_98981: e.target.checked }))}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="cpt_98981" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="cpt_98981" className="ml-2 text-sm text-black">
                 CPT 98981 Only
               </label>
             </div>
@@ -541,7 +544,7 @@ export default function BillingPage() {
 
         {/* Export Controls */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Export Data</h2>
+          <h2 className="text-lg font-medium text-black mb-4">Export Data</h2>
           <div className="flex space-x-4">
             <Button onClick={() => handleExport('csv')} variant="outline">
               <FileText className="h-4 w-4 mr-2" />
@@ -562,8 +565,8 @@ export default function BillingPage() {
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-medium text-gray-900">Patient Billing Data</h2>
-              <span className="text-sm text-gray-500">
+              <h2 className="text-lg font-medium text-black">Patient Billing Data</h2>
+              <span className="text-sm text-black">
                 Showing {filteredData.length} of {billingData.length} patients
               </span>
             </div>
@@ -645,5 +648,21 @@ export default function BillingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <ProtectedRoute>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar currentPage="/billing" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Organization Billing" />
+          <main className="flex-1 overflow-x-hidden overflow-y-auto">
+            <BillingPageContent />
+          </main>
+        </div>
+      </div>
+    </ProtectedRoute>
   );
 }
