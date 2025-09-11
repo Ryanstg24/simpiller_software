@@ -1,8 +1,8 @@
 'use client';
 
-import { usePatientsOptimized } from '@/hooks/use-patients-optimized';
-import { useMedicationsOptimized } from '@/hooks/use-medications-optimized';
-import { OptimizedLoading, CardSkeleton, TableSkeleton } from '@/components/ui/optimized-loading';
+import { usePatientsOptimized, Patient } from '@/hooks/use-patients-optimized';
+import { useMedicationsOptimized, Medication } from '@/hooks/use-medications-optimized';
+import { OptimizedLoading, TableSkeleton } from '@/components/ui/optimized-loading';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Clock, Users, Pill } from 'lucide-react';
 
@@ -74,7 +74,7 @@ export default function PerformanceTestPage() {
             fallback={<TableSkeleton rows={3} />}
           >
             <div className="space-y-2">
-              {Array.isArray(patients) && patients.map((patient: any) => (
+              {Array.isArray(patients) && patients.map((patient: Patient) => (
                 <div key={patient.id} className="p-3 bg-gray-50 rounded-lg">
                   <div className="font-medium">{patient.first_name} {patient.last_name}</div>
                   <div className="text-sm text-gray-600">
@@ -104,7 +104,7 @@ export default function PerformanceTestPage() {
             fallback={<TableSkeleton rows={3} />}
           >
             <div className="space-y-2">
-              {Array.isArray(medications) && medications.map((medication: any) => (
+              {Array.isArray(medications) && medications.map((medication: Medication) => (
                 <div key={medication.id} className="p-3 bg-gray-50 rounded-lg">
                   <div className="font-medium">{medication.name}</div>
                   <div className="text-sm text-gray-600">
