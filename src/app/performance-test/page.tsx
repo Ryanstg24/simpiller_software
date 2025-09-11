@@ -74,7 +74,7 @@ export default function PerformanceTestPage() {
             fallback={<TableSkeleton rows={3} />}
           >
             <div className="space-y-2">
-              {patients?.map((patient) => (
+              {Array.isArray(patients) && patients.map((patient: any) => (
                 <div key={patient.id} className="p-3 bg-gray-50 rounded-lg">
                   <div className="font-medium">{patient.first_name} {patient.last_name}</div>
                   <div className="text-sm text-gray-600">
@@ -104,7 +104,7 @@ export default function PerformanceTestPage() {
             fallback={<TableSkeleton rows={3} />}
           >
             <div className="space-y-2">
-              {medications?.map((medication) => (
+              {Array.isArray(medications) && medications.map((medication: any) => (
                 <div key={medication.id} className="p-3 bg-gray-50 rounded-lg">
                   <div className="font-medium">{medication.name}</div>
                   <div className="text-sm text-gray-600">
