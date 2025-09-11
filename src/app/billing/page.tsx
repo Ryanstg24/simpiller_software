@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Download, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock } from 'lucide-react';
+import { Calendar, Download, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface BillingData {
   patient_id: string;
@@ -49,6 +52,15 @@ export default function BillingPage() {
       start: start.toISOString().split('T')[0],
       end: end.toISOString().split('T')[0]
     };
+  });
+
+  // Filtering options
+  const [filters, setFilters] = useState({
+    cpt_98975: false,
+    cpt_98976_77: false,
+    cpt_98980: false,
+    cpt_98981: false,
+    showOnlyEligible: false,
   });
 
   // Check access
@@ -203,9 +215,128 @@ export default function BillingPage() {
     fetchBillingData();
   }, [fetchBillingData]);
 
+  // Filter data based on current filters
+  const filteredData = billingData.filter(patient => {
+    if (filters.showOnlyEligible) {
+      return patient.cpt_98975 || patient.cpt_98976_77 || patient.cpt_98980 || patient.cpt_98981 > 0;
+    }
+    
+    if (filters.cpt_98975 && !patient.cpt_98975) return false;
+    if (filters.cpt_98976_77 && !patient.cpt_98976_77) return false;
+    if (filters.cpt_98980 && !patient.cpt_98980) return false;
+    if (filters.cpt_98981 && patient.cpt_98981 === 0) return false;
+    
+    return true;
+  });
+
   const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
-    // TODO: Implement export functionality
-    console.log(`Exporting billing data as ${format}`);
+    const dataToExport = filteredData;
+    const fileName = `billing-report-${dateRange.start}-to-${dateRange.end}`;
+
+    if (format === 'csv') {
+      exportToCSV(dataToExport, fileName);
+    } else if (format === 'excel') {
+      exportToExcel(dataToExport, fileName);
+    } else if (format === 'pdf') {
+      exportToPDF(dataToExport, fileName);
+    }
+  };
+
+  const exportToCSV = (data: BillingData[], fileName: string) => {
+    const headers = [
+      'Patient Name',
+      'Provider Name',
+      'Adherence Days',
+      'Provider Time (min)',
+      'Patient Communication (min)',
+      'Adherence Review (min)',
+      'CPT 98975 Eligible',
+      'CPT 98976/77 Eligible',
+      'CPT 98980 Eligible',
+      'CPT 98981 Increments'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...data.map(patient => [
+        `"${patient.patient_name}"`,
+        `"${patient.provider_name}"`,
+        patient.adherence_days,
+        patient.provider_time_minutes,
+        patient.patient_communication_minutes,
+        patient.adherence_review_minutes,
+        patient.cpt_98975 ? 'Yes' : 'No',
+        patient.cpt_98976_77 ? 'Yes' : 'No',
+        patient.cpt_98980 ? 'Yes' : 'No',
+        patient.cpt_98981
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${fileName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToExcel = (data: BillingData[], fileName: string) => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      data.map(patient => ({
+        'Patient Name': patient.patient_name,
+        'Provider Name': patient.provider_name,
+        'Adherence Days': patient.adherence_days,
+        'Provider Time (min)': patient.provider_time_minutes,
+        'Patient Communication (min)': patient.patient_communication_minutes,
+        'Adherence Review (min)': patient.adherence_review_minutes,
+        'CPT 98975 Eligible': patient.cpt_98975 ? 'Yes' : 'No',
+        'CPT 98976/77 Eligible': patient.cpt_98976_77 ? 'Yes' : 'No',
+        'CPT 98980 Eligible': patient.cpt_98980 ? 'Yes' : 'No',
+        'CPT 98981 Increments': patient.cpt_98981
+      }))
+    );
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Billing Report');
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  };
+
+  const exportToPDF = (data: BillingData[], fileName: string) => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text('Billing Report', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Period: ${dateRange.start} to ${dateRange.end}`, 14, 30);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 36);
+
+    // Prepare table data
+    const tableData = data.map(patient => [
+      patient.patient_name,
+      patient.provider_name,
+      patient.adherence_days.toString(),
+      patient.provider_time_minutes.toString(),
+      patient.cpt_98975 ? 'Yes' : 'No',
+      patient.cpt_98976_77 ? 'Yes' : 'No',
+      patient.cpt_98980 ? 'Yes' : 'No',
+      patient.cpt_98981.toString()
+    ]);
+
+    // Add table
+    (doc as any).autoTable({
+      head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
+      body: tableData,
+      startY: 45,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 139, 202] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+
+    doc.save(`${fileName}.pdf`);
   };
 
   const formatCurrency = (amount: number) => {
@@ -261,6 +392,89 @@ export default function BillingPage() {
               <Button onClick={fetchBillingData} className="w-full">
                 <Calendar className="h-4 w-4 mr-2" />
                 Update Data
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filtering Options */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Filter Data</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="showOnlyEligible"
+                checked={filters.showOnlyEligible}
+                onChange={(e) => setFilters(prev => ({ ...prev, showOnlyEligible: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="showOnlyEligible" className="ml-2 text-sm text-gray-700">
+                Show Only Eligible
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="cpt_98975"
+                checked={filters.cpt_98975}
+                onChange={(e) => setFilters(prev => ({ ...prev, cpt_98975: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="cpt_98975" className="ml-2 text-sm text-gray-700">
+                CPT 98975 Only
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="cpt_98976_77"
+                checked={filters.cpt_98976_77}
+                onChange={(e) => setFilters(prev => ({ ...prev, cpt_98976_77: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="cpt_98976_77" className="ml-2 text-sm text-gray-700">
+                CPT 98976/77 Only
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="cpt_98980"
+                checked={filters.cpt_98980}
+                onChange={(e) => setFilters(prev => ({ ...prev, cpt_98980: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="cpt_98980" className="ml-2 text-sm text-gray-700">
+                CPT 98980 Only
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="cpt_98981"
+                checked={filters.cpt_98981}
+                onChange={(e) => setFilters(prev => ({ ...prev, cpt_98981: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="cpt_98981" className="ml-2 text-sm text-gray-700">
+                CPT 98981 Only
+              </label>
+            </div>
+            <div className="flex items-center">
+              <Button 
+                onClick={() => setFilters({
+                  cpt_98975: false,
+                  cpt_98976_77: false,
+                  cpt_98980: false,
+                  cpt_98981: false,
+                  showOnlyEligible: false,
+                })}
+                variant="outline"
+                size="sm"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Clear Filters
               </Button>
             </div>
           </div>
@@ -341,7 +555,12 @@ export default function BillingPage() {
         {/* Billing Data Table */}
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Patient Billing Data</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium text-gray-900">Patient Billing Data</h2>
+              <span className="text-sm text-gray-500">
+                Showing {filteredData.length} of {billingData.length} patients
+              </span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -374,7 +593,7 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {billingData.map((patient) => (
+                {filteredData.map((patient) => (
                   <tr key={patient.patient_id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {patient.patient_name}
