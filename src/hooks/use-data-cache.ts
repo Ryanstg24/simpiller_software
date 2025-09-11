@@ -20,7 +20,7 @@ export function useDataCache<T>({
   staleTime = 5 * 60 * 1000, // 5 minutes
   cacheTime = 30 * 60 * 1000, // 30 minutes
   enabled = true
-}: UseDataCacheOptions) {
+}: UseDataCacheOptions<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
