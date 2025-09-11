@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/hooks/use-patients';
-import { Activity, Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, Calendar } from 'lucide-react';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -64,15 +64,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-
-  // Safety check for patient
-  if (!patient) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">No patient selected</p>
-      </div>
-    );
-  }
 
   const fetchComplianceData = useCallback(async () => {
     if (!patient?.id) {
@@ -228,6 +219,15 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   };
 
   const currentCompliance = getCurrentMonthCompliance();
+
+  // Safety check for patient
+  if (!patient) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">No patient selected</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
