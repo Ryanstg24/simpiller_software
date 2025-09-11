@@ -9,6 +9,22 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Type definition for jsPDF autoTable extension
+interface AutoTableOptions {
+  head: string[][];
+  body: string[][];
+  startY: number;
+  styles: {
+    fontSize: number;
+  };
+  headStyles: {
+    fillColor: number[];
+  };
+  alternateRowStyles: {
+    fillColor: number[];
+  };
+}
+
 interface BillingData {
   patient_id: string;
   patient_name: string;
@@ -323,7 +339,7 @@ export default function BillingPage() {
     ]);
 
     // Add table
-    (doc as jsPDF & { autoTable: (options: any) => void }).autoTable({
+    (doc as jsPDF & { autoTable: (options: AutoTableOptions) => void }).autoTable({
       head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
       body: tableData,
       startY: 45,
