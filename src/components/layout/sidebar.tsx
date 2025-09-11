@@ -13,7 +13,8 @@ import {
   LogOut,
   TestTube,
   Eye,
-  DollarSign
+  DollarSign,
+  Zap
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
@@ -33,6 +34,7 @@ const navigation: NavItem[] = [
   { name: 'Alerts', href: '/alerts', icon: Bell, requiredRole: 'provider' },
   { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'simpiller_admin' },
   { name: 'OCR Testing', href: '/ocr-test', icon: Eye, requiredRole: 'simpiller_admin' },
+  { name: 'Performance Test', href: '/performance-test', icon: Zap, requiredRole: 'simpiller_admin' },
   { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
   { name: 'Org Billing', href: '/billing', icon: DollarSign, requiredRole: 'organization_admin' },
   { name: 'Facilities', href: '/facilities', icon: Building2, requiredRole: 'organization_admin' },

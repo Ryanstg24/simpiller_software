@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { useSessionTimeout } from '@/hooks/use-session-timeout';
 
 interface UserRole {
   id: string;
@@ -38,6 +39,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+
+  // Session timeout handling
+  const handleSessionTimeout = async () => {
+    console.log('Session timeout - signing out user');
+    try {
+      await supabase.auth.signOut();
+      // Clear local state
+      setUser(null);
+      setSession(null);
+      setUserRoles([]);
+      setPasswordChangeRequired(false);
+    } catch (error) {
+      console.error('Error during session timeout signout:', error);
+    }
+  };
+
+  // Enable session timeout only when user is logged in
+  useSessionTimeout({
+    timeoutMinutes: 30, // 30 minutes of inactivity
+    onTimeout: handleSessionTimeout,
+    enabled: !!user && !!session
+  });
 
   useEffect(() => {
     setMounted(true);
