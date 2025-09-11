@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Download, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter } from 'lucide-react';
+import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -37,10 +37,6 @@ export default function BillingPage() {
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
   const [dateRange, setDateRange] = useState<{
     start: string;
     end: string;
@@ -62,18 +58,6 @@ export default function BillingPage() {
     cpt_98981: false,
     showOnlyEligible: false,
   });
-
-  // Check access
-  if (!isOrganizationAdmin && !isBilling) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600">You don't have permission to access billing information.</p>
-        </div>
-      </div>
-    );
-  }
 
   const fetchBillingData = useCallback(async () => {
     if (!userOrganizationId) return;
@@ -215,6 +199,18 @@ export default function BillingPage() {
     fetchBillingData();
   }, [fetchBillingData]);
 
+  // Check access after all hooks
+  if (!isOrganizationAdmin && !isBilling) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don&apos;t have permission to access billing information.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Filter data based on current filters
   const filteredData = billingData.filter(patient => {
     if (filters.showOnlyEligible) {
@@ -327,7 +323,7 @@ export default function BillingPage() {
     ]);
 
     // Add table
-    (doc as any).autoTable({
+    (doc as jsPDF & { autoTable: (options: any) => void }).autoTable({
       head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
       body: tableData,
       startY: 45,
@@ -339,12 +335,6 @@ export default function BillingPage() {
     doc.save(`${fileName}.pdf`);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   if (loading) {
     return (
