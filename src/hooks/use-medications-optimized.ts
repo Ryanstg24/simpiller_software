@@ -40,7 +40,7 @@ export interface Medication {
 
 export function useMedicationsOptimized() {
   const { user } = useAuth();
-  const { patients, loading: patientsLoading } = usePatientsOptimized();
+  const { data: patients, loading: patientsLoading } = usePatientsOptimized();
 
   const fetchMedications = async (): Promise<Medication[]> => {
     if (!user) {
