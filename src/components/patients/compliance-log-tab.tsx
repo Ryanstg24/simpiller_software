@@ -101,23 +101,16 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           console.error('Error fetching medication logs:', logsError);
           setLogs([]);
         } else {
-          console.log('Fetched medication logs:', logsData?.length || 0, 'records for patient', patient.id);
-          console.log('Raw logs data:', logsData);
           // Transform the data to match the expected interface
           const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => {
             // Handle medication info from joined data
             let medicationName = '';
             let dosage = '';
             
-            console.log('Processing log:', log.id, 'medication_id:', log.medication_id, 'medications:', log.medications);
-            
             // Get medication info from joined data
             if (log.medications && log.medications.length > 0) {
               medicationName = log.medications[0].name;
               dosage = `${log.medications[0].strength} ${log.medications[0].format}`;
-              console.log('Found medication:', medicationName, dosage);
-            } else {
-              console.log('No medication data found for log:', log.id);
             }
             
             // Normalize status values - medication_logs uses 'taken', 'missed', 'skipped'
@@ -141,7 +134,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               }] : []
             };
           });
-          console.log('Transformed logs:', transformedLogs.length, 'records');
           setLogs(transformedLogs);
         }
       } catch (error) {
@@ -344,48 +336,20 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {logs.map((log) => (
-              <div key={log.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                        {log.status}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(log.taken_at || log.created_at)}
-                      </span>
+              <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                    {log.status === 'taken' ? '✅ Taken' : log.status === 'missed' ? '❌ Missed' : log.status}
+                  </span>
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {log.medications?.[0]?.medication_name || 'Medication'}
                     </div>
-                    
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-gray-900">
-                          {log.medications?.[0]?.medication_name || log.scanned_medication_name || 'Unknown Medication'}
-                        </span>
-                        {log.scanned_dosage && (
-                          <span className="text-sm text-gray-600">
-                            ({log.scanned_dosage})
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Verification Score:</span> {(log.verification_score || 0) * 100}%
-                      </div>
-                      
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Scan Method:</span> {log.scan_method || 'N/A'}
-                      </div>
+                    <div className="text-sm text-gray-600">
+                      {formatDate(log.taken_at || log.created_at)}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {log.status === 'verified' ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-500" />
-                    )}
                   </div>
                 </div>
               </div>
