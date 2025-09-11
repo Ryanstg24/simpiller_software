@@ -1060,14 +1060,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
           )}
 
           {/* Adherence Log Tab */}
-          {activeTab === 'compliance' && (
+          {activeTab === 'compliance' && patient && (
             <div className="p-6">
               <ComplianceLogTab patient={patient} />
             </div>
           )}
 
           {/* Time Log Tab */}
-          {activeTab === 'timeLog' && (
+          {activeTab === 'timeLog' && patient && (
             <div className="p-6">
               <TimeLogTab patient={patient} />
             </div>

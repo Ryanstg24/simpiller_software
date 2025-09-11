@@ -65,7 +65,21 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
 
+  // Safety check for patient
+  if (!patient) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">No patient selected</p>
+      </div>
+    );
+  }
+
   const fetchComplianceData = useCallback(async () => {
+    if (!patient?.id) {
+      console.error('No patient ID available');
+      return;
+    }
+    
     try {
       setLoading(true);
 
