@@ -839,7 +839,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                         <label className="block text-sm font-medium text-gray-700 mb-1">Adherence Score</label>
                         <p className="text-gray-900 font-medium">
                           {patient.adherence_score !== null && patient.adherence_score !== undefined 
-                            ? `${patient.adherence_score.toFixed(1)}%` 
+                            ? patient.adherence_score.charAt(0).toUpperCase() + patient.adherence_score.slice(1)
                             : 'Not calculated'}
                         </p>
                       </div>
