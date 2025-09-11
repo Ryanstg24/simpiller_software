@@ -6,9 +6,9 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-interface UseDataCacheOptions {
+interface UseDataCacheOptions<T> {
   cacheKey: string;
-  fetchFn: () => Promise<any>;
+  fetchFn: () => Promise<T>;
   staleTime?: number; // Time in ms before data is considered stale (default: 5 minutes)
   cacheTime?: number; // Time in ms before cache expires (default: 30 minutes)
   enabled?: boolean;
