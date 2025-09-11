@@ -12,7 +12,8 @@ import {
   Phone,
   LogOut,
   TestTube,
-  Eye
+  Eye,
+  DollarSign
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
@@ -33,6 +34,7 @@ const navigation: NavItem[] = [
   { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'simpiller_admin' },
   { name: 'OCR Testing', href: '/ocr-test', icon: Eye, requiredRole: 'simpiller_admin' },
   { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
+  { name: 'Org Billing', href: '/billing', icon: DollarSign, requiredRole: 'organization_admin' },
   { name: 'Facilities', href: '/facilities', icon: Building2, requiredRole: 'organization_admin' },
   { name: 'Pharmacies', href: '/pharmacies', icon: Building2, requiredRole: 'organization_admin' },
   { name: 'Organization Users', href: '/organization-users', icon: Users, requiredRole: 'organization_admin' },
@@ -44,7 +46,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage = '/' }: SidebarProps) {
-  const { signOut, user, isSimpillerAdmin, isOrganizationAdmin, isProvider } = useAuth();
+  const { signOut, user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuth();
 
   const handleSignOut = async () => {
     try {
@@ -63,7 +65,7 @@ export function Sidebar({ currentPage = '/' }: SidebarProps) {
     const role = item.requiredRole;
     if (!role) return true;
     if (role === 'simpiller_admin') return isSimpillerAdmin;
-    if (role === 'organization_admin') return isOrganizationAdmin; // Simpiller admins do not see org-admin-only items
+    if (role === 'organization_admin') return isOrganizationAdmin || isBilling; // Billing users can see org admin items
     if (role === 'provider') return isSimpillerAdmin || isOrganizationAdmin || isProvider;
     return true;
   });
