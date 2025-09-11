@@ -39,7 +39,7 @@ export interface Patient {
   last_active_at?: string;
   
   // Medical Information
-  adherence_score?: number;
+  adherence_score?: number | string;
   rtm_status?: string;
   risk_level?: string;
   notes?: string;
