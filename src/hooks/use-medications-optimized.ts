@@ -47,7 +47,7 @@ export function useMedicationsOptimized() {
       throw new Error('User not authenticated');
     }
 
-    if (patientsLoading || patients.length === 0) {
+    if (patientsLoading || !patients || patients.length === 0) {
       return [];
     }
 
