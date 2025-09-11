@@ -61,7 +61,7 @@ export default function PerformanceTestPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900 flex items-center">
               <Users className="h-5 w-5 mr-2" />
-              Patients ({patients?.length || 0})
+              Patients ({Array.isArray(patients) ? patients.length : 0})
             </h2>
             <Button onClick={refetchPatients} size="sm" variant="outline">
               Refresh
@@ -91,7 +91,7 @@ export default function PerformanceTestPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900 flex items-center">
               <Pill className="h-5 w-5 mr-2" />
-              Medications ({medications?.length || 0})
+              Medications ({Array.isArray(medications) ? medications.length : 0})
             </h2>
             <Button onClick={refetchMedications} size="sm" variant="outline">
               Refresh
