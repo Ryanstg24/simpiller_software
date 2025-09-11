@@ -209,7 +209,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, canEditProvider, fetchMedications, fetchProviders]);
+  }, [patient, canEditProvider]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
