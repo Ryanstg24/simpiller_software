@@ -9,6 +9,8 @@ export interface Organization {
   brand_name?: string;
   tagline?: string;
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export function useOrganizations() {
@@ -24,8 +26,7 @@ export function useOrganizations() {
 
         const { data, error } = await supabase
           .from('organizations')
-          .select('id, name, acronym, subdomain, is_active')
-          .eq('is_active', true)
+          .select('id, name, acronym, subdomain, brand_name, tagline, is_active, created_at, updated_at')
           .order('name');
 
         if (error) {

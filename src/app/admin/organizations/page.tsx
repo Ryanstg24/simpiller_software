@@ -9,6 +9,9 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { OrganizationDetailsModal } from "@/components/admin/organization-details-modal";
+import { OrganizationEditModal } from "@/components/admin/organization-edit-modal";
+import { OrganizationDeleteModal } from "@/components/admin/organization-delete-modal";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 
@@ -17,6 +20,10 @@ export default function OrganizationsPage() {
   const { isSimpillerAdmin } = useAuth();
   const { organizations, loading, error } = useOrganizations();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const filteredOrganizations = useMemo(() => {
     if (!searchTerm) return organizations;
@@ -36,6 +43,41 @@ export default function OrganizationsPage() {
 
   const getStatusText = (isActive: boolean) => {
     return isActive ? 'Active' : 'Inactive';
+  };
+
+  const handleViewDetails = (organization: any) => {
+    setSelectedOrganization(organization);
+    setShowDetailsModal(true);
+  };
+
+  const handleEdit = (organization: any) => {
+    setSelectedOrganization(organization);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = (organizationId: string) => {
+    const org = organizations.find(o => o.id === organizationId);
+    if (org) {
+      setSelectedOrganization(org);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const handleSave = (updatedOrganization: any) => {
+    // Refresh the organizations list
+    window.location.reload();
+  };
+
+  const handleDeleteConfirm = () => {
+    // Refresh the organizations list
+    window.location.reload();
+  };
+
+  const closeModals = () => {
+    setShowDetailsModal(false);
+    setShowEditModal(false);
+    setShowDeleteModal(false);
+    setSelectedOrganization(null);
   };
 
   if (!isSimpillerAdmin) {
@@ -234,10 +276,20 @@ export default function OrganizationsPage() {
                       )}
                       <div className="pt-3 border-t">
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleViewDetails(organization)}
+                          >
                             View Details
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleEdit(organization)}
+                          >
                             Edit
                           </Button>
                         </div>
@@ -267,6 +319,29 @@ export default function OrganizationsPage() {
             )}
           </main>
         </div>
+
+        {/* Modals */}
+        <OrganizationDetailsModal
+          organization={selectedOrganization}
+          isOpen={showDetailsModal}
+          onClose={closeModals}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+
+        <OrganizationEditModal
+          organization={selectedOrganization}
+          isOpen={showEditModal}
+          onClose={closeModals}
+          onSave={handleSave}
+        />
+
+        <OrganizationDeleteModal
+          organization={selectedOrganization}
+          isOpen={showDeleteModal}
+          onClose={closeModals}
+          onDelete={handleDeleteConfirm}
+        />
       </div>
     </ProtectedRoute>
   );
