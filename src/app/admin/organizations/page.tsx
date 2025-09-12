@@ -8,7 +8,7 @@ import { Plus, Search, Building2, Users, Globe, ArrowLeft } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuth } from "@/contexts/auth-context";
-import { useOrganizations } from "@/hooks/use-organizations";
+import { useOrganizations, Organization } from "@/hooks/use-organizations";
 import { OrganizationDetailsModal } from "@/components/admin/organization-details-modal";
 import { OrganizationEditModal } from "@/components/admin/organization-edit-modal";
 import { OrganizationDeleteModal } from "@/components/admin/organization-delete-modal";
@@ -20,7 +20,7 @@ export default function OrganizationsPage() {
   const { isSimpillerAdmin } = useAuth();
   const { organizations, loading, error } = useOrganizations();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -45,12 +45,12 @@ export default function OrganizationsPage() {
     return isActive ? 'Active' : 'Inactive';
   };
 
-  const handleViewDetails = (organization: any) => {
+  const handleViewDetails = (organization: Organization) => {
     setSelectedOrganization(organization);
     setShowDetailsModal(true);
   };
 
-  const handleEdit = (organization: any) => {
+  const handleEdit = (organization: Organization) => {
     setSelectedOrganization(organization);
     setShowEditModal(true);
   };
@@ -63,7 +63,7 @@ export default function OrganizationsPage() {
     }
   };
 
-  const handleSave = (updatedOrganization: any) => {
+  const handleSave = () => {
     // Refresh the organizations list
     window.location.reload();
   };
