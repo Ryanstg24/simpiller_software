@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { useUserDisplay } from '@/hooks/use-user-display';
 import { supabase } from '@/lib/supabase';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -385,7 +386,7 @@ function BillingPageContent() {
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
               />
             </div>
             <div>
@@ -394,7 +395,7 @@ function BillingPageContent() {
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
               />
             </div>
             <div className="flex items-end">
@@ -652,12 +653,17 @@ function BillingPageContent() {
 }
 
 export default function BillingPage() {
+  const userInfo = useUserDisplay();
+  
   return (
     <ProtectedRoute>
       <div className="flex h-screen bg-gray-100">
         <Sidebar currentPage="/billing" />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Organization Billing" />
+          <Header 
+            title="Organization Billing" 
+            user={{ name: userInfo.name, initials: userInfo.initials, role: userInfo.role }}
+          />
           <main className="flex-1 overflow-x-hidden overflow-y-auto">
             <BillingPageContent />
           </main>
