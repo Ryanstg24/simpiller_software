@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Building2, Globe, Users, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -47,9 +47,9 @@ export function OrganizationDetailsModal({
     if (isOpen && organization) {
       fetchOrganizationStats();
     }
-  }, [isOpen, organization]);
+  }, [isOpen, organization, fetchOrganizationStats]);
 
-  const fetchOrganizationStats = async () => {
+  const fetchOrganizationStats = useCallback(async () => {
     if (!organization) return;
 
     setLoading(true);
@@ -79,7 +79,7 @@ export function OrganizationDetailsModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [organization]);
 
   if (!isOpen || !organization) return null;
 
@@ -139,7 +139,7 @@ export function OrganizationDetailsModal({
               {organization.tagline && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
-                  <p className="text-gray-900 italic">"{organization.tagline}"</p>
+                  <p className="text-gray-900 italic">&quot;{organization.tagline}&quot;</p>
                 </div>
               )}
             </div>

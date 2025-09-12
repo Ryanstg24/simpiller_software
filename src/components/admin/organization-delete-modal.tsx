@@ -110,7 +110,7 @@ export function OrganizationDeleteModal({
           <div className="space-y-3">
             <p className="text-gray-700">
               Are you sure you want to delete the organization{' '}
-              <span className="font-semibold text-gray-900">"{organization.name}"</span>?
+              <span className="font-semibold text-gray-900">&quot;{organization.name}&quot;</span>?
             </p>
             
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -127,7 +127,7 @@ export function OrganizationDeleteModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type <span className="font-semibold text-gray-900">"{organization.name}"</span> to confirm:
+                Type <span className="font-semibold text-gray-900">&quot;{organization.name}&quot;</span> to confirm:
               </label>
               <input
                 type="text"
