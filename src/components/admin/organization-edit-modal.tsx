@@ -154,13 +154,13 @@ export function OrganizationEditModal({
   if (!isOpen || !organization) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
             <Building2 className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Edit Organization</h2>
+            <h2 className="text-xl font-semibold text-black">Edit Organization</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -179,7 +179,7 @@ export function OrganizationEditModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Organization Name */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Organization Name *
               </label>
               <input
@@ -194,7 +194,7 @@ export function OrganizationEditModal({
 
             {/* Acronym */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Acronym *
               </label>
               <input
@@ -209,7 +209,7 @@ export function OrganizationEditModal({
 
             {/* Subdomain */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Subdomain *
               </label>
               <div className="flex">
@@ -233,7 +233,7 @@ export function OrganizationEditModal({
 
             {/* Brand Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Brand Name
               </label>
               <input
@@ -247,7 +247,7 @@ export function OrganizationEditModal({
 
             {/* Status */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Status
               </label>
               <select
@@ -262,7 +262,7 @@ export function OrganizationEditModal({
 
             {/* Tagline */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 Tagline
               </label>
               <textarea
@@ -280,7 +280,7 @@ export function OrganizationEditModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

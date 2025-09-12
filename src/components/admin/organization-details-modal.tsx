@@ -84,13 +84,13 @@ export function OrganizationDetailsModal({
   if (!isOpen || !organization) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
             <Building2 className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Organization Details</h2>
+            <h2 className="text-xl font-semibold text-black">Organization Details</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -103,25 +103,25 @@ export function OrganizationDetailsModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
-                <p className="text-lg font-semibold text-gray-900">{organization.name}</p>
+                <label className="block text-sm font-medium text-black mb-1">Organization Name</label>
+                <p className="text-lg font-semibold text-black">{organization.name}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Acronym</label>
-                <p className="text-gray-900">{organization.acronym}</p>
+                <label className="block text-sm font-medium text-black mb-1">Acronym</label>
+                <p className="text-black">{organization.acronym}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subdomain</label>
+                <label className="block text-sm font-medium text-black mb-1">Subdomain</label>
                 <div className="flex items-center space-x-2">
                   <Globe className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-900">{organization.subdomain}.simpiller.com</span>
+                  <span className="text-black">{organization.subdomain}.simpiller.com</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-black mb-1">Status</label>
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                   organization.is_active 
                     ? 'bg-green-100 text-green-800' 
@@ -132,14 +132,14 @@ export function OrganizationDetailsModal({
               </div>
               {organization.brand_name && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Brand Name</label>
-                  <p className="text-gray-900">{organization.brand_name}</p>
+                  <label className="block text-sm font-medium text-black mb-1">Brand Name</label>
+                  <p className="text-black">{organization.brand_name}</p>
                 </div>
               )}
               {organization.tagline && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
-                  <p className="text-gray-900 italic">&quot;{organization.tagline}&quot;</p>
+                  <label className="block text-sm font-medium text-black mb-1">Tagline</label>
+                  <p className="text-black italic">&quot;{organization.tagline}&quot;</p>
                 </div>
               )}
             </div>
@@ -147,7 +147,7 @@ export function OrganizationDetailsModal({
 
           {/* Statistics */}
           <div className="border-t pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Organization Statistics</h3>
+            <h3 className="text-lg font-medium text-black mb-4">Organization Statistics</h3>
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
@@ -193,13 +193,13 @@ export function OrganizationDetailsModal({
           {/* Timestamps */}
           {(organization.created_at || organization.updated_at) && (
             <div className="border-t pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Timestamps</h3>
+              <h3 className="text-lg font-medium text-black mb-4">Timestamps</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {organization.created_at && (
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Created</p>
+                      <p className="text-sm font-medium text-black">Created</p>
                       <p className="text-sm text-gray-600">
                         {new Date(organization.created_at).toLocaleDateString()} at{' '}
                         {new Date(organization.created_at).toLocaleTimeString()}
@@ -211,7 +211,7 @@ export function OrganizationDetailsModal({
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Last Updated</p>
+                      <p className="text-sm font-medium text-black">Last Updated</p>
                       <p className="text-sm text-gray-600">
                         {new Date(organization.updated_at).toLocaleDateString()} at{' '}
                         {new Date(organization.updated_at).toLocaleTimeString()}
