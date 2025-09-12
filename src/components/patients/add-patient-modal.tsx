@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Mail, MapPin, Calendar, Shield, Save, X, Stethoscope } from 'lucide-react';
+import { User, Mail, MapPin, Calendar, Shield, Save, X, Stethoscope, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useFacilities } from '@/hooks/use-facilities';
 import { useOrganizations } from '@/hooks/use-organizations';
@@ -304,9 +304,23 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
             <User className="h-5 w-5 mr-2" />
             Add New Patient
           </h2>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-3">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-gray-600 border-gray-300 hover:bg-gray-50"
+              onClick={() => {
+                // Placeholder for future import functionality
+                alert('Import Data functionality coming soon!');
+              }}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import Data
+            </Button>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
