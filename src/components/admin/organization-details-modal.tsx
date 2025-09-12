@@ -43,12 +43,6 @@ export function OrganizationDetailsModal({
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && organization) {
-      fetchOrganizationStats();
-    }
-  }, [isOpen, organization, fetchOrganizationStats]);
-
   const fetchOrganizationStats = useCallback(async () => {
     if (!organization) return;
 
@@ -80,6 +74,12 @@ export function OrganizationDetailsModal({
       setLoading(false);
     }
   }, [organization]);
+
+  useEffect(() => {
+    if (isOpen && organization) {
+      fetchOrganizationStats();
+    }
+  }, [isOpen, organization, fetchOrganizationStats]);
 
   if (!isOpen || !organization) return null;
 
