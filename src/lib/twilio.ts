@@ -86,7 +86,7 @@ export class TwilioService {
 
     const message = {
       to: reminder.patientPhone,
-      body: `Hi ${displayName}! It's time to take your ${time} medication. Please scan your medication label to confirm: ${reminder.scanLink}`,
+      body: `Hi ${displayName}! It's time to take your ${time} medication! Please scan your medication label to confirm: ${reminder.scanLink}`,
     };
 
     return this.sendSMS(message);
@@ -111,7 +111,7 @@ export class TwilioService {
 
     const message = {
       to: reminder.patientPhone,
-      body: `Reminder: ${displayName}, please don't forget to take your ${time} medication. Scan here: ${reminder.scanLink}`,
+      body: `Reminder: ${displayName}, please don't forget to take your ${time} medication! Scan here: ${reminder.scanLink}`,
     };
 
     return this.sendSMS(message);

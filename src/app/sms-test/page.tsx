@@ -210,7 +210,7 @@ export default function SMSTestPage() {
                         <option value="Australia/Sydney">Sydney (AEST)</option>
                       </select>
                       <p className="text-sm text-gray-500 mt-1">
-                        Select the patient's timezone to test time formatting
+                        Select the patient&apos;s timezone to test time formatting
                       </p>
                     </div>
 
@@ -302,7 +302,7 @@ export default function SMSTestPage() {
                                   const firstName = nameParts[0];
                                   const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
                                   const displayName = `${firstName} ${lastInitial}`;
-                                  return `Hi ${displayName}! It's time to take your ${time} medication. Please scan your medication label to confirm: ${result.scanLink}`;
+                                  return `Hi ${displayName}! It's time to take your ${time} medication! Please scan your medication label to confirm: ${result.scanLink}`;
                                 })()
                               )}
                             </div>
