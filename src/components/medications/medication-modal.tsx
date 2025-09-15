@@ -200,41 +200,27 @@ export function MedicationModal({
       console.log('Current user:', user?.id);
       console.log('Selected patient:', selectedPatient);
 
-      if (mode === 'edit' && medication?.id) {
-        const { error } = await supabase
-          .from('medications')
-          .update(dataToSend)
-          .eq('id', medication.id);
+      // Use API endpoint for medication operations
+      const response = await fetch('/api/medications', {
+        method: mode === 'edit' ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...dataToSend,
+          ...(mode === 'edit' && medication?.id ? { id: medication.id } : {})
+        }),
+      });
 
-        if (error) {
-          console.error('Error updating medication:', error);
-          alert('Failed to update medication. Please try again.');
-          return;
-        }
-      } else {
-        const { error } = await supabase
-          .from('medications')
-          .insert(dataToSend);
+      const result = await response.json();
 
-        if (error) {
-          console.error('Error creating medication:', error);
-          console.error('Error message:', error.message);
-          console.error('Error code:', error.code);
-          console.error('Error details:', error.details);
-          console.error('Error hint:', error.hint);
-          console.error('Full error object:', error);
-          console.error('Data being sent:', JSON.stringify(dataToSend, null, 2));
-          alert(`Failed to create medication: ${error.message || 'Unknown error'}`);
-          return;
-        }
+      if (!response.ok) {
+        console.error('❌ Error with medication operation:', result);
+        alert(result.error || `Failed to ${mode} medication. Please try again.`);
+        return;
       }
 
-      // Auto-populate medication schedules after any add/edit so CRON sees updates
-      try {
-        await fetch('/api/admin/populate-medication-schedules', { method: 'POST' });
-      } catch (e) {
-        console.warn('Populate medication schedules failed (non-blocking):', e);
-      }
+      console.log('✅ Medication operation successful:', result);
 
       onSuccess();
       onClose();

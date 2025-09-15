@@ -109,21 +109,31 @@ export function MedicationEditModal({ medication, isOpen, onClose, onMedicationU
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('medications')
-        .update(formData)
-        .eq('id', medication.id);
+      
+      const response = await fetch('/api/medications', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          id: medication.id
+        }),
+      });
 
-      if (error) {
-        console.error('Error updating medication:', error);
-        alert('Failed to update medication. Please try again.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Error updating medication:', result);
+        alert(result.error || 'Failed to update medication. Please try again.');
       } else {
+        console.log('✅ Medication updated successfully:', result);
         onMedicationUpdated();
         onClose();
         alert('Medication updated successfully!');
       }
     } catch (error) {
-      console.error('Error updating medication:', error);
+      console.error('💥 Error updating medication:', error);
       alert('Failed to update medication. Please try again.');
     } finally {
       setLoading(false);
