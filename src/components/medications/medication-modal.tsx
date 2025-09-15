@@ -199,6 +199,7 @@ export function MedicationModal({
       console.log(`Attempting to ${mode === 'edit' ? 'update' : 'create'} medication with data:`, JSON.stringify(dataToSend, null, 2));
       console.log('Current user:', user?.id);
       console.log('Selected patient:', selectedPatient);
+      console.log('Form data before processing:', JSON.stringify(formData, null, 2));
 
       // Use API endpoint for medication operations
       const response = await fetch('/api/medications', {
