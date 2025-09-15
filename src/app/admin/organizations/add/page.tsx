@@ -20,6 +20,7 @@ export default function AddOrganizationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -56,44 +57,32 @@ export default function AddOrganizationPage() {
     setLoading(true);
     setError(null);
 
-    try {
-      const { error } = await supabase
-        .from('organizations')
-        .insert({
-          name: formData.name,
-          subdomain: formData.subdomain,
-          acronym: formData.acronym,
-          brand_name: formData.brand_name || null,
-          tagline: formData.tagline || null,
-          street1: formData.street1 || null,
-          street2: formData.street2 || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          postal_code: formData.postal_code || null,
-          country: formData.country,
-          phone: formData.phone || null,
-          email: formData.email || null,
-          website: formData.website || null,
-          clia_id: formData.clia_id || null,
-          taxonomy: formData.taxonomy || null,
-          timezone: formData.timezone,
-          client_name: formData.client_name,
-          patient_id_title: formData.patient_id_title,
-          clinician_title: formData.clinician_title,
-          is_active: true
-        });
+    console.log('🚀 Starting organization creation with data:', formData);
 
-      if (error) {
-        console.error('Error creating organization:', error);
-        setError('Failed to create organization. Please try again.');
+    try {
+      const response = await fetch('/api/admin/organizations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Error creating organization:', result);
+        setError(result.error || 'Failed to create organization');
         return;
       }
 
+      console.log('✅ Organization created successfully:', result);
+      
       // Redirect to organizations list
       router.push('/admin/organizations');
     } catch (err) {
-      console.error('Error in handleSubmit:', err);
-      setError('Failed to create organization. Please try again.');
+      console.error('💥 Error in handleSubmit:', err);
+      setError(`Failed to create organization: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
