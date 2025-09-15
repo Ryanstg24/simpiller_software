@@ -553,7 +553,7 @@ export function ScanPageClient({ token }: { token: string }) {
           </div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">No Medication to Take</h1>
           <p className="text-gray-600 mb-4">
-            You don't have any medications scheduled at this time. This could mean:
+            You don&apos;t have any medications scheduled at this time. This could mean:
           </p>
           <ul className="text-left text-gray-600 mb-6 space-y-2">
             <li className="flex items-start">
