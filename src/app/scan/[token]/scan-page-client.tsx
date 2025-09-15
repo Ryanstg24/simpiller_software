@@ -385,20 +385,31 @@ export function ScanPageClient({ token }: { token: string }) {
       };
       const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
 
-      console.log('Scan validation result:', {
-        sessionToken: token,
-        medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
-        expectedMedication: currentMedication.name,
-        scannedText: ocrData.text,
-        validation,
-        isTestScan: token.startsWith('test-')
-      });
+      // Log to Vercel for debugging
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log('[SCAN] Scan validation result:', JSON.stringify({
+          sessionToken: token,
+          medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
+          expectedMedication: currentMedication.name,
+          scannedText: ocrData.text,
+          validation,
+          isTestScan: token.startsWith('test-')
+        }));
+      }
 
       // Determine success based on STRICT validation - ALL checks must pass
       const isSuccess = validation.isValid && validation.passedChecks === validation.requiredChecks;
       
       if (isSuccess) {
         // Success - log the scan and mark as completed
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[SCAN] ✅ Scan SUCCESS:', JSON.stringify({
+            sessionToken: token,
+            medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
+            expectedMedication: currentMedication.name,
+            validation: validation
+          }));
+        }
         setScanComplete(true);
         setScanSession(prev => prev ? { 
           ...prev, 
@@ -410,8 +421,21 @@ export function ScanPageClient({ token }: { token: string }) {
         const newRetryCount = retryCount + 1;
         setRetryCount(newRetryCount);
         
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[SCAN] ❌ Scan FAILED:', JSON.stringify({
+            sessionToken: token,
+            medicationId: scanSession.medications?.id || scanSession.medication_ids[0],
+            expectedMedication: currentMedication.name,
+            retryCount: newRetryCount,
+            validation: validation
+          }));
+        }
+        
         if (newRetryCount >= 3) {
           // After 3 failed attempts, show manual confirmation
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[SCAN] 🔄 Max retries reached, showing manual confirmation');
+          }
           setShowManualConfirmation(true);
           setScanComplete(true);
           setScanSession(prev => prev ? { 
@@ -420,6 +444,9 @@ export function ScanPageClient({ token }: { token: string }) {
           } : null);
         } else {
           // Show retry message
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[SCAN] 🔄 Showing retry option, attempt:', newRetryCount);
+          }
           setScanComplete(true);
           setScanSession(prev => prev ? { 
             ...prev, 
@@ -826,6 +853,9 @@ export function ScanPageClient({ token }: { token: string }) {
                       <Button
                         onClick={async () => {
                           // Log as manually confirmed
+                          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                            console.log('[SCAN] ✅ Manual confirmation: YES, took medication');
+                          }
                           await logSuccessfulScan();
                           setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                         }}
@@ -834,7 +864,12 @@ export function ScanPageClient({ token }: { token: string }) {
                         Yes, I Took It
                       </Button>
                       <Button
-                        onClick={() => window.close()}
+                        onClick={() => {
+                          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                            console.log('[SCAN] ❌ Manual confirmation: NO, did not take medication');
+                          }
+                          window.close();
+                        }}
                         className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
                       >
                         No, I Didn&apos;t Take It
