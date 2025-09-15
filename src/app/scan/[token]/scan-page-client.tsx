@@ -96,7 +96,19 @@ export function ScanPageClient({ token }: { token: string }) {
         // Load real session data
         const response = await fetch(`/api/scan/session/${token}`);
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Handle different error types more gracefully
+          if (response.status === 410) {
+            // Session expired - this is expected and not really an "error"
+            setError('expired');
+          } else if (response.status === 404) {
+            // Session not found - also expected for old/invalid links
+            setError('not_found');
+          } else {
+            // Actual server error
+            setError('server_error');
+          }
+          setLoading(false);
+          return;
         }
         const session: ScanSession = await response.json();
         setScanSession(session);
@@ -106,7 +118,7 @@ export function ScanPageClient({ token }: { token: string }) {
         setTimeliness(diffMin > 180 ? 'missed' : diffMin > 60 ? 'overdue' : 'on_time');
         setLoading(false);
       } catch (err) {
-        setError('Failed to load medication session.');
+        setError('server_error');
         setLoading(false);
         console.error(err);
       }
@@ -533,14 +545,32 @@ export function ScanPageClient({ token }: { token: string }) {
   if (error || !scanSession) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <XCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Session Error</h1>
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">No Medication to Take</h1>
           <p className="text-gray-600 mb-4">
-            {error || 'Invalid or expired session'}
+            You don't have any medications scheduled at this time. This could mean:
           </p>
+          <ul className="text-left text-gray-600 mb-6 space-y-2">
+            <li className="flex items-start">
+              <span className="text-blue-500 mr-2">•</span>
+              You may have already taken your medication
+            </li>
+            <li className="flex items-start">
+              <span className="text-blue-500 mr-2">•</span>
+              The medication window has passed
+            </li>
+            <li className="flex items-start">
+              <span className="text-blue-500 mr-2">•</span>
+              Your medication schedule has been updated
+            </li>
+          </ul>
           <p className="text-sm text-gray-500">
-            Please check your medication reminder link or contact your healthcare provider.
+            If you have questions about your medication schedule, please contact your healthcare provider.
           </p>
         </div>
       </div>
