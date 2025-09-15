@@ -31,9 +31,18 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!email || !password || !first_name || !last_name || !organization_id || !roles?.length) {
+    if (!email || !password || !first_name || !last_name || !roles?.length) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: email, password, first_name, last_name, and roles are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate organization_id is required for non-simpiller_admin roles
+    const isSimpillerAdmin = roles.includes('simpiller_admin');
+    if (!isSimpillerAdmin && !organization_id) {
+      return NextResponse.json(
+        { error: 'Organization is required for non-admin roles' },
         { status: 400 }
       );
     }
