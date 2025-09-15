@@ -320,6 +320,7 @@ export async function GET(request: Request) {
           scheduledTime: scheduledUtcIso,
           scanLink,
           patientPhone: formattedPhone,
+          patientTimezone: timeZone, // 👈 pass patient's timezone
         };
 
         const smsSent = await TwilioService.sendMedicationReminder(reminder);
@@ -341,7 +342,7 @@ export async function GET(request: Request) {
                   scheduled_time: now.toISOString(),
                   sent_at: now.toISOString(),
                   status: 'sent',
-                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(schedule.time_of_day)} medications. Please scan your medication label to confirm: ${scanLink}`,
+                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(schedule.time_of_day, timeZone)} medications. Please scan your medication label to confirm: ${scanLink}`,
                   recipient: formattedPhone,
                 });
             }
@@ -422,16 +423,16 @@ function timeToMinutes(timeString: string): number {
 }
 
 /**
- * Format time for SMS display (e.g., "2:45 PM")
+ * Format time for SMS display (e.g., "2:45 PM") in patient's timezone
  */
-function formatTimeForSMS(timeString: string): string {
+function formatTimeForSMS(timeString: string, timezone: string): string {
   const [hours, minutes] = timeString.split(':').map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
   
-  return date.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit', 
-    hour12: true 
-  });
+  return new Date()
+    .toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone   // 👈 critical - use patient's timezone
+    });
 } 

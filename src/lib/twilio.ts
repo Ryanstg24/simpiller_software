@@ -24,6 +24,7 @@ export interface MedicationReminder {
   scheduledTime: string;
   scanLink: string;
   patientPhone: string;
+  patientTimezone?: string;
 }
 
 export class TwilioService {
@@ -73,7 +74,8 @@ export class TwilioService {
     const time = new Date(reminder.scheduledTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: reminder.patientTimezone || 'America/New_York' // 👈 use patient's timezone
     });
 
     // Format patient name as first name + last initial for HIPAA compliance
@@ -97,7 +99,8 @@ export class TwilioService {
     const time = new Date(reminder.scheduledTime).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: reminder.patientTimezone || 'America/New_York' // 👈 use patient's timezone
     });
 
     // Format patient name as first name + last initial for HIPAA compliance
