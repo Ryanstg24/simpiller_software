@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     // Create the user record in our users table
     const { data: newUser, error: userError } = await supabaseAdmin
       .from('users')
-      .insert([{
+      .insert({
         id: authData.user.id, // Use the auth user ID
         first_name,
         last_name,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         specialty,
         is_active,
         password_change_required: true // Force password change on first login
-      }])
+      })
       .select()
       .single();
 

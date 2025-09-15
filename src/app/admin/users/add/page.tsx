@@ -29,8 +29,11 @@ export default function AddUserPage() {
     last_name: '',
     phone: '',
     npi: '',
+    license_number: '',
+    specialty: '',
     organization_id: '',
-    role: ''
+    role: '',
+    is_active: true
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -45,26 +48,48 @@ export default function AddUserPage() {
     setLoading(true);
     setError(null);
 
+    console.log('🚀 Starting user creation with data:', formData);
+
     try {
+      // Transform form data to match API expectations
+      const requestData = {
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone || null,
+        npi: formData.npi || null,
+        license_number: formData.license_number || null,
+        specialty: formData.specialty || null,
+        is_active: formData.is_active,
+        organization_id: formData.organization_id || null,
+        roles: formData.role ? [formData.role] : [] // Convert single role to array
+      };
+
+      console.log('📤 Sending request data:', requestData);
+
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestData),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('❌ Error creating user:', result);
         setError(result.error || 'Failed to create user. Please try again.');
         return;
       }
 
+      console.log('✅ User created successfully:', result);
+
       // Redirect to users list
       router.push('/admin/users');
     } catch (err) {
-      console.error('Error in handleSubmit:', err);
+      console.error('💥 Error in handleSubmit:', err);
       setError('Failed to create user. Please try again.');
     } finally {
       setLoading(false);
@@ -231,6 +256,32 @@ export default function AddUserPage() {
                         onChange={(e) => handleInputChange('npi', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                         placeholder="Enter NPI number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        License Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.license_number}
+                        onChange={(e) => handleInputChange('license_number', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        placeholder="Enter license number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Specialty
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.specialty}
+                        onChange={(e) => handleInputChange('specialty', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        placeholder="Enter specialty"
                       />
                     </div>
                   </CardContent>
