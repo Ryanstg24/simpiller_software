@@ -394,8 +394,8 @@ export function ScanPageClient({ token }: { token: string }) {
         isTestScan: token.startsWith('test-')
       });
 
-      // Determine success based on validation - require high confidence
-      const isSuccess = validation.isValid && validation.confidence > 0.8;
+      // Determine success based on STRICT validation - ALL checks must pass
+      const isSuccess = validation.isValid && validation.passedChecks === validation.requiredChecks;
       
       if (isSuccess) {
         // Success - log the scan and mark as completed

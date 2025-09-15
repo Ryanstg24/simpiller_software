@@ -317,6 +317,8 @@ export class OCRService {
       patientName: boolean;
     };
     score: number;
+    requiredChecks: number;
+    passedChecks: number;
   } {
     const matches = {
       medicationName: false,
@@ -325,90 +327,173 @@ export class OCRService {
     };
 
     let score = 0;
-    let totalChecks = 0;
+    let requiredChecks = 0;
+    let passedChecks = 0;
 
-    // Check medication name - check both single and multiple medications
-    if ((labelData.medicationName || labelData.medicationNames) && expectedMedication.medicationName) {
-      totalChecks++;
-      const expectedMed = expectedMedication.medicationName.toLowerCase();
-      
-      // Check single medication name - require exact match or very close match
-      if (labelData.medicationName) {
-        const labelMed = labelData.medicationName.toLowerCase().trim();
-        const expectedMedTrimmed = expectedMed.trim();
-        
-        // Exact match
-        if (labelMed === expectedMedTrimmed) {
-          matches.medicationName = true;
-          score += 1;
-        }
-        // Very close match (at least 80% of characters match)
-        else if (this.calculateStringSimilarity(labelMed, expectedMedTrimmed) >= 0.8) {
-          matches.medicationName = true;
-          score += 1;
-        }
+    // Define minimum lengths for validation
+    const MIN_MEDICATION_LENGTH = 3;
+    const MIN_DOSAGE_LENGTH = 2;
+    const MIN_NAME_LENGTH = 2;
+
+    console.log('🔍 OCR Validation Debug:', {
+      expectedMedication,
+      labelData: {
+        medicationName: labelData.medicationName,
+        medicationNames: labelData.medicationNames,
+        dosage: labelData.dosage,
+        dosages: labelData.dosages,
+        patientName: labelData.patientName
       }
+    });
+
+    // Check medication name - STRICT validation
+    if (expectedMedication.medicationName) {
+      requiredChecks++;
+      const expectedMed = expectedMedication.medicationName.toLowerCase().trim();
       
-      // Check multiple medication names
-      if (labelData.medicationNames && !matches.medicationName) {
-        for (const medName of labelData.medicationNames) {
-          const labelMed = medName.toLowerCase();
-          if (labelMed.includes(expectedMed) || expectedMed.includes(labelMed)) {
-            matches.medicationName = true;
-            score += 1;
-            break;
+      // Require minimum length for meaningful comparison
+      if (expectedMed.length < MIN_MEDICATION_LENGTH) {
+        console.warn('⚠️ Expected medication name too short for validation');
+        passedChecks++; // Skip this check if too short
+      } else {
+        let medicationMatch = false;
+        
+        // Check single medication name - EXACT match only (no fuzzy matching)
+        if (labelData.medicationName) {
+          const labelMed = labelData.medicationName.toLowerCase().trim();
+          
+          // Exact match only
+          if (labelMed === expectedMed && labelMed.length >= MIN_MEDICATION_LENGTH) {
+            medicationMatch = true;
+            console.log('✅ Exact medication name match:', { expectedMed, labelMed });
+          } else {
+            console.log('❌ Medication name mismatch:', { expectedMed, labelMed });
           }
+        }
+        
+        // Check multiple medication names - EXACT match only
+        if (!medicationMatch && labelData.medicationNames) {
+          for (const medName of labelData.medicationNames) {
+            const labelMed = medName.toLowerCase().trim();
+            if (labelMed === expectedMed && labelMed.length >= MIN_MEDICATION_LENGTH) {
+              medicationMatch = true;
+              console.log('✅ Exact medication name match in multiple:', { expectedMed, labelMed });
+              break;
+            }
+          }
+        }
+        
+        if (medicationMatch) {
+          matches.medicationName = true;
+          score += 1;
+          passedChecks++;
+        } else {
+          console.log('❌ No medication name match found');
         }
       }
     }
 
-    // Check dosage - check both single and multiple dosages
-    if ((labelData.dosage || labelData.dosages) && expectedMedication.dosage) {
-      totalChecks++;
-      const expectedDosage = expectedMedication.dosage.toLowerCase();
+    // Check dosage - STRICT validation
+    if (expectedMedication.dosage) {
+      requiredChecks++;
+      const expectedDosage = expectedMedication.dosage.toLowerCase().trim();
       
-      // Check single dosage
-      if (labelData.dosage) {
-        const labelDosage = labelData.dosage.toLowerCase();
-        if (labelDosage.includes(expectedDosage) || expectedDosage.includes(labelDosage)) {
+      // Require minimum length for meaningful comparison
+      if (expectedDosage.length < MIN_DOSAGE_LENGTH) {
+        console.warn('⚠️ Expected dosage too short for validation');
+        passedChecks++; // Skip this check if too short
+      } else {
+        let dosageMatch = false;
+        
+        // Check single dosage - EXACT match only
+        if (labelData.dosage) {
+          const labelDosage = labelData.dosage.toLowerCase().trim();
+          
+          // Exact match only (no substring matching)
+          if (labelDosage === expectedDosage && labelDosage.length >= MIN_DOSAGE_LENGTH) {
+            dosageMatch = true;
+            console.log('✅ Exact dosage match:', { expectedDosage, labelDosage });
+          } else {
+            console.log('❌ Dosage mismatch:', { expectedDosage, labelDosage });
+          }
+        }
+        
+        // Check multiple dosages - EXACT match only
+        if (!dosageMatch && labelData.dosages) {
+          for (const dosage of labelData.dosages) {
+            const labelDosage = dosage.toLowerCase().trim();
+            if (labelDosage === expectedDosage && labelDosage.length >= MIN_DOSAGE_LENGTH) {
+              dosageMatch = true;
+              console.log('✅ Exact dosage match in multiple:', { expectedDosage, labelDosage });
+              break;
+            }
+          }
+        }
+        
+        if (dosageMatch) {
           matches.dosage = true;
           score += 1;
+          passedChecks++;
+        } else {
+          console.log('❌ No dosage match found');
         }
       }
+    }
+
+    // Check patient name - STRICT validation
+    if (expectedMedication.patientName) {
+      requiredChecks++;
+      const expectedName = expectedMedication.patientName.toLowerCase().trim();
       
-      // Check multiple dosages
-      if (labelData.dosages && !matches.dosage) {
-        for (const dosage of labelData.dosages) {
-          const labelDosage = dosage.toLowerCase();
-          if (labelDosage.includes(expectedDosage) || expectedDosage.includes(labelDosage)) {
-            matches.dosage = true;
-            score += 1;
-            break;
+      // Require minimum length for meaningful comparison
+      if (expectedName.length < MIN_NAME_LENGTH) {
+        console.warn('⚠️ Expected patient name too short for validation');
+        passedChecks++; // Skip this check if too short
+      } else {
+        let nameMatch = false;
+        
+        if (labelData.patientName) {
+          const labelName = labelData.patientName.toLowerCase().trim();
+          
+          // Exact match only (no substring matching)
+          if (labelName === expectedName && labelName.length >= MIN_NAME_LENGTH) {
+            nameMatch = true;
+            console.log('✅ Exact patient name match:', { expectedName, labelName });
+          } else {
+            console.log('❌ Patient name mismatch:', { expectedName, labelName });
           }
         }
+        
+        if (nameMatch) {
+          matches.patientName = true;
+          score += 1;
+          passedChecks++;
+        } else {
+          console.log('❌ No patient name match found');
+        }
       }
     }
 
-    // Check patient name
-    if (labelData.patientName && expectedMedication.patientName) {
-      totalChecks++;
-      const labelName = labelData.patientName.toLowerCase();
-      const expectedName = expectedMedication.patientName.toLowerCase();
-      
-      if (labelName.includes(expectedName) || expectedName.includes(labelName)) {
-        matches.patientName = true;
-        score += 1;
-      }
-    }
+    // STRICT validation: ALL required checks must pass
+    const isValid = requiredChecks > 0 && passedChecks === requiredChecks;
+    const confidence = requiredChecks > 0 ? passedChecks / requiredChecks : 0;
 
-    const confidence = totalChecks > 0 ? score / totalChecks : 0;
-    const isValid = confidence >= 0.8; // At least 80% match required for strict validation
+    console.log('📊 Final validation result:', {
+      isValid,
+      confidence,
+      requiredChecks,
+      passedChecks,
+      matches,
+      score
+    });
 
     return {
       isValid,
       confidence,
       matches,
       score,
+      requiredChecks,
+      passedChecks,
     };
   }
 
