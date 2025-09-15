@@ -16,7 +16,6 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('🚀 Received medication creation request with body:', JSON.stringify(body, null, 2));
     
     const {
       patient_id,
@@ -39,26 +38,17 @@ export async function POST(request: NextRequest) {
       end_date
     } = body;
 
-    console.log('📋 Extracted fields:', {
-      patient_id,
-      name,
-      strength,
-      format,
-      dose_count,
-      quantity,
-      frequency
-    });
 
-    // Validate required fields
-    if (!patient_id || !name || !strength || !format || !dose_count || !quantity || !frequency) {
+    // Validate required fields (handle numeric fields that can be zero)
+    if (!patient_id || !name || !strength || !format || dose_count === undefined || dose_count === null || quantity === undefined || quantity === null || frequency === undefined || frequency === null) {
       console.error('❌ Missing required fields:', {
         patient_id: !!patient_id,
         name: !!name,
         strength: !!strength,
         format: !!format,
-        dose_count: !!dose_count,
-        quantity: !!quantity,
-        frequency: !!frequency
+        dose_count: dose_count !== undefined && dose_count !== null,
+        quantity: quantity !== undefined && quantity !== null,
+        frequency: frequency !== undefined && frequency !== null
       });
       return NextResponse.json(
         { error: 'Missing required fields: patient_id, name, strength, format, dose_count, quantity, and frequency are required' },
@@ -155,8 +145,8 @@ export async function PUT(request: NextRequest) {
       end_date
     } = body;
 
-    // Validate required fields
-    if (!id || !patient_id || !name || !strength || !format || !dose_count || !quantity || !frequency) {
+    // Validate required fields (handle numeric fields that can be zero)
+    if (!id || !patient_id || !name || !strength || !format || dose_count === undefined || dose_count === null || quantity === undefined || quantity === null || frequency === undefined || frequency === null) {
       return NextResponse.json(
         { error: 'Missing required fields: id, patient_id, name, strength, format, dose_count, quantity, and frequency are required' },
         { status: 400 }
