@@ -40,6 +40,7 @@ export default function SMSTestPage() {
     patientPhone: '+1234567890',
     medicationNames: 'Advil, Tylenol',
     scheduledTime: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16), // Local time
+    patientTimezone: 'America/New_York',
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -62,6 +63,7 @@ export default function SMSTestPage() {
         patientPhone: formData.patientPhone,
         medicationNames: formData.medicationNames.split(',').map(name => name.trim()),
         scheduledTime: formData.scheduledTime,
+        patientTimezone: formData.patientTimezone,
       };
       console.log('📤 Sending request to /api/sms/test-send with data:', requestData);
       
@@ -96,6 +98,7 @@ export default function SMSTestPage() {
       patientPhone: '+1234567890',
       medicationNames: 'Advil, Tylenol',
       scheduledTime: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+      patientTimezone: 'America/New_York',
     });
     setResult(null);
     setError(null);
@@ -185,6 +188,30 @@ export default function SMSTestPage() {
                         required
                         className="bg-white text-black border-gray-300 placeholder:text-gray-500"
                       />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="patientTimezone" className="text-black">Patient Timezone</Label>
+                      <select
+                        id="patientTimezone"
+                        value={formData.patientTimezone}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('patientTimezone', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
+                      >
+                        <option value="America/New_York">Eastern Time (ET)</option>
+                        <option value="America/Chicago">Central Time (CT)</option>
+                        <option value="America/Denver">Mountain Time (MT)</option>
+                        <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                        <option value="America/Anchorage">Alaska Time (AKT)</option>
+                        <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                        <option value="Europe/London">London (GMT)</option>
+                        <option value="Europe/Paris">Paris (CET)</option>
+                        <option value="Asia/Tokyo">Tokyo (JST)</option>
+                        <option value="Australia/Sydney">Sydney (AEST)</option>
+                      </select>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Select the patient's timezone to test time formatting
+                      </p>
                     </div>
 
                     <div className="flex space-x-3 pt-4">

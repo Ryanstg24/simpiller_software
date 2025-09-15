@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 SMS Test API called');
     
-    const { patientName, patientPhone, medicationNames, scheduledTime } = await request.json();
+    const { patientName, patientPhone, medicationNames, scheduledTime, patientTimezone } = await request.json();
     console.log('📋 Request data:', { patientName, patientPhone, medicationNames, scheduledTime });
 
     if (!patientName || !patientPhone || !medicationNames || !scheduledTime) {
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       scheduledTime,
       scanLink: testScanLink,
       patientPhone: formattedPhone,
+      patientTimezone: patientTimezone || 'America/New_York', // Use provided timezone or default
     };
     console.log('📱 Sending reminder:', reminder);
 
