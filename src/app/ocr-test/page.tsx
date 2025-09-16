@@ -22,11 +22,12 @@ export default function OCRTestPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isCameraSupported, setIsCameraSupported] = useState(false);
 
-  // Expected medication data for validation
+  // Expected medication data for validation (SIMPLIFIED: only time and patient name)
   const [expectedMedication, setExpectedMedication] = useState({
-    medicationName: '',
-    dosage: '',
+    medicationName: '', // Keep for display purposes
+    dosage: '', // Keep for display purposes
     patientName: '',
+    scheduledTime: '', // Add scheduled time for validation
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -505,6 +506,17 @@ export default function OCRTestPage() {
                         />
                       </div>
                       <div>
+                        <Label className="text-sm font-medium text-black">Scheduled Time (for validation)</Label>
+                        <Input
+                          value={expectedMedication.scheduledTime}
+                          onChange={(e) => setExpectedMedication(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                          placeholder="e.g., 8:00 AM"
+                          className="mt-1 bg-white text-black border-gray-300 placeholder:text-gray-500"
+                          size={20}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">This will be matched against the time found on the label</p>
+                      </div>
+                      <div>
                         <Label className="text-sm font-medium text-black">Patient Name</Label>
                         <Input
                           value={expectedMedication.patientName}
@@ -631,11 +643,8 @@ export default function OCRTestPage() {
                                 </div>
                                 
                                 <div className="mt-2 space-y-1">
-                                  <div className={`flex items-center ${validation.matches.medicationName ? 'text-green-600' : 'text-red-600'}`}>
-                                    {validation.matches.medicationName ? '✓' : '✗'} Medication Name
-                                  </div>
-                                  <div className={`flex items-center ${validation.matches.dosage ? 'text-green-600' : 'text-red-600'}`}>
-                                    {validation.matches.dosage ? '✓' : '✗'} Dosage
+                                  <div className={`flex items-center ${validation.matches.time ? 'text-green-600' : 'text-red-600'}`}>
+                                    {validation.matches.time ? '✓' : '✗'} Time Match
                                   </div>
                                   <div className={`flex items-center ${validation.matches.patientName ? 'text-green-600' : 'text-red-600'}`}>
                                     {validation.matches.patientName ? '✓' : '✗'} Patient Name
