@@ -18,6 +18,8 @@ export interface MedicationLabelData {
   instructions?: string;
   pharmacy?: string;
   prescriber?: string;
+  time?: string; // Single time extracted from label
+  times?: string[]; // Array for multiple times
   confidence: number;
 }
 
@@ -236,20 +238,28 @@ export class OCRService {
       }
     }
 
-    // Extract time using simple patterns
+    // Extract time using simple patterns - collect ALL matches
     const timePatterns = [
       /8:00\s*AM/gi,
       /8:00/gi,
       /(\d{1,2}:\d{2}\s*(?:am|pm))/gi,
     ];
 
+    const foundTimes: string[] = [];
     for (const pattern of timePatterns) {
       const matches = originalText.match(pattern);
       if (matches && matches.length > 0) {
-        result.instructions = `Take at ${matches[0]}`;
-        console.log('OCR Service: Found time:', matches[0]);
-        break;
+        foundTimes.push(...matches);
+        console.log('OCR Service: Found times:', matches);
       }
+    }
+
+    // Set the first time as the primary one, and all as an array
+    if (foundTimes.length > 0) {
+      result.time = foundTimes[0];
+      result.times = foundTimes;
+      result.instructions = `Take at ${foundTimes[0]}`;
+      console.log('OCR Service: Found times:', foundTimes);
     }
 
     // Extract doctor/prescriber using simple string matching
