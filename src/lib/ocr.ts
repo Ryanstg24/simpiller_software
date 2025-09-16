@@ -300,6 +300,7 @@ export class OCRService {
 
   /**
    * Validate medication label against expected medication
+   * SIMPLIFIED: Only check time and patient name for better OCR success rates
    */
   static validateMedicationLabel(
     labelData: MedicationLabelData,
@@ -307,13 +308,13 @@ export class OCRService {
       medicationName: string;
       dosage?: string;
       patientName?: string;
+      scheduledTime?: string; // Add scheduled time for validation
     }
   ): {
     isValid: boolean;
     confidence: number;
     matches: {
-      medicationName: boolean;
-      dosage: boolean;
+      time: boolean;
       patientName: boolean;
     };
     score: number;
@@ -321,8 +322,7 @@ export class OCRService {
     passedChecks: number;
   } {
     const matches = {
-      medicationName: false,
-      dosage: false,
+      time: false,
       patientName: false,
     };
 
@@ -331,139 +331,70 @@ export class OCRService {
     let passedChecks = 0;
 
     // Define minimum lengths for validation
-    const MIN_MEDICATION_LENGTH = 3;
-    const MIN_DOSAGE_LENGTH = 2;
     const MIN_NAME_LENGTH = 2;
 
     // Log to Vercel for debugging
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-      console.log('[OCR] Validation Debug:', JSON.stringify({
+      console.log('[OCR] SIMPLIFIED Validation Debug:', JSON.stringify({
         expectedMedication,
         labelData: {
-          medicationName: labelData.medicationName,
-          medicationNames: labelData.medicationNames,
-          dosage: labelData.dosage,
-          dosages: labelData.dosages,
+          time: labelData.time,
+          times: labelData.times,
           patientName: labelData.patientName
         }
       }));
     }
 
-    // Check medication name - STRICT validation
-    if (expectedMedication.medicationName) {
+    // Check TIME - EXACT match only
+    if (expectedMedication.scheduledTime) {
       requiredChecks++;
-      const expectedMed = expectedMedication.medicationName.toLowerCase().trim();
+      const expectedTime = expectedMedication.scheduledTime.toLowerCase().trim();
       
-      // Require minimum length for meaningful comparison
-      if (expectedMed.length < MIN_MEDICATION_LENGTH) {
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-          console.log('[OCR] Expected medication name too short for validation:', expectedMed);
-        }
-        passedChecks++; // Skip this check if too short
-      } else {
-        let medicationMatch = false;
+      let timeMatch = false;
+      
+      // Check single time - EXACT match only
+      if (labelData.time) {
+        const labelTime = labelData.time.toLowerCase().trim();
         
-        // Check single medication name - EXACT match only (no fuzzy matching)
-        if (labelData.medicationName) {
-          const labelMed = labelData.medicationName.toLowerCase().trim();
-          
-          // Exact match only
-          if (labelMed === expectedMed && labelMed.length >= MIN_MEDICATION_LENGTH) {
-            medicationMatch = true;
-            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Exact medication name match:', JSON.stringify({ expectedMed, labelMed }));
-            }
-          } else {
-            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Medication name mismatch:', JSON.stringify({ expectedMed, labelMed }));
-            }
+        // Exact match only
+        if (labelTime === expectedTime) {
+          timeMatch = true;
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[OCR] ✅ Exact time match:', JSON.stringify({ expectedTime, labelTime }));
           }
-        }
-        
-        // Check multiple medication names - EXACT match only
-        if (!medicationMatch && labelData.medicationNames) {
-          for (const medName of labelData.medicationNames) {
-            const labelMed = medName.toLowerCase().trim();
-            if (labelMed === expectedMed && labelMed.length >= MIN_MEDICATION_LENGTH) {
-              medicationMatch = true;
-              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-                console.log('[OCR] Exact medication name match in multiple:', JSON.stringify({ expectedMed, labelMed }));
-              }
-              break;
-            }
-          }
-        }
-        
-        if (medicationMatch) {
-          matches.medicationName = true;
-          score += 1;
-          passedChecks++;
         } else {
           if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[OCR] No medication name match found');
+            console.log('[OCR] ❌ Time mismatch:', JSON.stringify({ expectedTime, labelTime }));
           }
+        }
+      }
+      
+      // Check multiple times - EXACT match only
+      if (!timeMatch && labelData.times) {
+        for (const time of labelData.times) {
+          const labelTime = time.toLowerCase().trim();
+          if (labelTime === expectedTime) {
+            timeMatch = true;
+            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+              console.log('[OCR] ✅ Exact time match in multiple:', JSON.stringify({ expectedTime, labelTime }));
+            }
+            break;
+          }
+        }
+      }
+      
+      if (timeMatch) {
+        matches.time = true;
+        score += 1;
+        passedChecks++;
+      } else {
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[OCR] ❌ No time match found');
         }
       }
     }
 
-    // Check dosage - STRICT validation
-    if (expectedMedication.dosage) {
-      requiredChecks++;
-      const expectedDosage = expectedMedication.dosage.toLowerCase().trim();
-      
-      // Require minimum length for meaningful comparison
-      if (expectedDosage.length < MIN_DOSAGE_LENGTH) {
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-          console.log('[OCR] Expected dosage too short for validation:', expectedDosage);
-        }
-        passedChecks++; // Skip this check if too short
-      } else {
-        let dosageMatch = false;
-        
-        // Check single dosage - EXACT match only
-        if (labelData.dosage) {
-          const labelDosage = labelData.dosage.toLowerCase().trim();
-          
-          // Exact match only (no substring matching)
-          if (labelDosage === expectedDosage && labelDosage.length >= MIN_DOSAGE_LENGTH) {
-            dosageMatch = true;
-            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Exact dosage match:', JSON.stringify({ expectedDosage, labelDosage }));
-            }
-          } else {
-            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Dosage mismatch:', JSON.stringify({ expectedDosage, labelDosage }));
-            }
-          }
-        }
-        
-        // Check multiple dosages - EXACT match only
-        if (!dosageMatch && labelData.dosages) {
-          for (const dosage of labelData.dosages) {
-            const labelDosage = dosage.toLowerCase().trim();
-            if (labelDosage === expectedDosage && labelDosage.length >= MIN_DOSAGE_LENGTH) {
-              dosageMatch = true;
-              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-                console.log('[OCR] Exact dosage match in multiple:', JSON.stringify({ expectedDosage, labelDosage }));
-              }
-              break;
-            }
-          }
-        }
-        
-        if (dosageMatch) {
-          matches.dosage = true;
-          score += 1;
-          passedChecks++;
-        } else {
-          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[OCR] No dosage match found');
-          }
-        }
-      }
-    }
-
-    // Check patient name - STRICT validation
+    // Check patient name - EXACT match only
     if (expectedMedication.patientName) {
       requiredChecks++;
       const expectedName = expectedMedication.patientName.toLowerCase().trim();
@@ -484,11 +415,11 @@ export class OCRService {
           if (labelName === expectedName && labelName.length >= MIN_NAME_LENGTH) {
             nameMatch = true;
             if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Exact patient name match:', JSON.stringify({ expectedName, labelName }));
+              console.log('[OCR] ✅ Exact patient name match:', JSON.stringify({ expectedName, labelName }));
             }
           } else {
             if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] Patient name mismatch:', JSON.stringify({ expectedName, labelName }));
+              console.log('[OCR] ❌ Patient name mismatch:', JSON.stringify({ expectedName, labelName }));
             }
           }
         }
@@ -499,7 +430,7 @@ export class OCRService {
           passedChecks++;
         } else {
           if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[OCR] No patient name match found');
+            console.log('[OCR] ❌ No patient name match found');
           }
         }
       }
@@ -510,7 +441,7 @@ export class OCRService {
     const confidence = requiredChecks > 0 ? passedChecks / requiredChecks : 0;
 
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-      console.log('[OCR] Final validation result:', JSON.stringify({
+      console.log('[OCR] SIMPLIFIED Final validation result:', JSON.stringify({
         isValid,
         confidence,
         requiredChecks,

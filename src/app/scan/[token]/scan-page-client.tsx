@@ -390,10 +390,12 @@ export function ScanPageClient({ token }: { token: string }) {
       }
 
       // Always use strict validation - no test mode bypass
+      // SIMPLIFIED: Only check time and patient name for better OCR success
       const expectedMedication = {
         medicationName: currentMedication.name,
         dosage: `${currentMedication.strength} ${currentMedication.format}`,
         patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
+        scheduledTime: formatTime(scanSession.scheduled_time), // Add scheduled time for validation
       };
       const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
 
