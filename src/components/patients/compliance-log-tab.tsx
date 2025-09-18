@@ -46,8 +46,9 @@ interface MedicationLogData {
   id: string;
   medication_id: string;
   patient_id: string;
-  status: string;
-  event_date: string;
+  status: 'verified' | 'failed' | 'pending' | 'taken' | 'missed' | 'skipped';
+  event_date?: string;
+  taken_at?: string;
   created_at: string;
   raw_scan_data?: string;
   qr_code_scanned?: string;
@@ -56,11 +57,14 @@ interface MedicationLogData {
     name: string;
     strength: string;
     format: string;
+  }[] | {
+    medication_name: string;
+    dosage: string;
   }[];
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
-  const [logs, setLogs] = useState<MedicationLog[]>([]);
+  const [logs, setLogs] = useState<MedicationLogData[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -114,8 +118,15 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             
             // Get medication info from joined data
             if (log.medications && log.medications.length > 0) {
-              medicationName = log.medications[0].name;
-              dosage = `${log.medications[0].strength} ${log.medications[0].format}`;
+              const med = log.medications[0];
+              // Handle both data formats
+              if ('name' in med) {
+                medicationName = med.name;
+                dosage = `${med.strength} ${med.format}`;
+              } else if ('medication_name' in med) {
+                medicationName = med.medication_name;
+                dosage = med.dosage;
+              }
             }
             
             // Normalize status values - medication_logs uses 'taken', 'missed', 'skipped'
@@ -341,6 +352,29 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       {/* Recent Scan Logs */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h4 className="text-lg font-medium text-gray-900 mb-4">Recent Scan History</h4>
+        
+        {/* Status Summary */}
+        {logs.length > 0 && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="text-green-600">
+                ✅ Taken: {logs.filter(log => log.status === 'taken' || log.status === 'verified').length}
+              </span>
+              <span className="text-red-600">
+                ❌ Failed: {logs.filter(log => log.status === 'failed').length}
+              </span>
+              <span className="text-red-600">
+                ❌ Missed: {logs.filter(log => log.status === 'missed').length}
+              </span>
+              <span className="text-yellow-600">
+                ⏳ Pending: {logs.filter(log => log.status === 'pending').length}
+              </span>
+              <span className="text-yellow-600">
+                ⏭️ Skipped: {logs.filter(log => log.status === 'skipped').length}
+              </span>
+            </div>
+          </div>
+        )}
         {logs.length === 0 ? (
           <div className="text-center py-8">
             <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -355,15 +389,52 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                    {log.status === 'taken' ? '✅ Taken' : log.status === 'missed' ? '❌ Missed' : log.status}
+                    {log.status === 'taken' ? '✅ Taken' : 
+                     log.status === 'missed' ? '❌ Missed' : 
+                     log.status === 'failed' ? '❌ Failed' :
+                     log.status === 'verified' ? '✅ Verified' :
+                     log.status === 'pending' ? '⏳ Pending' :
+                     log.status === 'skipped' ? '⏭️ Skipped' :
+                     log.status}
                   </span>
                   <div>
                     <div className="font-medium text-gray-900">
-                      {log.medications?.[0]?.medication_name || 'Medication'}
+                      {(() => {
+                        const med = log.medications?.[0];
+                        if (!med) return 'Medication';
+                        // Handle both data formats
+                        if ('name' in med) return med.name;
+                        if ('medication_name' in med) return med.medication_name;
+                        return 'Medication';
+                      })()}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {formatDate(log.taken_at || log.created_at)}
+                      {formatDate(log.event_date || log.created_at)}
                     </div>
+                    {log.source && (
+                      <div className="text-xs text-gray-500">
+                        Source: {log.source}
+                      </div>
+                    )}
+                    {log.raw_scan_data && (
+                      <div className="text-xs text-gray-500">
+                        {(() => {
+                          try {
+                            const scanData = JSON.parse(log.raw_scan_data);
+                            if (scanData.timeliness === 'overdue') {
+                              return '⏰ Late (but within window)';
+                            } else if (scanData.timeliness === 'missed') {
+                              return '⏰ Missed (window expired)';
+                            } else if (scanData.reason === 'window_expired') {
+                              return '⏰ Link expired';
+                            }
+                          } catch (e) {
+                            // Ignore parsing errors
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
