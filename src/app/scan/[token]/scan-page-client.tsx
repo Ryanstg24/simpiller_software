@@ -635,34 +635,64 @@ export function ScanPageClient({ token }: { token: string }) {
           </div>
         )}
 
-        {/* Simplified Scan Options */}
+        {/* Tutorial Interface */}
         {!imageData && !isCameraActive && (
           <div className="space-y-6">
-            {/* Primary Scan Button */}
-            <Button
-              onClick={startCamera}
-              disabled={timeliness === 'missed'}
-              className="w-full bg-blue-600 text-white text-xl font-bold py-6 px-8 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              SCAN NOW
-            </Button>
-            
-            {/* Alternative Scan Button */}
-            <label className="w-full bg-gray-100 text-gray-700 text-lg font-medium py-4 px-6 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer border-2 border-gray-300 block text-center">
-              ALTERNATIVE SCAN
-              <input
-                type="file"
-                accept="image/*;capture=camera"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-            
-            {/* Simple Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800 text-center">
-                <strong>For best results:</strong> Use &quot;SCAN NOW&quot; first. It will automatically capture and process when your medication is detected.
+            {/* Personalized Greeting */}
+            <div className="text-center">
+              <h1 className="text-2xl font-semibold text-gray-800 mb-2">
+                Hello, {scanSession?.patients?.first_name || 'Patient'} 👋
+              </h1>
+              <p className="text-gray-600 text-lg">
+                It's time for your {timeliness === 'overdue' ? 'overdue' : 'scheduled'} meds. You'll scan the pouch label with your camera.
               </p>
+            </div>
+            
+            {/* Instructions */}
+            <div className="text-center">
+              <p className="text-gray-700 text-base">
+                This is what your pouch label looks like. Please fit the entire label in the box.
+              </p>
+            </div>
+            
+            {/* Example Label */}
+            <div className="flex justify-center">
+              <div className="relative border-2 border-dashed border-gray-400 rounded-lg p-4 bg-gray-50">
+                <div className="w-64 h-40 flex items-center justify-center">
+                  <img 
+                    src="/simpiller_pack_example.jpeg" 
+                    alt="Example medication pouch label"
+                    className="max-w-full max-h-full object-contain rounded"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Scan Button */}
+            <div className="space-y-3">
+              <Button
+                onClick={startCamera}
+                disabled={timeliness === 'missed'}
+                className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Scan Now
+              </Button>
+            </div>
+            
+            {/* Alternative Option */}
+            <div className="text-center">
+              <p className="text-gray-600 text-sm">
+                If you can't scan, you can send a photo instead.
+              </p>
+              <label className="mt-2 inline-block text-blue-600 hover:text-blue-700 underline text-sm cursor-pointer">
+                Send Photo Instead
+                <input
+                  type="file"
+                  accept="image/*;capture=camera"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
             
             {/* Debug info for test scans */}
@@ -717,7 +747,7 @@ export function ScanPageClient({ token }: { token: string }) {
               />
               {/* Scanning overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="border-2 border-white rounded-lg w-48 h-32 relative">
+                <div className="border-2 border-dashed border-white rounded-lg w-64 h-40 relative">
                   {/* Corner brackets */}
                   <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
                   <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
@@ -728,7 +758,7 @@ export function ScanPageClient({ token }: { token: string }) {
               {/* Instructions overlay */}
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="bg-black bg-opacity-70 text-white text-center py-2 px-4 rounded-lg">
-                  <p className="text-sm">Position medication label within the frame</p>
+                  <p className="text-sm">Fit the entire label in the box above</p>
                 </div>
               </div>
               {/* Camera status indicator */}
