@@ -237,24 +237,53 @@ export async function GET(request: Request) {
         const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
         const localNow = new Date(localNowStr);
 
-        // Check if we already sent an alert for this patient today at this time
-        const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate());
-        const startIso = new Date(today.getTime() - (localNow.getTime() - now.getTime())).toISOString();
-        const endIso = new Date(new Date(today.getTime() + 24*60*60*1000).getTime() - (localNow.getTime() - now.getTime())).toISOString();
-        console.log('[CRON] Existing alert window (UTC)', { startIso, endIso });
+        // Check if we already sent an alert for this specific medication and time in the last 2 hours
+        const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+        const startIso = twoHoursAgo.toISOString();
+        const endIso = now.toISOString();
         
-        // Check if any alert was already sent for this patient today
+        // Get the current schedule from the group
+        const currentSchedule = groupSchedules[0]; // All schedules in group have same time_of_day
+        
+        // Log patient and medication details for debugging
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[CRON] Checking for existing alerts:', JSON.stringify({
+            patientId: patient.id,
+            patientName: `${patient.first_name} ${patient.last_name}`,
+            medicationId: medication.id,
+            medicationName: medication.name,
+            scheduledTime: currentSchedule.time_of_day,
+            timezone: timeZone,
+            localTime: localNowStr,
+            windowStart: startIso,
+            windowEnd: endIso,
+            checkType: 'medication_and_time_specific'
+          }));
+        }
+        
+        // Check if an alert was already sent for this specific medication and time in the last 2 hours
         const { data: existingAlert } = await supabaseAdmin
           .from('alerts')
-          .select('id')
+          .select('id, sent_at, medication_id, scheduled_time')
           .eq('patient_id', patient.id)
+          .eq('medication_id', medication.id)
+          .eq('scheduled_time', currentSchedule.time_of_day)
           .gte('sent_at', startIso)
           .lt('sent_at', endIso)
           .eq('alert_type', 'sms')
           .single();
 
         if (existingAlert) {
-          console.log('[CRON] Alert already sent today for patient', { patientId: patient.id });
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[CRON] Alert already sent for this medication and time:', JSON.stringify({
+              patientId: patient.id,
+              medicationId: medication.id,
+              scheduledTime: currentSchedule.time_of_day,
+              existingAlertId: existingAlert.id,
+              existingAlertSentAt: existingAlert.sent_at,
+              timeSinceLastAlert: `${Math.round((now.getTime() - new Date(existingAlert.sent_at).getTime()) / 60000)} minutes ago`
+            }));
+          }
           continue;
         }
 
@@ -323,6 +352,21 @@ export async function GET(request: Request) {
           patientTimezone: timeZone, // 👈 pass patient's timezone
         };
 
+        // Log SMS sending attempt
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[CRON] Sending SMS reminder:', JSON.stringify({
+            patientId: patient.id,
+            patientName: reminder.patientName,
+            medicationCount: medicationNames.length,
+            medicationNames: medicationNames,
+            scheduledTime: scheduledUtcIso,
+            patientTimezone: timeZone,
+            phoneNumber: formattedPhone,
+            scanLink: scanLink,
+            sessionToken: scanSession.session_token
+          }));
+        }
+
         const smsSent = await TwilioService.sendMedicationReminder(reminder);
         console.log('[CRON] SMS attempted', { patientId: patient.id, medicationCount: medicationIds.length, smsSent });
 
@@ -332,19 +376,33 @@ export async function GET(request: Request) {
             const scheduleMedsRelation = (schedule as { medications: Medication | Medication[] | null }).medications;
             const scheduleMedication: Medication | null = Array.isArray(scheduleMedsRelation) ? (scheduleMedsRelation[0] ?? null) : scheduleMedsRelation;
             if (scheduleMedication) {
+              const alertData = {
+                patient_id: patient.id,
+                medication_id: scheduleMedication.id,
+                schedule_id: schedule.id,
+                alert_type: 'sms',
+                scheduled_time: now.toISOString(),
+                sent_at: now.toISOString(),
+                status: 'sent',
+                message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(schedule.time_of_day, timeZone)} medication! Please scan your medication label to confirm: ${scanLink}`,
+                recipient: formattedPhone,
+              };
+              
               await supabaseAdmin
                 .from('alerts')
-                .insert({
-                  patient_id: patient.id,
-                  medication_id: scheduleMedication.id,
-                  schedule_id: schedule.id,
-                  alert_type: 'sms',
-                  scheduled_time: now.toISOString(),
-                  sent_at: now.toISOString(),
-                  status: 'sent',
-                  message: `Hi ${patient.first_name} ${patient.last_name.charAt(0)}.! It's time to take your ${formatTimeForSMS(schedule.time_of_day, timeZone)} medication! Please scan your medication label to confirm: ${scanLink}`,
-                  recipient: formattedPhone,
-                });
+                .insert(alertData);
+
+              // Log successful alert creation
+              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                console.log('[CRON] Alert logged to database:', JSON.stringify({
+                  patientId: patient.id,
+                  medicationId: scheduleMedication.id,
+                  scheduleId: schedule.id,
+                  scheduledTime: schedule.time_of_day,
+                  alertSentAt: alertData.sent_at,
+                  messageLength: alertData.message.length
+                }));
+              }
             }
           }
 
@@ -355,13 +413,26 @@ export async function GET(request: Request) {
             scanSessionToken: scanSession.session_token,
           });
 
-          console.log('[CRON] SMS alert sent', { 
-            patientId: patient.id, 
-            medicationCount: medicationIds.length,
-            scanSessionToken: scanSession.session_token 
-          });
+          // Log successful SMS delivery
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[CRON] SMS successfully sent and logged:', JSON.stringify({
+              patientId: patient.id,
+              patientName: reminder.patientName,
+              medicationCount: medicationIds.length,
+              scanSessionToken: scanSession.session_token,
+              timestamp: now.toISOString()
+            }));
+          }
         } else {
-          console.warn('[CRON] Failed to send SMS', { patientId: patient.id, medicationCount: medicationIds.length });
+          // Log SMS failure
+          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+            console.log('[CRON] SMS failed to send:', JSON.stringify({
+              patientId: patient.id,
+              patientName: reminder.patientName,
+              phoneNumber: formattedPhone,
+              error: 'Twilio service returned false'
+            }));
+          }
           errors.push(`Failed to send SMS for patient ${patient.id}`);
         }
 
