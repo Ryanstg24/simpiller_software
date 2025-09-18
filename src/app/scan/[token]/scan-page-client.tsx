@@ -215,16 +215,28 @@ export function ScanPageClient({ token }: { token: string }) {
 
   // Improved automatic capture function with timeout and proper validation
   const startAutoCapture = () => {
-    // Reset state
+    // Check if we've already reached max attempts
+    if (autoCaptureRetryCount >= 3) {
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log('[AUTO-CAPTURE] Max attempts already reached, showing manual confirmation');
+      }
+      setShowManualConfirmation(true);
+      setScanComplete(true);
+      setScanSession(prev => prev ? { ...prev, is_active: false } : null);
+      return;
+    }
+    
+    // Reset state (but don't reset retry count - that should persist across "Scan Now" clicks)
     setShowNoLabelWarning(false);
-    setAutoCaptureRetryCount(0);
     setAutoCaptureStartTime(Date.now());
     
     // Set 30-second timeout
     const timeout = setTimeout(() => {
+      const newRetryCount = autoCaptureRetryCount + 1;
       if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-        console.log('[AUTO-CAPTURE] Timeout reached - no label detected');
+        console.log(`[AUTO-CAPTURE] Timeout reached - no label detected (attempt ${newRetryCount} of 3)`);
       }
+      setAutoCaptureRetryCount(newRetryCount);
       setShowNoLabelWarning(true);
       stopCamera();
     }, 30000); // 30 seconds
@@ -364,11 +376,9 @@ export function ScanPageClient({ token }: { token: string }) {
 
   // Handle retry for auto-capture
   const retryAutoCapture = () => {
-    const newRetryCount = autoCaptureRetryCount + 1;
-    setAutoCaptureRetryCount(newRetryCount);
     setShowNoLabelWarning(false);
     
-    if (newRetryCount >= 3) {
+    if (autoCaptureRetryCount >= 3) {
       // Max retries reached, show manual confirmation
       if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
         console.log('[AUTO-CAPTURE] Max retries reached, showing manual confirmation');
@@ -378,6 +388,9 @@ export function ScanPageClient({ token }: { token: string }) {
       setScanSession(prev => prev ? { ...prev, is_active: false } : null);
     } else {
       // Start camera and auto-capture again
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log(`[AUTO-CAPTURE] Starting attempt ${autoCaptureRetryCount + 1} of 3`);
+      }
       setIsCameraActive(true);
     }
   };
@@ -965,36 +978,57 @@ export function ScanPageClient({ token }: { token: string }) {
             ) : (
               <div className="text-red-700">
                 {showManualConfirmation ? (
-                  <>
-                    <p className="text-lg font-medium mb-2">❌ Unable to Verify Medication</p>
-                    <p>After 3 attempts, we couldn&apos;t verify your medication. Did you take your medication as prescribed?</p>
-                    <div className="mt-4 flex space-x-3">
-                      <Button
-                        onClick={async () => {
-                          // Log as manually confirmed
-                          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-                            console.log('[SCAN] ✅ Manual confirmation: YES, took medication');
-                          }
-                          await logSuccessfulScan();
-                          setScanSession(prev => prev ? { ...prev, is_active: false } : null);
-                        }}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                      >
-                        Yes, I Took It
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-                            console.log('[SCAN] ❌ Manual confirmation: NO, did not take medication');
-                          }
-                          window.close();
-                        }}
-                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-                      >
-                        No, I Didn&apos;t Take It
-                      </Button>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <div className="text-center">
+                      <div className="bg-yellow-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-yellow-800 mb-2">Unable to Verify Medication</h3>
+                      <p className="text-yellow-700 mb-4">
+                        After 3 attempts, we couldn&apos;t automatically verify your medication. 
+                        This is okay! Please let us know if you took your medication.
+                      </p>
+                      <p className="text-yellow-600 text-sm mb-6">
+                        <strong>Don&apos;t worry:</strong> This happens sometimes due to lighting, camera angle, or label condition.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <Button
+                          onClick={async () => {
+                            // Log as manually confirmed
+                            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                              console.log('[SCAN] ✅ Manual confirmation: YES, took medication');
+                            }
+                            await logSuccessfulScan();
+                            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
+                          }}
+                          className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-medium text-lg hover:bg-green-700 transition-colors"
+                        >
+                          ✅ Yes, I Took My Medication
+                        </Button>
+                        
+                        <Button
+                          onClick={() => {
+                            if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                              console.log('[SCAN] ❌ Manual confirmation: NO, did not take medication');
+                            }
+                            window.close();
+                          }}
+                          className="w-full bg-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium text-lg hover:bg-gray-400 transition-colors"
+                        >
+                          ❌ No, I Haven&apos;t Taken It Yet
+                        </Button>
+                      </div>
+                      
+                      <div className="mt-4 pt-4 border-t border-yellow-200">
+                        <p className="text-yellow-600 text-xs">
+                          Need help? Contact your healthcare provider or try again later.
+                        </p>
+                      </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <>
                     <p className="text-lg font-medium mb-2">❌ Scan Failed</p>

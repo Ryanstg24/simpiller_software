@@ -215,6 +215,13 @@ export class OCRService {
           const isNotName = nonNameWords.some(word => matchUpper.includes(word));
           
           if (!isNotName && match.length > 2) {
+            // For Last, First format (like "Diamond, Alan"), accept it directly
+            if (match.includes(',')) {
+              result.patientName = match;
+              console.log('OCR Service: Found patient name (Last, First format):', match);
+              break;
+            }
+            
             // Additional check: look for contextual clues that this might be a patient name
             const lines = originalText.split('\n');
             for (const line of lines) {
@@ -242,7 +249,8 @@ export class OCRService {
     const timePatterns = [
       /8:00\s*AM/gi,
       /8:00/gi,
-      /(\d{1,2}:\d{2}\s*(?:am|pm))/gi,
+      /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/gi, // Support both uppercase and lowercase
+      /(\d{1,2}:\d{2})/gi, // Also match times without AM/PM
     ];
 
     const foundTimes: string[] = [];
@@ -355,38 +363,53 @@ export class OCRService {
       }));
     }
 
-    // Check TIME - EXACT match only
+    // Check TIME - Flexible format matching
     if (expectedMedication.scheduledTime) {
       requiredChecks++;
       const expectedTime = expectedMedication.scheduledTime.toLowerCase().trim();
       
       let timeMatch = false;
       
-      // Check single time - EXACT match only
+      // Normalize time formats for comparison
+      const normalizeTime = (timeStr: string) => {
+        return timeStr.toLowerCase()
+          .replace(/\s+/g, '') // Remove all spaces
+          .replace(/^0+/, '') // Remove leading zeros from hour
+          .replace(/:00$/, '') // Remove :00 if it's exactly on the hour
+          .replace(/am$/, 'am')
+          .replace(/pm$/, 'pm');
+      };
+      
+      const normalizedExpected = normalizeTime(expectedTime);
+      
+      // Check single time
       if (labelData.time) {
         const labelTime = labelData.time.toLowerCase().trim();
+        const normalizedLabel = normalizeTime(labelTime);
         
-        // Exact match only
-        if (labelTime === expectedTime) {
+        // Try exact match first
+        if (labelTime === expectedTime || normalizedLabel === normalizedExpected) {
           timeMatch = true;
           if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[OCR] ✅ Exact time match:', JSON.stringify({ expectedTime, labelTime }));
+            console.log('[OCR] ✅ Time match:', JSON.stringify({ expectedTime, labelTime, normalizedExpected, normalizedLabel }));
           }
         } else {
           if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[OCR] ❌ Time mismatch:', JSON.stringify({ expectedTime, labelTime }));
+            console.log('[OCR] ❌ Time mismatch:', JSON.stringify({ expectedTime, labelTime, normalizedExpected, normalizedLabel }));
           }
         }
       }
       
-      // Check multiple times - EXACT match only
+      // Check multiple times
       if (!timeMatch && labelData.times) {
         for (const time of labelData.times) {
           const labelTime = time.toLowerCase().trim();
-          if (labelTime === expectedTime) {
+          const normalizedLabel = normalizeTime(labelTime);
+          
+          if (labelTime === expectedTime || normalizedLabel === normalizedExpected) {
             timeMatch = true;
             if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-              console.log('[OCR] ✅ Exact time match in multiple:', JSON.stringify({ expectedTime, labelTime }));
+              console.log('[OCR] ✅ Time match in multiple:', JSON.stringify({ expectedTime, labelTime, normalizedExpected, normalizedLabel }));
             }
             break;
           }
