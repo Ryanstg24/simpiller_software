@@ -62,6 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     enabled: !!user && !!session
   });
 
+  // Debug logging for session timeout
+  useEffect(() => {
+    console.log('[Auth Context] Session timeout enabled:', !!user && !!session, {
+      hasUser: !!user,
+      hasSession: !!session,
+      userId: user?.id,
+      sessionId: session?.access_token?.substring(0, 10) + '...'
+    });
+  }, [user, session]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
