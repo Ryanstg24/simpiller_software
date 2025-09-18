@@ -237,54 +237,20 @@ export async function GET(request: Request) {
         const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
         const localNow = new Date(localNowStr);
 
-        // Check if we already sent an alert for this specific medication and time in the last 2 hours
-        const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-        const startIso = twoHoursAgo.toISOString();
-        const endIso = now.toISOString();
-        
         // Get the current schedule from the group
         const currentSchedule = groupSchedules[0]; // All schedules in group have same time_of_day
         
         // Log patient and medication details for debugging
         if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-          console.log('[CRON] Checking for existing alerts:', JSON.stringify({
+          console.log('[CRON] Processing medication alert:', JSON.stringify({
             patientId: patient.id,
             patientName: `${patient.first_name} ${patient.last_name}`,
             medicationId: medication.id,
             medicationName: medication.name,
             scheduledTime: currentSchedule.time_of_day,
             timezone: timeZone,
-            localTime: localNowStr,
-            windowStart: startIso,
-            windowEnd: endIso,
-            checkType: 'medication_and_time_specific'
+            localTime: localNowStr
           }));
-        }
-        
-        // Check if an alert was already sent for this specific medication and time in the last 2 hours
-        const { data: existingAlert } = await supabaseAdmin
-          .from('alerts')
-          .select('id, sent_at, medication_id, scheduled_time')
-          .eq('patient_id', patient.id)
-          .eq('medication_id', medication.id)
-          .eq('scheduled_time', currentSchedule.time_of_day)
-          .gte('sent_at', startIso)
-          .lt('sent_at', endIso)
-          .eq('alert_type', 'sms')
-          .single();
-
-        if (existingAlert) {
-          if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
-            console.log('[CRON] Alert already sent for this medication and time:', JSON.stringify({
-              patientId: patient.id,
-              medicationId: medication.id,
-              scheduledTime: currentSchedule.time_of_day,
-              existingAlertId: existingAlert.id,
-              existingAlertSentAt: existingAlert.sent_at,
-              timeSinceLastAlert: `${Math.round((now.getTime() - new Date(existingAlert.sent_at).getTime()) / 60000)} minutes ago`
-            }));
-          }
-          continue;
         }
 
         // Collect all medication IDs and names for this group
