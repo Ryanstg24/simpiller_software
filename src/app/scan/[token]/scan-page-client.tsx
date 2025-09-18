@@ -644,7 +644,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 Hello, {scanSession?.patients?.first_name || 'Patient'} 👋
               </h1>
               <p className="text-gray-600 text-lg">
-                It's time for your {timeliness === 'overdue' ? 'overdue' : 'scheduled'} meds. You'll scan the pouch label with your camera.
+                It&apos;s time for your {timeliness === 'overdue' ? 'overdue' : 'scheduled'} meds. You&apos;ll scan the pouch label with your camera.
               </p>
             </div>
             
@@ -682,7 +682,7 @@ export function ScanPageClient({ token }: { token: string }) {
             {/* Alternative Option */}
             <div className="text-center">
               <p className="text-gray-600 text-sm">
-                If you can't scan, you can send a photo instead.
+                If you can&apos;t scan, you can send a photo instead.
               </p>
               <label className="mt-2 inline-block text-blue-600 hover:text-blue-700 underline text-sm cursor-pointer">
                 Send Photo Instead
@@ -822,7 +822,7 @@ export function ScanPageClient({ token }: { token: string }) {
                   <h3 className="text-lg font-medium text-yellow-800">No Medication Label Detected</h3>
                 </div>
                 <p className="text-yellow-700 mb-4">
-                  We couldn't detect a medication label in the camera view. Please:
+                  We couldn&apos;t detect a medication label in the camera view. Please:
                 </p>
                 <ul className="text-yellow-700 mb-4 space-y-1">
                   <li>• Make sure the medication label is clearly visible</li>
