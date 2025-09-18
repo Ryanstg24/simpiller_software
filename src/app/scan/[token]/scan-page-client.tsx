@@ -45,6 +45,10 @@ export function ScanPageClient({ token }: { token: string }) {
   const [timeliness, setTimeliness] = useState<'on_time' | 'overdue' | 'missed' | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showManualConfirmation, setShowManualConfirmation] = useState(false);
+  const [autoCaptureTimeout, setAutoCaptureTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [autoCaptureStartTime, setAutoCaptureStartTime] = useState<number | null>(null);
+  const [showNoLabelWarning, setShowNoLabelWarning] = useState(false);
+  const [autoCaptureRetryCount, setAutoCaptureRetryCount] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -209,16 +213,34 @@ export function ScanPageClient({ token }: { token: string }) {
     }
   }, [isCameraActive]); // Run when isCameraActive changes
 
-  // Automatic capture function
+  // Improved automatic capture function with timeout and proper validation
   const startAutoCapture = () => {
+    // Reset state
+    setShowNoLabelWarning(false);
+    setAutoCaptureRetryCount(0);
+    setAutoCaptureStartTime(Date.now());
+    
+    // Set 30-second timeout
+    const timeout = setTimeout(() => {
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log('[AUTO-CAPTURE] Timeout reached - no label detected');
+      }
+      setShowNoLabelWarning(true);
+      stopCamera();
+    }, 30000); // 30 seconds
+    
+    setAutoCaptureTimeout(timeout);
+    
     const captureInterval = setInterval(async () => {
       if (!isCameraActive || !videoRef.current || !canvasRef.current) {
         clearInterval(captureInterval);
+        clearTimeout(timeout);
         return;
       }
       if (timeliness === 'missed') {
         // stop capturing if window expired
         clearInterval(captureInterval);
+        clearTimeout(timeout);
         return;
       }
 
@@ -240,52 +262,83 @@ export function ScanPageClient({ token }: { token: string }) {
           
           const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
           
-          // Process the image for medication detection
+          // Process the image for OCR
           const result = await OCRService.extractTextFromImage(imageDataUrl);
           const parsed = OCRService.parseMedicationLabel(result);
           
-          // Check if we found medication names
-          if (parsed.medicationNames && parsed.medicationNames.length > 0) {
-            console.log('🔍 Auto-capture: Found medication:', parsed.medicationName);
+          // Check if we found any text (basic validation)
+          if (result.text && result.text.trim().length > 0) {
+            console.log('🔍 Auto-capture: Text detected, validating...');
             
-            // Get expected medication from session data
-            const expectedMedication = scanSession?.medications?.name || '';
-            
-            if (expectedMedication) {
-              const isValid = parsed.medicationNames.some(med => 
-                expectedMedication.toLowerCase().includes(med.toLowerCase()) ||
-                med.toLowerCase().includes(expectedMedication.toLowerCase())
-              );
+            // Use proper validation (time + patient name)
+            if (scanSession?.medications && scanSession?.patients) {
+              const expectedMedication = {
+                medicationName: scanSession.medications.name,
+                dosage: `${scanSession.medications.strength} ${scanSession.medications.format}`,
+                patientName: `${scanSession.patients.first_name} ${scanSession.patients.last_name}`,
+                scheduledTime: formatTime(scanSession.scheduled_time),
+              };
               
-              if (isValid && result.confidence > 30) {
-                console.log('✅ Auto-capture: Valid medication detected, capturing and processing...');
+              const validation = OCRService.validateMedicationLabel(parsed, expectedMedication);
+              
+              // Log validation attempt
+              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                console.log('[AUTO-CAPTURE] Validation result:', JSON.stringify({
+                  sessionToken: token,
+                  medicationId: scanSession.medications.id,
+                  expectedMedication: scanSession.medications.name,
+                  scannedText: result.text,
+                  validation,
+                  confidence: result.confidence
+                }));
+              }
+              
+              // Check if validation passes
+              const isSuccess = validation.isValid && validation.passedChecks === validation.requiredChecks;
+              
+              if (isSuccess) {
+                console.log('✅ Auto-capture: Valid medication detected, processing...');
                 setImageData(imageDataUrl);
                 setOcrResult(result);
                 setLabelData(parsed);
                 setLastCaptureTime(now);
                 clearInterval(captureInterval);
+                clearTimeout(timeout);
                 stopCamera();
                 
-                // Automatically process the OCR result and show success
+                // Process the successful scan
                 setIsProcessing(true);
                 try {
-                  // Simulate the processing that would happen in processImage
                   await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
                   
-                  // Update scan session to completed
                   setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                   setScanComplete(true);
                   setIsProcessing(false);
                   
                   // Log the successful scan
                   await logSuccessfulScan();
+                  
+                  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                    console.log('[AUTO-CAPTURE] ✅ Scan SUCCESS:', JSON.stringify({
+                      sessionToken: token,
+                      medicationId: scanSession.medications.id,
+                      expectedMedication: scanSession.medications.name,
+                      validation: validation
+                    }));
+                  }
                 } catch (error) {
                   console.error('Auto-process error:', error);
                   setScanSession(prev => prev ? { ...prev, is_active: false } : null);
                   setIsProcessing(false);
                 }
+              } else {
+                // Validation failed, but we found text - continue trying
+                console.log('❌ Auto-capture: Validation failed, continuing to scan...');
               }
             }
+          } else {
+            // No text detected - this is normal, continue scanning
+            console.log('🔍 Auto-capture: No text detected, continuing to scan...');
           }
         }
       } catch (error) {
@@ -301,43 +354,34 @@ export function ScanPageClient({ token }: { token: string }) {
     }
     setIsCameraActive(false);
     setCameraError(null);
-  };
-
-  const captureImage = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-      
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-        
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setImageData(imageDataUrl);
-        stopCamera();
-        
-        // Automatically process OCR if auto-capture is enabled
-        if (autoCaptureEnabled) {
-          setIsProcessing(true);
-          try {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
-            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
-            setScanComplete(true);
-            setIsProcessing(false);
-            
-            // Log the successful scan
-            await logSuccessfulScan();
-          } catch (error) {
-            console.error('Auto-process error:', error);
-            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
-            setIsProcessing(false);
-          }
-        }
-      }
+    
+    // Clear any pending timeout
+    if (autoCaptureTimeout) {
+      clearTimeout(autoCaptureTimeout);
+      setAutoCaptureTimeout(null);
     }
   };
+
+  // Handle retry for auto-capture
+  const retryAutoCapture = () => {
+    const newRetryCount = autoCaptureRetryCount + 1;
+    setAutoCaptureRetryCount(newRetryCount);
+    setShowNoLabelWarning(false);
+    
+    if (newRetryCount >= 3) {
+      // Max retries reached, show manual confirmation
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log('[AUTO-CAPTURE] Max retries reached, showing manual confirmation');
+      }
+      setShowManualConfirmation(true);
+      setScanComplete(true);
+      setScanSession(prev => prev ? { ...prev, is_active: false } : null);
+    } else {
+      // Start camera and auto-capture again
+      setIsCameraActive(true);
+    }
+  };
+
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -347,23 +391,8 @@ export function ScanPageClient({ token }: { token: string }) {
         const result = e.target?.result as string;
         setImageData(result);
         
-        // Automatically process OCR if auto-capture is enabled
-        if (autoCaptureEnabled) {
-          setIsProcessing(true);
-          try {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay for UX
-            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
-            setScanComplete(true);
-            setIsProcessing(false);
-            
-            // Log the successful scan
-            await logSuccessfulScan();
-          } catch (error) {
-            console.error('Auto-process error:', error);
-            setScanSession(prev => prev ? { ...prev, is_active: false } : null);
-            setIsProcessing(false);
-          }
-        }
+        // Process the uploaded image with proper validation
+        await processImage();
       };
       reader.readAsDataURL(file);
     }
@@ -728,10 +757,7 @@ export function ScanPageClient({ token }: { token: string }) {
                 </Button>
               </div>
               <p className="text-xs text-green-700">
-                {autoCaptureEnabled 
-                  ? 'Camera will automatically capture and process when your medication is detected'
-                  : 'Click "Capture & Scan" to manually capture and process'
-                }
+                Camera will automatically capture and process when your medication label is detected (30 second timeout)
               </p>
             </div>
             
@@ -754,20 +780,51 @@ export function ScanPageClient({ token }: { token: string }) {
               </div>
             )}
             
-            <div className="flex space-x-3 mt-4">
-              <Button
-                onClick={captureImage}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                📸 Capture & Scan
-              </Button>
-              <Button
-                onClick={stopCamera}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-              >
-                Cancel
-              </Button>
-            </div>
+            {/* No label detected warning */}
+            {showNoLabelWarning ? (
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <div className="bg-yellow-100 rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-yellow-800">No Medication Label Detected</h3>
+                </div>
+                <p className="text-yellow-700 mb-4">
+                  We couldn't detect a medication label in the camera view. Please:
+                </p>
+                <ul className="text-yellow-700 mb-4 space-y-1">
+                  <li>• Make sure the medication label is clearly visible</li>
+                  <li>• Hold the camera steady and close to the label</li>
+                  <li>• Ensure good lighting on the label</li>
+                  <li>• Try adjusting the angle of the camera</li>
+                </ul>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={retryAutoCapture}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Try Again ({3 - autoCaptureRetryCount} attempts left)
+                  </Button>
+                  <Button
+                    onClick={stopCamera}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex space-x-3 mt-4">
+                <Button
+                  onClick={stopCamera}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
