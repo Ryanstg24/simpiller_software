@@ -38,7 +38,8 @@ export async function GET(
         patients (
           id,
           first_name,
-          last_name
+          last_name,
+          timezone
         )
       `)
       .eq('session_token', token)

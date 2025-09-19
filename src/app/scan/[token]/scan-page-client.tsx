@@ -20,6 +20,7 @@ interface ScanSession {
   patients?: {
     first_name: string;
     last_name: string;
+    timezone?: string;
   };
   medications?: {
     id: string;
@@ -284,12 +285,23 @@ export function ScanPageClient({ token }: { token: string }) {
             
             // Use proper validation (time + patient name)
             if (scanSession?.medications && scanSession?.patients) {
+              const formattedTime = formatTime(scanSession.scheduled_time);
               const expectedMedication = {
                 medicationName: scanSession.medications.name,
                 dosage: `${scanSession.medications.strength} ${scanSession.medications.format}`,
-                patientName: `${scanSession.patients.first_name} ${scanSession.patients.last_name}`,
-                scheduledTime: formatTime(scanSession.scheduled_time),
+                patientName: `${scanSession.patients.last_name}, ${scanSession.patients.first_name}`, // Last, First format to match label
+                scheduledTime: formattedTime,
               };
+              
+              // Log expected values for debugging
+              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                console.log('[AUTO-CAPTURE] Expected values:', JSON.stringify({
+                  rawScheduledTime: scanSession.scheduled_time,
+                  formattedTime: formattedTime,
+                  expectedPatientName: expectedMedication.patientName,
+                  expectedMedicationName: expectedMedication.medicationName
+                }));
+              }
               
               const validation = OCRService.validateMedicationLabel(parsed, expectedMedication);
               
@@ -436,7 +448,7 @@ export function ScanPageClient({ token }: { token: string }) {
       const expectedMedication = {
         medicationName: currentMedication.name,
         dosage: `${currentMedication.strength} ${currentMedication.format}`,
-        patientName: scanSession.patients?.first_name + ' ' + scanSession.patients?.last_name,
+        patientName: `${scanSession.patients?.last_name}, ${scanSession.patients?.first_name}`, // Last, First format to match label
         scheduledTime: formatTime(scanSession.scheduled_time), // Add scheduled time for validation
       };
       const validation = OCRService.validateMedicationLabel(parsedLabelData, expectedMedication);
@@ -567,11 +579,27 @@ export function ScanPageClient({ token }: { token: string }) {
   };
 
   const formatTime = (timeString: string) => {
-    const time = new Date(timeString);
+    // Handle different time formats from database
+    let time: Date;
+    
+    // If it's already in HH:MM:SS format (like "19:00:00"), create a date for today
+    if (timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      time = new Date();
+      time.setHours(hours, minutes, 0, 0);
+    } else {
+      // If it's a full ISO string, parse it normally
+      time = new Date(timeString);
+    }
+    
+    // Format in patient's timezone (if available) or local timezone
+    const patientTimezone = scanSession?.patients?.timezone || 'America/New_York';
+    
     return time.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
+      timeZone: patientTimezone
     });
   };
 

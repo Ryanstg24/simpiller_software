@@ -25,6 +25,60 @@ export interface MedicationLabelData {
 
 export class OCRService {
   /**
+   * Test function to verify OCR patterns work correctly
+   */
+  static testPatterns() {
+    const testText = `7:45 PM
+THURSDAY
+September 18, 2025
+Diamond, Alan
+IBUPROFEN
+QTY 1 RX# 100000 - 200 MG - RND/WHT/TAB
+VITAMIN D
+QTY 1 RX# 100001 - 500 MG - OBL/BRN/CAP`;
+
+    console.log('[OCR TEST] Testing patterns with sample text:', testText);
+    
+    // Test time patterns
+    const timePatterns = [
+      /8:00\s*AM/gi,
+      /8:00/gi,
+      /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/gi,
+      /(\d{1,2}:\d{2})/gi,
+    ];
+
+    const foundTimes: string[] = [];
+    for (const pattern of timePatterns) {
+      const matches = testText.match(pattern);
+      if (matches && matches.length > 0) {
+        foundTimes.push(...matches);
+        console.log('[OCR TEST] Time pattern match:', pattern.toString(), '->', matches);
+      }
+    }
+    console.log('[OCR TEST] All found times:', foundTimes);
+
+    // Test patient name patterns
+    const namePatterns = [
+      /([A-Z]{2,}[A-Z\s]*),\s*([A-Z]{2,}[A-Z\s]*)/g,
+      /([A-Z][a-z]+)\s+([A-Z][a-z]+)/g,
+      /([A-Z]{3,})\s*,\s*([A-Z]{2,})/g,
+      /([A-Z][a-z]{2,})/g,
+    ];
+
+    for (const pattern of namePatterns) {
+      const matches = testText.match(pattern);
+      if (matches && matches.length > 0) {
+        console.log('[OCR TEST] Name pattern match:', pattern.toString(), '->', matches);
+        for (const match of matches) {
+          if (match.includes(',')) {
+            console.log('[OCR TEST] Found patient name (Last, First format):', match);
+            break;
+          }
+        }
+      }
+    }
+  }
+  /**
    * Extract text from image using Tesseract.js (client-side)
    */
   static async extractTextFromImage(imageData: string): Promise<OCRResult> {
@@ -69,10 +123,8 @@ export class OCRService {
         'eng',
         {
           logger: (m: { status?: string; progress?: number; userJobId?: string }) => {
-            // Only log in development to avoid console spam in production
-            if (process.env.NODE_ENV === 'development') {
-              console.log('OCR Progress:', m);
-            }
+            // Log in both development and production for debugging
+            console.log('OCR Progress:', m);
           },
         }
       );
@@ -130,6 +182,16 @@ export class OCRService {
     const originalText = ocrResult.text;
     
     console.log('OCR Service: Parsing text:', originalText);
+    
+    // Log to Vercel for debugging
+    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+      console.log('[OCR] Raw OCR text extracted:', JSON.stringify({
+        text: originalText,
+        confidence: ocrResult.confidence,
+        textLength: originalText.length,
+        lines: originalText.split('\n').map((line, i) => ({ lineNumber: i, content: line }))
+      }));
+    }
     
     const result: MedicationLabelData = {
       confidence: ocrResult.confidence,
@@ -219,6 +281,13 @@ export class OCRService {
             if (match.includes(',')) {
               result.patientName = match;
               console.log('OCR Service: Found patient name (Last, First format):', match);
+              if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                console.log('[OCR] Patient name pattern match:', JSON.stringify({
+                  pattern: pattern.toString(),
+                  match: match,
+                  originalText: originalText
+                }));
+              }
               break;
             }
             
@@ -259,6 +328,13 @@ export class OCRService {
       if (matches && matches.length > 0) {
         foundTimes.push(...matches);
         console.log('OCR Service: Found times:', matches);
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+          console.log('[OCR] Time pattern match:', JSON.stringify({
+            pattern: pattern.toString(),
+            matches: matches,
+            originalText: originalText
+          }));
+        }
       }
     }
 
