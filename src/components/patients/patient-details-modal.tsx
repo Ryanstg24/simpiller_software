@@ -9,6 +9,7 @@ import { MedicationModal } from '@/components/medications/medication-modal';
 import { usePharmacies } from '@/hooks/use-pharmacies';
 import { ComplianceLogTab } from './compliance-log-tab';
 import { TimeLogTab } from './time-log-tab';
+import { HybridTimeInput } from '@/components/ui/hybrid-time-input';
 
 interface PatientDetailsModalProps {
   patient: Patient | null;
@@ -256,14 +257,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      // Timeout safeguard in case the request hangs
+      // Timeout safeguard in case the request hangs (reduced from 15s to 8s)
       const updatePromise = supabase
         .from('patients')
         .update(updateData)
         .eq('id', patient.id);
 
       const timeoutPromise = new Promise<{ error: unknown }>((resolve) => {
-        setTimeout(() => resolve({ error: new Error('Request timed out') }), 15000);
+        setTimeout(() => resolve({ error: new Error('Request timed out') }), 8000);
       });
 
       const { error } = await Promise.race([updatePromise, timeoutPromise]);
@@ -276,6 +277,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
           : 'Failed to update patient. Please try again.';
         alert(message);
       } else {
+        // Call the update callback to refresh parent data
         onPatientUpdated();
         
         // Auto-populate medication schedules after patient update (in case time preferences changed)
@@ -287,7 +289,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         
         // Keep modal open and switch to read mode with fresh data so user sees updates immediately
         setIsEditing(false);
+        
+        // Show success message and close modal after a brief delay to let user see the success
         alert('Patient updated successfully!');
+        
+        // Close modal after a short delay to allow parent to refresh data
+        setTimeout(() => {
+          onClose();
+        }, 1000);
       }
     } catch (error) {
       console.error('Error updating patient:', error);
@@ -704,39 +713,31 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Morning Time</label>
-                        <input
-                          type="time"
+                        <HybridTimeInput
+                          label="Morning Time"
                           value={formData.morning_time || '06:00'}
-                          onChange={(e) => setFormData({ ...formData, morning_time: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          onChange={(value) => setFormData({ ...formData, morning_time: value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Afternoon Time</label>
-                        <input
-                          type="time"
+                        <HybridTimeInput
+                          label="Afternoon Time"
                           value={formData.afternoon_time || '12:00'}
-                          onChange={(e) => setFormData({ ...formData, afternoon_time: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          onChange={(value) => setFormData({ ...formData, afternoon_time: value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Evening Time</label>
-                        <input
-                          type="time"
+                        <HybridTimeInput
+                          label="Evening Time"
                           value={formData.evening_time || '18:00'}
-                          onChange={(e) => setFormData({ ...formData, evening_time: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          onChange={(value) => setFormData({ ...formData, evening_time: value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bedtime</label>
-                        <input
-                          type="time"
+                        <HybridTimeInput
+                          label="Bedtime"
                           value={formData.bedtime || '22:00'}
-                          onChange={(e) => setFormData({ ...formData, bedtime: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                          onChange={(value) => setFormData({ ...formData, bedtime: value })}
                         />
                       </div>
                     </div>

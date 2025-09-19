@@ -133,8 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserRoles = async (userId: string) => {
     try {
-      // Combine both queries into a single request using Promise.all for parallel execution
-      const [roleResult, userResult] = await Promise.all([
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 10000)
+      );
+
+      const fetchPromise = Promise.all([
         supabase
           .from('user_role_assignments')
           .select(`
@@ -154,9 +158,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single()
       ]);
 
+      const [roleResult, userResult] = await Promise.race([fetchPromise, timeoutPromise]);
+
       // Process role data
       if (roleResult.error) {
         console.error('Error fetching role assignments:', roleResult.error);
+        setUserRoles([]); // Set empty array on error
       } else if (roleResult.data && roleResult.data.length > 0) {
         const roles = roleResult.data
           .map((assignment: { user_roles: UserRole[] }) => assignment.user_roles)
@@ -172,9 +179,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const requiresPasswordChange = userResult.data.password_change_required || false;
         console.log('Password change required:', requiresPasswordChange);
         setPasswordChangeRequired(requiresPasswordChange);
+      } else {
+        setPasswordChangeRequired(false); // Set default on error
       }
     } catch (error) {
       console.error('Error fetching user roles:', error);
+      // Set safe defaults on error
+      setUserRoles([]);
+      setPasswordChangeRequired(false);
     }
   };
 

@@ -14,6 +14,7 @@ import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { refreshPatientData } from '@/lib/data-refresh';
 
 interface PatientCycleProgress {
   communicationMinutes: number;
@@ -52,9 +53,13 @@ export default function PatientsPage() {
     setIsModalOpen(true);
   };
 
-  const handlePatientUpdated = () => {
+  const handlePatientUpdated = async () => {
     // Force refresh of patients so modal shows latest values without closing
-    queryClient.invalidateQueries({ queryKey: ['patients'] });
+    await refreshPatientData(queryClient, {
+      invalidateRelated: true,
+      refetchImmediately: true,
+      timeout: 8000
+    });
   };
 
   const getStatusColor = (rtmStatus: string) => {
@@ -89,8 +94,12 @@ export default function PatientsPage() {
     return age;
   };
 
-  const handleAddSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['patients'] });
+  const handleAddSuccess = async () => {
+    await refreshPatientData(queryClient, {
+      invalidateRelated: true,
+      refetchImmediately: true,
+      timeout: 8000
+    });
   };
 
   // Keep selectedPatient in sync with latest data from React Query so the modal reflects updates immediately

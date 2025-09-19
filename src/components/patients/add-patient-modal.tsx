@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Mail, MapPin, Calendar, Shield, Save, X, Stethoscope, Upload } from 'lucide-react';
+import { HybridTimeInput } from '@/components/ui/hybrid-time-input';
 import { useAuth } from '@/contexts/auth-context';
 import { useFacilities } from '@/hooks/use-facilities';
 import { useOrganizations } from '@/hooks/use-organizations';
@@ -711,50 +712,34 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
 
                 <div className="grid grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Morning Time
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.morning_time}
-                      onChange={(e) => handleInputChange('morning_time', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    <HybridTimeInput
+                      label="Morning Time"
+                      value={formData.morning_time || '06:00'}
+                      onChange={(value) => handleInputChange('morning_time', value)}
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 06:00</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bedtime
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.bedtime}
-                      onChange={(e) => handleInputChange('bedtime', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    <HybridTimeInput
+                      label="Bedtime"
+                      value={formData.bedtime || '22:00'}
+                      onChange={(value) => handleInputChange('bedtime', value)}
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 22:00</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Afternoon Time
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.afternoon_time}
-                      onChange={(e) => handleInputChange('afternoon_time', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    <HybridTimeInput
+                      label="Afternoon Time"
+                      value={formData.afternoon_time || '12:00'}
+                      onChange={(value) => handleInputChange('afternoon_time', value)}
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 12:00</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Evening Time
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.evening_time}
-                      onChange={(e) => handleInputChange('evening_time', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    <HybridTimeInput
+                      label="Evening Time"
+                      value={formData.evening_time || '18:00'}
+                      onChange={(value) => handleInputChange('evening_time', value)}
                     />
                     <p className="text-xs text-gray-500 mt-1">Default: 18:00</p>
                   </div>
