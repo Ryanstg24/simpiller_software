@@ -39,12 +39,13 @@ export function HybridTimeInput({
     onChange(`${hours}:${e.target.value}`);
   };
 
+
   return (
     <div className={`space-y-1 ${className}`}>
       <label className="block text-sm font-medium text-gray-700">
         {label}
       </label>
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center space-x-2">
         <input
           type="number"
           min="0"
@@ -52,7 +53,7 @@ export function HybridTimeInput({
           value={hours}
           onChange={handleHoursChange}
           disabled={disabled}
-          className="w-12 px-2 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-16 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
           placeholder="06"
         />
         <span className="text-gray-500 font-medium">:</span>
@@ -60,7 +61,7 @@ export function HybridTimeInput({
           value={minutes}
           onChange={handleMinutesChange}
           disabled={disabled}
-          className="px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-20 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           {minuteOptions.map(option => (
             <option key={option} value={option}>
