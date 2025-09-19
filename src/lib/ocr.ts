@@ -252,8 +252,10 @@ QTY 1 RX# 100001 - 500 MG - OBL/BRN/CAP`;
     // Extract patient name using intelligent detection algorithm
     // Look for common name patterns that appear in medication labels
     const namePatterns = [
-      // Last, First format (most common in medical labels)
-      /([A-Z]{2,}[A-Z\s]*),\s*([A-Z]{2,}[A-Z\s]*)/g,
+      // Last, First format (most common in medical labels) - more flexible
+      /([A-Z][A-Za-z]+),\s*([A-Z][A-Za-z]+)/g,
+      // Last, First format with mixed case
+      /([A-Z][a-z]+),\s*([A-Z][a-z]+)/g,
       // First Last format
       /([A-Z][a-z]+)\s+([A-Z][a-z]+)/g,
       // All caps names (common in medical labels)
@@ -264,6 +266,16 @@ QTY 1 RX# 100001 - 500 MG - OBL/BRN/CAP`;
 
     for (const pattern of namePatterns) {
       const matches = originalText.match(pattern);
+      
+      // Debug logging for pattern matching
+      if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+        console.log('[OCR] Testing name pattern:', JSON.stringify({
+          pattern: pattern.toString(),
+          matches: matches,
+          hasMatches: matches && matches.length > 0
+        }));
+      }
+      
       if (matches && matches.length > 0) {
         // Filter out common non-name words
         const nonNameWords = [
