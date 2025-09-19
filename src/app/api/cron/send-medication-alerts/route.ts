@@ -179,7 +179,7 @@ export async function GET(request: Request) {
           nowMinutes,
           delta: schedMinutes - nowMinutes
         });
-        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute, advance, tolerance);
+        const shouldSendAlert = checkIfMedicationDue(schedule.time_of_day, localHour, localMinute);
         console.log('[CRON] shouldSendAlert', { scheduleId: (schedule as { id: string }).id, medicationId: medication.id, patientId: patient.id, shouldSendAlert });
         
         if (!shouldSendAlert) continue;
@@ -430,25 +430,25 @@ export async function GET(request: Request) {
 
 /**
  * Check if a medication should be taken at the current time
+ * Only send alerts AT the scheduled time (not in advance)
  */
 function checkIfMedicationDue(
   timeOfDay: string,
   currentHour: number,
   currentMinute: number,
-  advanceMinutes: number = 15,
-  toleranceMinutes: number = 0
+  advanceMinutes: number = 0, // No advance notification
+  toleranceMinutes: number = 7 // Allow 7 minutes tolerance for CRON timing
 ): boolean {
   // timeOfDay is now in HH:MM:SS format from medication_schedules table
   const medicationTime = timeOfDay;
   
-  // Allow advance notification window (default 15 minutes before)
   const currentMinutes = currentHour * 60 + currentMinute;
   const medicationMinutes = timeToMinutes(medicationTime);
   
-  // Check if current time is within the advance window before the scheduled time
+  // Check if current time is within tolerance of the scheduled time
   const timeDiff = medicationMinutes - currentMinutes;
-  // Also allow a small tolerance after the exact time in case the cron runs slightly late
-  return (timeDiff >= -toleranceMinutes && timeDiff <= advanceMinutes);
+  // Allow small tolerance before and after the exact time for CRON timing
+  return (timeDiff >= -toleranceMinutes && timeDiff <= toleranceMinutes);
 }
 
 /**
