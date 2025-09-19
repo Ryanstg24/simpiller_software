@@ -851,13 +851,29 @@ export function ScanPageClient({ token }: { token: string }) {
                   <h3 className="text-lg font-medium text-yellow-800">No Medication Label Detected</h3>
                 </div>
                 <p className="text-yellow-700 mb-4">
-                  We couldn&apos;t detect a medication label in the camera view. Please:
+                  The medication label was not detected after 30 seconds. Please check:
                 </p>
-                <ul className="text-yellow-700 mb-4 space-y-1">
-                  <li>• Make sure the medication label is clearly visible</li>
-                  <li>• Hold the camera steady and close to the label</li>
-                  <li>• Ensure good lighting on the label</li>
-                  <li>• Try adjusting the angle of the camera</li>
+                <ul className="text-yellow-700 mb-4 space-y-2">
+                  <li className="flex items-start">
+                    <span className="text-yellow-600 mr-2">•</span>
+                    <span><strong>Scan the whole label</strong> - Make sure the entire medication label is visible in the camera view</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-600 mr-2">•</span>
+                    <span><strong>Correct label</strong> - Verify this is the right medication for this time</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-600 mr-2">•</span>
+                    <span><strong>Correct time</strong> - Check that the time on the label matches your scheduled time</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-600 mr-2">•</span>
+                    <span><strong>Correct name</strong> - Ensure the patient name on the label matches your name</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-yellow-600 mr-2">•</span>
+                    <span><strong>Good lighting</strong> - Make sure the label is well-lit and clearly readable</span>
+                  </li>
                 </ul>
                 <div className="flex space-x-3">
                   <Button
