@@ -461,25 +461,13 @@ function timeToMinutes(timeString: string): number {
 
 /**
  * Format time for SMS display (e.g., "2:45 PM") in patient's timezone
+ * Uses EXACT same logic as TwilioService.sendMedicationReminder
  */
 function formatTimeForSMS(timeString: string, timezone: string): string {
-  // Handle different time formats from database
-  let time: Date;
-  
-  // If it's already in HH:MM:SS format (like "19:00:00"), create a date for today
-  if (timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    time = new Date();
-    time.setHours(hours, minutes, 0, 0);
-  } else {
-    // If it's a full ISO string, parse it normally
-    time = new Date(timeString);
-  }
-  
-  return time.toLocaleTimeString('en-US', {
+  return new Date(timeString).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: timezone   // 👈 critical - use patient's timezone
+    timeZone: timezone
   });
 } 
