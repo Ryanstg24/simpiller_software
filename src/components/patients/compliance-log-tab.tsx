@@ -374,7 +374,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               </span>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              Note: "Missed" includes expired scan sessions that were never scanned
+              Note: &quot;Missed&quot; includes expired scan sessions that were never scanned
             </div>
           </div>
         )}
