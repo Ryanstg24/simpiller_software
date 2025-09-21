@@ -103,15 +103,41 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             )
           `)
           .eq('patient_id', patient.id)
-          .order('event_date', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(100); // Increased limit to show more comprehensive history
 
         if (logsError) {
           console.error('Error fetching medication logs:', logsError);
           setLogs([]);
         } else {
-          // Transform the data to match the expected interface
-          const transformedLogs = (logsData as MedicationLogData[] || []).map((log) => {
+          // Deduplicate logs - remove multiple scans of the same medication within a short time window
+          const deduplicatedLogs: MedicationLogData[] = [];
+          const seen = new Map<string, MedicationLogData>();
+          
+          (logsData as MedicationLogData[] || []).forEach((log) => {
+            const key = `${log.medication_id}_${log.status}_${log.event_date}`;
+            const existingLog = seen.get(key);
+            
+            if (!existingLog) {
+              // First time seeing this combination
+              seen.set(key, log);
+              deduplicatedLogs.push(log);
+            } else {
+              // Check if this is a duplicate scan within a few seconds
+              const existingTime = new Date(existingLog.created_at).getTime();
+              const currentTime = new Date(log.created_at).getTime();
+              const timeDiff = Math.abs(currentTime - existingTime);
+              
+              // If scans are more than 30 seconds apart, keep both
+              if (timeDiff > 30000) {
+                deduplicatedLogs.push(log);
+              }
+              // Otherwise, keep the first one (existingLog is already in the array)
+            }
+          });
+
+          // Transform the deduplicated data to match the expected interface
+          const transformedLogs = deduplicatedLogs.map((log) => {
             // Handle medication info from joined data
             let medicationName = '';
             let dosage = '';
@@ -214,13 +240,20 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    // For missed entries from expired sessions, we want to show the original scheduled time
+    // without timezone conversion, as it represents when the medication was supposed to be taken
+    const date = new Date(dateString);
+    
+    // Format as UTC to avoid timezone conversion issues
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+      hour12: true,
+      timeZone: 'UTC'
+    }) + ' UTC';
   };
 
   const currentCompliance = getCurrentMonthCompliance();
