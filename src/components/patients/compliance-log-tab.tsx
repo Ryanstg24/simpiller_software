@@ -104,7 +104,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           `)
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
-          .limit(50); // Limit to recent logs
+          .limit(100); // Increased limit to show more comprehensive history
 
         if (logsError) {
           console.error('Error fetching medication logs:', logsError);
@@ -372,6 +372,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               <span className="text-yellow-600">
                 ⏭️ Skipped: {logs.filter(log => log.status === 'skipped').length}
               </span>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              Note: "Missed" includes expired scan sessions that were never scanned
             </div>
           </div>
         )}
