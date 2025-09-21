@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Use service-role client for RLS-safe operations
@@ -13,7 +13,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-export async function POST() {
+export async function GET(request: NextRequest) {
   try {
     console.log('[Process Expired Sessions] Starting expired session processing...');
 
@@ -21,19 +21,10 @@ export async function POST() {
     const now = new Date();
     const { data: expiredSessions, error: sessionsError } = await supabaseAdmin
       .from('medication_scan_sessions')
-      .select(`
-        id,
-        patient_id,
-        medication_ids,
-        scheduled_time,
-        expires_at,
-        is_active,
-        processed_for_missed
-      `)
+      .select('id, patient_id, medication_ids, scheduled_time, expires_at, is_active, processed_for_missed')
       .lt('expires_at', now.toISOString()) // Sessions that have expired
       .eq('is_active', true) // Still active (never scanned)
-      .is('processed_for_missed', null) // Not yet processed for missed logging
-    );
+      .is('processed_for_missed', null); // Not yet processed for missed logging
 
     if (sessionsError) {
       console.error('[Process Expired Sessions] Error fetching expired sessions:', sessionsError);

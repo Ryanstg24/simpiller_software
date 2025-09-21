@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useSessionTimeout } from '@/hooks/use-session-timeout';
+import { useRouter } from 'next/navigation';
 
 interface UserRole {
   id: string;
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const router = useRouter();
 
   // Session timeout handling
   const handleSessionTimeout = async () => {
@@ -50,8 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setUserRoles([]);
       setPasswordChangeRequired(false);
+      
+      // Force redirect to login page
+      console.log('Session timeout - redirecting to login');
+      router.push('/login');
     } catch (error) {
       console.error('Error during session timeout signout:', error);
+      // Even if signout fails, redirect to login
+      router.push('/login');
     }
   };
 
