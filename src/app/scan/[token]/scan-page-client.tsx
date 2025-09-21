@@ -994,20 +994,13 @@ export function ScanPageClient({ token }: { token: string }) {
                 Your compliance has been recorded. You&apos;re all set!
               </p>
               
-              {/* Action Buttons */}
+              {/* Action Button */}
               <div className="space-y-4">
                 <Button
                   onClick={() => window.close()}
                   className="w-full bg-green-600 text-white text-lg py-4 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-lg"
                 >
                   ✅ All Done - Close This Page
-                </Button>
-                
-                <Button
-                  onClick={resetScanState}
-                  className="w-full bg-white text-green-600 text-lg py-3 px-6 rounded-lg font-semibold hover:bg-green-50 transition-colors border-2 border-green-600"
-                >
-                  Scan Another Medication
                 </Button>
               </div>
               
