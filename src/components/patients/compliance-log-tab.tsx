@@ -206,14 +206,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         return 'text-green-600 bg-green-100';
       case 'missed':
         return 'text-red-600 bg-red-100';
-      case 'skipped':
-        return 'text-yellow-600 bg-yellow-100';
       case 'verified':
         return 'text-green-600 bg-green-100';
-      case 'failed':
-        return 'text-red-600 bg-red-100';
-      case 'pending':
-        return 'text-yellow-600 bg-yellow-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
@@ -361,16 +355,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                 ✅ Taken: {logs.filter(log => log.status === 'taken' || log.status === 'verified').length}
               </span>
               <span className="text-red-600">
-                ❌ Failed: {logs.filter(log => log.status === 'failed').length}
-              </span>
-              <span className="text-red-600">
                 ❌ Missed: {logs.filter(log => log.status === 'missed').length}
-              </span>
-              <span className="text-yellow-600">
-                ⏳ Pending: {logs.filter(log => log.status === 'pending').length}
-              </span>
-              <span className="text-yellow-600">
-                ⏭️ Skipped: {logs.filter(log => log.status === 'skipped').length}
               </span>
             </div>
             <div className="mt-2 text-xs text-gray-500">
@@ -394,10 +379,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
                     {log.status === 'taken' ? '✅ Taken' : 
                      log.status === 'missed' ? '❌ Missed' : 
-                     log.status === 'failed' ? '❌ Failed' :
                      log.status === 'verified' ? '✅ Verified' :
-                     log.status === 'pending' ? '⏳ Pending' :
-                     log.status === 'skipped' ? '⏭️ Skipped' :
                      log.status}
                   </span>
                   <div>
