@@ -972,43 +972,65 @@ export function ScanPageClient({ token }: { token: string }) {
           </div>
         )} */}
 
-        {/* Scan Result */}
-        {scanComplete && (
-          <div className={`bg-white rounded-lg shadow-sm border p-4 mb-6 ${
-            !scanSession.is_active ? 'border-green-200' : 'border-red-200'
-          }`}>
+        {/* Scan Result - Full Page Success */}
+        {scanComplete && !scanSession.is_active && (
+          <div className="min-h-screen bg-green-50 flex items-center justify-center">
+            <div className="text-center max-w-md mx-auto px-4">
+              {/* Large Success Icon */}
+              <div className="bg-green-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-12 h-12 text-green-600" />
+              </div>
+              
+              {/* Success Message */}
+              <h1 className="text-3xl font-bold text-green-800 mb-4">
+                Great Job! 🎉
+              </h1>
+              
+              <p className="text-xl text-green-700 mb-2">
+                Your medication has been verified successfully!
+              </p>
+              
+              <p className="text-lg text-green-600 mb-8">
+                Your compliance has been recorded. You&apos;re all set!
+              </p>
+              
+              {/* Action Buttons */}
+              <div className="space-y-4">
+                <Button
+                  onClick={() => window.close()}
+                  className="w-full bg-green-600 text-white text-lg py-4 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-lg"
+                >
+                  ✅ All Done - Close This Page
+                </Button>
+                
+                <Button
+                  onClick={resetScanState}
+                  className="w-full bg-white text-green-600 text-lg py-3 px-6 rounded-lg font-semibold hover:bg-green-50 transition-colors border-2 border-green-600"
+                >
+                  Scan Another Medication
+                </Button>
+              </div>
+              
+              {/* Helpful Info */}
+              <div className="mt-8 p-4 bg-white rounded-lg border border-green-200">
+                <p className="text-sm text-gray-600">
+                  <strong>What happens next?</strong><br/>
+                  Your healthcare provider will see that you took your medication on time. Keep up the great work!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Scan Failed - Keep existing design */}
+        {scanComplete && scanSession.is_active && (
+          <div className="bg-white rounded-lg shadow-sm border border-red-200 p-4 mb-6">
             <div className="flex items-center mb-4">
-              {!scanSession.is_active ? (
-                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-500 mr-2" />
-              )}
-              <h3 className="text-lg font-medium text-gray-900">
-                {!scanSession.is_active ? 'Scan Successful!' : 'Scan Failed'}
-              </h3>
+              <XCircle className="h-5 w-5 text-red-500 mr-2" />
+              <h3 className="text-lg font-medium text-gray-900">Scan Failed</h3>
             </div>
             
-            {!scanSession.is_active ? (
-              <div className="text-green-700">
-                <p className="text-lg font-medium mb-2">✅ Medication verified successfully!</p>
-                <p>Your compliance has been recorded. You can now close this tab.</p>
-                <div className="mt-4 flex space-x-3">
-                  <Button
-                    onClick={() => window.close()}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                  >
-                    Close Tab
-                  </Button>
-                  <Button
-                    onClick={resetScanState}
-                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-                  >
-                    Scan Another
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-red-700">
+            <div className="text-red-700">
                 {showManualConfirmation ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                     <div className="text-center">
@@ -1083,8 +1105,7 @@ export function ScanPageClient({ token }: { token: string }) {
                   </>
                 )}
               </div>
-            )}
-          </div>
+            </div>
         )}
 
         {/* Manual Entry Fallback */}
