@@ -1,10 +1,14 @@
 // Mock SFTP service to avoid build issues with native modules
 // This will be replaced with actual SFTP functionality when deployed to a non-serverless environment
 
+interface SFTPFile {
+  name: string;
+}
+
 interface SFTPClient {
   connect(config: Record<string, unknown>): Promise<void>;
   disconnect(): Promise<void>;
-  list(path: string): Promise<Array<{ name: string }>>;
+  list(path: string): Promise<SFTPFile[]>;
   get(path: string): Promise<Buffer>;
   stat(path: string): Promise<{ size: number; modifyTime: number }>;
   rename(oldPath: string, newPath: string): Promise<void>;
@@ -40,28 +44,28 @@ export class SFTPService {
     if (!this.client) {
       // Mock client for build compatibility
       this.client = {
-        connect: async (_config: Record<string, unknown>) => {
+        connect: async () => {
           console.log('[SFTP Mock] Mock connection established');
         },
         disconnect: async () => {
           console.log('[SFTP Mock] Mock disconnection');
         },
-        list: async (_path: string) => {
+        list: async () => {
           console.log('[SFTP Mock] Mock file listing - returning empty array');
           return [];
         },
-        get: async (_path: string) => {
+        get: async () => {
           console.log('[SFTP Mock] Mock file read - returning empty content');
           return Buffer.from('');
         },
-        stat: async (_path: string) => {
+        stat: async () => {
           console.log('[SFTP Mock] Mock file stats');
           return { size: 0, modifyTime: Date.now() };
         },
-        rename: async (_oldPath: string, _newPath: string) => {
+        rename: async () => {
           console.log('[SFTP Mock] Mock file rename');
         },
-        mkdir: async (_path: string, _recursive: boolean) => {
+        mkdir: async () => {
           console.log('[SFTP Mock] Mock directory creation');
         }
       };
@@ -106,8 +110,8 @@ export class SFTPService {
       const files = await this.client.list(this.config.remotePath);
       // Filter for .rpj files only
       const rpjFiles = files
-        .filter((file: any) => file.name.endsWith('.rpj'))
-        .map((file: any) => file.name);
+        .filter((file: SFTPFile) => file.name.endsWith('.rpj'))
+        .map((file: SFTPFile) => file.name);
       
       console.log(`[SFTP] Found ${rpjFiles.length} .rpj files in ${this.config.remotePath}`);
       return rpjFiles;
@@ -183,7 +187,7 @@ export class SFTPService {
       }
       await this.client.list('.');
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
