@@ -1,10 +1,10 @@
-import { RPJParser, ParsedMedicationData } from './rpj-parser';
+import { RPJParser } from './rpj-parser';
 import { PatientMatcher } from './patient-matcher';
 import { MedicationAdder } from './medication-adder';
 
 // Conditional imports to avoid build issues
-let SFTPService: any;
-let CHAUTAUQUA_SFTP_CONFIG: any;
+let SFTPService: typeof import('./sftp-service').SFTPService;
+let CHAUTAUQUA_SFTP_CONFIG: typeof import('./sftp-service').CHAUTAUQUA_SFTP_CONFIG;
 
 export interface ProcessingResult {
   success: boolean;
@@ -16,7 +16,7 @@ export interface ProcessingResult {
 }
 
 export class SFTPProcessor {
-  private sftpService: any;
+  private sftpService: InstanceType<typeof import('./sftp-service').SFTPService> | null;
   private patientMatcher: PatientMatcher;
   private medicationAdder: MedicationAdder;
   private organizationId: string;

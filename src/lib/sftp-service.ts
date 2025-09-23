@@ -1,6 +1,16 @@
 // Mock SFTP service to avoid build issues with native modules
 // This will be replaced with actual SFTP functionality when deployed to a non-serverless environment
 
+interface SFTPClient {
+  connect(config: Record<string, unknown>): Promise<void>;
+  disconnect(): Promise<void>;
+  list(path: string): Promise<Array<{ name: string }>>;
+  get(path: string): Promise<Buffer>;
+  stat(path: string): Promise<{ size: number; modifyTime: number }>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+  mkdir(path: string, recursive: boolean): Promise<void>;
+}
+
 export interface SFTPConfig {
   host: string;
   port: number;
@@ -19,7 +29,7 @@ export interface MedicationFile {
 
 export class SFTPService {
   private config: SFTPConfig;
-  private client: any;
+  private client: SFTPClient | null;
 
   constructor(config: SFTPConfig) {
     this.config = config;
@@ -30,28 +40,28 @@ export class SFTPService {
     if (!this.client) {
       // Mock client for build compatibility
       this.client = {
-        connect: async () => {
+        connect: async (_config: Record<string, unknown>) => {
           console.log('[SFTP Mock] Mock connection established');
         },
         disconnect: async () => {
           console.log('[SFTP Mock] Mock disconnection');
         },
-        list: async () => {
+        list: async (_path: string) => {
           console.log('[SFTP Mock] Mock file listing - returning empty array');
           return [];
         },
-        get: async () => {
+        get: async (_path: string) => {
           console.log('[SFTP Mock] Mock file read - returning empty content');
           return Buffer.from('');
         },
-        stat: async () => {
+        stat: async (_path: string) => {
           console.log('[SFTP Mock] Mock file stats');
           return { size: 0, modifyTime: Date.now() };
         },
-        rename: async () => {
+        rename: async (_oldPath: string, _newPath: string) => {
           console.log('[SFTP Mock] Mock file rename');
         },
-        mkdir: async () => {
+        mkdir: async (_path: string, _recursive: boolean) => {
           console.log('[SFTP Mock] Mock directory creation');
         }
       };
@@ -162,6 +172,7 @@ export class SFTPService {
       if (!(error instanceof Error) || !error.message?.includes('File exists')) {
         throw error;
       }
+      // If error is about file existing, we can ignore it
     }
   }
 

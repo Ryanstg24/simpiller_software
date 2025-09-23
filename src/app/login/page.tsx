@@ -115,34 +115,6 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <div className="text-center text-sm text-gray-800">
-          <p className="font-semibold mb-2">Test Credentials:</p>
-          <div className="space-y-2 text-xs">
-            <div className="bg-blue-50 p-2 rounded border">
-              <p className="font-medium text-blue-800">Simpiller Admin</p>
-              <p><strong>Email:</strong> admin@simpiller.com</p>
-              <p><strong>Password:</strong> password123</p>
-            </div>
-            <div className="bg-green-50 p-2 rounded border">
-              <p className="font-medium text-green-800">Organization Admin</p>
-              <p><strong>Email:</strong> orgadmin@simpiller.com</p>
-              <p><strong>Password:</strong> password</p>
-            </div>
-            <div className="bg-purple-50 p-2 rounded border">
-              <p className="font-medium text-purple-800">Provider</p>
-              <p><strong>Email:</strong> provider@simpiller.com</p>
-              <p><strong>Password:</strong> password</p>
-            </div>
-            <div className="bg-yellow-50 p-2 rounded border">
-              <p className="font-medium text-yellow-800">Billing</p>
-              <p><strong>Email:</strong> billing@simpiller.com</p>
-              <p><strong>Password:</strong> password</p>
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-gray-600 italic">
-            * These credentials are for testing purposes only and will be removed before launch
-          </p>
-        </div>
       </div>
     </div>
   );

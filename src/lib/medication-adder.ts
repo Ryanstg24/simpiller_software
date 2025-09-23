@@ -2,6 +2,31 @@ import { createClient } from '@supabase/supabase-js';
 import { ParsedMedicationData, RPJParser } from './rpj-parser';
 import { PatientMatch } from './patient-matcher';
 
+interface ExistingMedication {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface MedicationRecord {
+  id: string;
+  patient_id: string;
+  name: string;
+  strength: string;
+  dosage: string;
+  instructions: string;
+  quantity: string;
+  refills: string;
+  prescriber: string;
+  ndc: string;
+  status: string;
+  source: string;
+  time_of_day: string;
+  created_at: string;
+  updated_at: string;
+  raw_import_data: string;
+}
+
 // Use service-role client for RLS-safe operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,7 +96,7 @@ export class MedicationAdder {
     }
   }
 
-  private async checkExistingMedication(patientId: string, medicationName: string): Promise<any> {
+  private async checkExistingMedication(patientId: string, medicationName: string): Promise<ExistingMedication | null> {
     try {
       const { data, error } = await supabaseAdmin
         .from('medications')
@@ -93,7 +118,7 @@ export class MedicationAdder {
     }
   }
 
-  private async createMedicationRecord(patientId: string, medicationData: ParsedMedicationData): Promise<any> {
+  private async createMedicationRecord(patientId: string, medicationData: ParsedMedicationData): Promise<MedicationRecord | null> {
     try {
       const medicationInfo = medicationData.medicationInfo;
       
