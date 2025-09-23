@@ -1,7 +1,10 @@
-import { SFTPService, MedicationFile, CHAUTAUQUA_SFTP_CONFIG } from './sftp-service';
 import { RPJParser, ParsedMedicationData } from './rpj-parser';
 import { PatientMatcher } from './patient-matcher';
 import { MedicationAdder } from './medication-adder';
+
+// Conditional imports to avoid build issues
+let SFTPService: any;
+let CHAUTAUQUA_SFTP_CONFIG: any;
 
 export interface ProcessingResult {
   success: boolean;
@@ -13,16 +16,32 @@ export interface ProcessingResult {
 }
 
 export class SFTPProcessor {
-  private sftpService: SFTPService;
+  private sftpService: any;
   private patientMatcher: PatientMatcher;
   private medicationAdder: MedicationAdder;
   private organizationId: string;
 
   constructor(organizationId: string) {
     this.organizationId = organizationId;
-    this.sftpService = new SFTPService(CHAUTAUQUA_SFTP_CONFIG);
+    this.sftpService = null;
     this.patientMatcher = new PatientMatcher(organizationId);
     this.medicationAdder = new MedicationAdder();
+  }
+
+  private async initializeSFTP(): Promise<void> {
+    if (!SFTPService) {
+      try {
+        const sftpModule = await import('./sftp-service');
+        SFTPService = sftpModule.SFTPService;
+        CHAUTAUQUA_SFTP_CONFIG = sftpModule.CHAUTAUQUA_SFTP_CONFIG;
+      } catch (error) {
+        console.error('[SFTP Processor] Failed to import SFTP service:', error);
+        throw new Error('SFTP service not available');
+      }
+    }
+    if (!this.sftpService) {
+      this.sftpService = new SFTPService(CHAUTAUQUA_SFTP_CONFIG);
+    }
   }
 
   /**
@@ -40,6 +59,9 @@ export class SFTPProcessor {
 
     try {
       console.log('[SFTP Processor] Starting SFTP processing for The Chautauqua Center');
+
+      // Initialize SFTP service
+      await this.initializeSFTP();
 
       // Connect to SFTP
       await this.sftpService.connect();
@@ -118,7 +140,7 @@ export class SFTPProcessor {
             } catch (error) {
               console.error(`[SFTP Processor] Error processing medication record:`, error);
               fileFailureCount++;
-              result.errors.push(`Error processing medication record: ${error.message}`);
+              result.errors.push(`Error processing medication record: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
 
@@ -132,7 +154,7 @@ export class SFTPProcessor {
 
         } catch (error) {
           console.error(`[SFTP Processor] Error processing file ${filename}:`, error);
-          result.errors.push(`Error processing file ${filename}: ${error.message}`);
+          result.errors.push(`Error processing file ${filename}: ${error instanceof Error ? error.message : String(error)}`);
           
           // Still try to move the file to completed to avoid reprocessing
           try {
@@ -140,7 +162,7 @@ export class SFTPProcessor {
             result.processedFiles++;
           } catch (moveError) {
             console.error(`[SFTP Processor] Failed to move file ${filename} to completed:`, moveError);
-            result.errors.push(`Failed to move file ${filename} to completed: ${moveError.message}`);
+            result.errors.push(`Failed to move file ${filename} to completed: ${moveError instanceof Error ? moveError.message : String(moveError)}`);
           }
         }
       }
@@ -150,7 +172,7 @@ export class SFTPProcessor {
 
     } catch (error) {
       console.error('[SFTP Processor] Fatal error during processing:', error);
-      result.errors.push(`Fatal error: ${error.message}`);
+      result.errors.push(`Fatal error: ${error instanceof Error ? error.message : String(error)}`);
       result.summary = 'Processing failed due to fatal error';
     } finally {
       // Always disconnect
@@ -169,6 +191,7 @@ export class SFTPProcessor {
    */
   async testConnection(): Promise<boolean> {
     try {
+      await this.initializeSFTP();
       await this.sftpService.connect();
       const isConnected = await this.sftpService.isConnected();
       await this.sftpService.disconnect();

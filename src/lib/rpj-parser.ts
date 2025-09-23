@@ -60,7 +60,7 @@ export class RPJParser {
 
     } catch (error) {
       console.error(`[RPJ Parser] Error parsing ${file.filename}:`, error);
-      throw new Error(`Failed to parse RPJ file: ${error.message}`);
+      throw new Error(`Failed to parse RPJ file: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

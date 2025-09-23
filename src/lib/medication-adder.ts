@@ -65,7 +65,7 @@ export class MedicationAdder {
       console.error('[Medication Adder] Error adding medication:', error);
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         message: 'Error adding medication to patient profile'
       };
     }
@@ -110,7 +110,7 @@ export class MedicationAdder {
         ndc: medicationInfo.ndc || '',
         status: 'active',
         source: 'sftp_import',
-        time_of_day: this.determineTimeOfDay(medicationInfo.adminTime, medicationInfo.instructions),
+        time_of_day: this.determineTimeOfDay(medicationInfo.adminTime || '', medicationInfo.instructions || ''),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         // Store raw RPJ data for reference
@@ -181,7 +181,7 @@ export class MedicationAdder {
       console.error('[Medication Adder] Error in updateExistingMedication:', error);
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         message: 'Error updating existing medication'
       };
     }

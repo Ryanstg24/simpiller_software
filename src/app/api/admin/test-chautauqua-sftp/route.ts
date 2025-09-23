@@ -5,6 +5,17 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Chautauqua SFTP Test] Starting SFTP connection test...');
 
+    // Check if SFTP integration is enabled
+    if (process.env.CHAUTAUQUA_SFTP_ENABLED === 'false') {
+      console.log('[Chautauqua SFTP Test] SFTP integration is disabled');
+      return NextResponse.json({
+        success: false,
+        error: 'SFTP integration is disabled',
+        organizationId: null,
+        connectionTest: false
+      });
+    }
+
     // Get The Chautauqua Center organization ID
     const organizationId = await SFTPProcessor.getChautauquaOrganizationId();
     
@@ -47,7 +58,7 @@ export async function GET(request: NextRequest) {
     console.error('[Chautauqua SFTP Test] Error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       organizationId: null,
       connectionTest: false
     });
