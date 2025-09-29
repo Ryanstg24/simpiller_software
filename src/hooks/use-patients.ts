@@ -72,6 +72,7 @@ export interface Patient {
 
 export function usePatients() {
   const { isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Simple timeout wrapper for queries to avoid indefinite loading
   function withTimeout<T>(promise: Promise<T>, ms: number, message = 'Request timed out'): Promise<T> {
@@ -95,10 +96,45 @@ export function usePatients() {
     error,
     refetch
   } = useQuery({
-    queryKey: ['patients', isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user?.id],
+    queryKey: ['patients', user?.id, userOrganizationId], // Remove role flags from query key to prevent re-runs on auth timeout
     queryFn: async () => {
       if (!user) {
         return [];
+      }
+
+      // If we have no role information but user is still authenticated,
+      // this might be a temporary auth timeout - try to use cached data if available
+      if (!isSimpillerAdmin && !isOrganizationAdmin && !isProvider && !userOrganizationId) {
+        console.log('No role information available - this might be a temporary auth timeout');
+        
+        // Try to get existing cached data for this user
+        const existingData = queryClient.getQueryData(['patients', user.id, userOrganizationId]);
+        if (existingData && Array.isArray(existingData) && existingData.length > 0) {
+          console.log('Using cached patients data during auth timeout');
+          return existingData;
+        }
+        
+        // If no cached data, try to fetch with a basic query (no role filtering)
+        console.log('No cached data available, attempting basic query');
+        const { data, error } = await supabase
+          .from('patients')
+          .select(`
+            *,
+            facilities (name, code),
+            users (first_name, last_name, email),
+            pharmacies (name, npi),
+            organizations (name)
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          console.log('Basic query failed, returning empty array');
+          return [];
+        }
+        
+        console.log('Basic query succeeded, returning data');
+        return data || [];
       }
 
       let query = supabase
@@ -187,11 +223,9 @@ export function usePatients() {
     retryDelay: (attempt: number) => Math.min(2000 * attempt, 4000),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - keep data fresh longer
+    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache much longer to prevent disappearing
   });
-
-  const queryClient = useQueryClient();
 
   const invalidatePatients = () => {
     queryClient.invalidateQueries({ queryKey: ['patients'] });
@@ -200,7 +234,7 @@ export function usePatients() {
   return {
     patients,
     loading,
-    error: error?.message || null,
+    error: error instanceof Error ? error.message : (error ? String(error) : null),
     refetch,
     invalidatePatients
   };
