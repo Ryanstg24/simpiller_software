@@ -139,7 +139,7 @@ export function PasswordChangeModal({
       if (timeoutId) clearTimeout(timeoutId);
       
       // Show success message for 2 seconds then close
-      setTimeout(() => {
+      setTimeout(async () => {
         console.log('Closing password change modal');
         onPasswordChanged();
         onClose();

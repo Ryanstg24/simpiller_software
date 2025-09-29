@@ -253,8 +253,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userOrganizationId: mounted ? userOrganizationId : null,
     signIn,
     signOut,
-    refreshSession: () => {
-      // Refresh session logic if needed
+    refreshSession: async () => {
+      // Refresh user data from database
+      if (user?.id) {
+        console.log('Refreshing user session data...');
+        await fetchUserRoles(user.id);
+      }
     },
     passwordChangeRequired: mounted ? passwordChangeRequired : false,
     setPasswordChangeRequired: (required: boolean) => {

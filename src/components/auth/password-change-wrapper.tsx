@@ -9,7 +9,7 @@ interface PasswordChangeWrapperProps {
 }
 
 export function PasswordChangeWrapper({ children }: PasswordChangeWrapperProps) {
-  const { passwordChangeRequired, setPasswordChangeRequired } = useAuth();
+  const { passwordChangeRequired, setPasswordChangeRequired, refreshSession } = useAuth();
 
   // Show modal if password change is required
   if (passwordChangeRequired) {
@@ -20,8 +20,10 @@ export function PasswordChangeWrapper({ children }: PasswordChangeWrapperProps) 
           onClose={() => {
             // Don't allow closing - user must change password
           }}
-          onPasswordChanged={() => {
+          onPasswordChanged={async () => {
             setPasswordChangeRequired(false);
+            // Refresh user data from database to ensure password_change_required is updated
+            await refreshSession();
           }}
         />
         {/* Show a minimal loading screen while password change is required */}

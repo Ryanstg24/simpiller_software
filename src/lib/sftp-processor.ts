@@ -63,6 +63,11 @@ export class SFTPProcessor {
       // Initialize SFTP service
       await this.initializeSFTP();
 
+      // Ensure SFTP service is available
+      if (!this.sftpService) {
+        throw new Error('SFTP service failed to initialize');
+      }
+
       // Connect to SFTP
       await this.sftpService.connect();
 
@@ -192,6 +197,12 @@ export class SFTPProcessor {
   async testConnection(): Promise<boolean> {
     try {
       await this.initializeSFTP();
+      
+      // Ensure SFTP service is available
+      if (!this.sftpService) {
+        throw new Error('SFTP service failed to initialize');
+      }
+      
       await this.sftpService.connect();
       const isConnected = await this.sftpService.isConnected();
       await this.sftpService.disconnect();
