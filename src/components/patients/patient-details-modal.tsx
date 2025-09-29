@@ -101,7 +101,12 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     if (!patient) return;
 
     try {
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Medications fetch timeout')), 5000)
+      );
+
+      const medicationsPromise = supabase
         .from('medications')
         .select(`
           *,
@@ -119,13 +124,20 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
+      const { data, error } = await Promise.race([medicationsPromise, timeoutPromise]);
+
       if (error) {
         console.error('Error fetching medications:', error);
+        setMedications([]);
       } else {
         setMedications(data || []);
       }
     } catch (error) {
       console.error('Error fetching medications:', error);
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.log('Medications fetch timed out, using empty array');
+      }
+      setMedications([]);
     }
   }, [patient]);
 
@@ -135,11 +147,18 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     try {
       setLoadingProviders(true);
       
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Provider fetch timeout')), 5000)
+      );
+
       // First test a simple query to see if we can access users table
-      const { error: testError } = await supabase
+      const testPromise = supabase
         .from('users')
         .select('id, first_name, last_name')
         .limit(1);
+
+      const { error: testError } = await Promise.race([testPromise, timeoutPromise]);
 
       if (testError) {
         console.error('Simple users query failed:', testError);
@@ -161,7 +180,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         providerQuery = providerQuery.eq('user_roles.organization_id', userOrganizationId);
       }
 
-      const { data: providerUsers, error: providerError } = await providerQuery;
+      const { data: providerUsers, error: providerError } = await Promise.race([providerQuery, timeoutPromise]);
 
       if (providerError) {
         console.error('Error fetching provider roles:', providerError);
@@ -177,11 +196,13 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       }
 
       // Get the full user details for these provider users
-      const { data: providerDetails, error: detailsError } = await supabase
+      const detailsPromise = supabase
         .from('users')
         .select('id, first_name, last_name, email')
         .eq('is_active', true)
         .in('id', providerUserIds);
+
+      const { data: providerDetails, error: detailsError } = await Promise.race([detailsPromise, timeoutPromise]);
 
       if (detailsError) {
         console.error('Error fetching provider details:', detailsError);
@@ -193,6 +214,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       
     } catch (error) {
       console.error('Error fetching providers:', error);
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.log('Providers fetch timed out, using empty array');
+      }
       setProviders([]);
     } finally {
       setLoadingProviders(false);
