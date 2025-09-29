@@ -182,7 +182,9 @@ export class SFTPProcessor {
     } finally {
       // Always disconnect
       try {
-        await this.sftpService.disconnect();
+        if (this.sftpService) {
+          await this.sftpService.disconnect();
+        }
       } catch (error) {
         console.error('[SFTP Processor] Error disconnecting from SFTP:', error);
       }

@@ -75,6 +75,9 @@ export class SFTPService {
   async connect(): Promise<void> {
     try {
       await this.initializeClient();
+      if (!this.client) {
+        throw new Error('SFTP client failed to initialize');
+      }
       await this.client.connect({
         host: this.config.host,
         port: this.config.port,
@@ -94,7 +97,7 @@ export class SFTPService {
   async disconnect(): Promise<void> {
     try {
       if (this.client) {
-        await this.client.end();
+        await this.client.disconnect();
         console.log('[SFTP] Disconnected successfully');
       }
     } catch (error) {
@@ -106,6 +109,9 @@ export class SFTPService {
     try {
       if (!this.client) {
         await this.initializeClient();
+      }
+      if (!this.client) {
+        throw new Error('SFTP client failed to initialize');
       }
       const files = await this.client.list(this.config.remotePath);
       // Filter for .rpj files only
@@ -125,6 +131,9 @@ export class SFTPService {
     try {
       if (!this.client) {
         await this.initializeClient();
+      }
+      if (!this.client) {
+        throw new Error('SFTP client failed to initialize');
       }
       const filePath = `${this.config.remotePath}/${filename}`;
       const stats = await this.client.stat(filePath);
@@ -149,6 +158,9 @@ export class SFTPService {
       if (!this.client) {
         await this.initializeClient();
       }
+      if (!this.client) {
+        throw new Error('SFTP client failed to initialize');
+      }
       const sourcePath = `${this.config.remotePath}/${filename}`;
       const destPath = `${this.config.completedPath}/${filename}`;
       
@@ -169,6 +181,9 @@ export class SFTPService {
     try {
       if (!this.client) {
         await this.initializeClient();
+      }
+      if (!this.client) {
+        throw new Error('SFTP client failed to initialize');
       }
       await this.client.mkdir(path, true);
     } catch (error) {
