@@ -125,7 +125,7 @@ export function usePatients() {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      // Apply role-based filtering
+      // Apply role-based filtering with fallback for auth timeouts
       if (isSimpillerAdmin) {
         // Simpiller Admin sees all patients
       } else if (isOrganizationAdmin && userOrganizationId) {
@@ -135,8 +135,16 @@ export function usePatients() {
         // Provider sees only their assigned patients
         query = query.eq('assigned_provider_id', user.id);
       } else {
-        // Other roles see no patients
-        return [];
+        // If no roles are detected (likely auth timeout), try to fetch with user's organization
+        // This prevents showing 0 patients when auth context is temporarily unavailable
+        if (userOrganizationId) {
+          console.log('No roles detected, falling back to organization-based query');
+          query = query.eq('organization_id', userOrganizationId);
+        } else {
+          // Last resort: return empty array but don't throw error
+          console.log('No roles or organization detected, returning empty patients list');
+          return [];
+        }
       }
 
       type SupabaseResponse<T> = { data: T[] | null; error: unknown };
@@ -148,14 +156,35 @@ export function usePatients() {
 
       if (error) {
         console.error('Error fetching patients:', error);
+        // If it's an auth-related error, return empty array instead of throwing
+        // This prevents the entire patients list from breaking due to auth timeouts
+        if (error instanceof Error && (
+          error.message.includes('timeout') || 
+          error.message.includes('auth') ||
+          error.message.includes('permission')
+        )) {
+          console.log('Auth-related error detected, returning empty patients list');
+          return [];
+        }
         throw new Error('Failed to fetch patients');
       }
 
       return data || [];
     },
     enabled: !!user, // Only run query if user is authenticated
-    retry: 1,
-    retryDelay: (attempt) => Math.min(2000 * attempt, 4000),
+    retry: (failureCount: number, error: unknown) => {
+      // Don't retry on auth-related errors to prevent infinite loops
+      if (error instanceof Error && (
+        error.message.includes('timeout') || 
+        error.message.includes('auth') ||
+        error.message.includes('permission')
+      )) {
+        return false;
+      }
+      // Retry up to 2 times for other errors
+      return failureCount < 2;
+    },
+    retryDelay: (attempt: number) => Math.min(2000 * attempt, 4000),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     staleTime: 2 * 60 * 1000, // 2 minutes

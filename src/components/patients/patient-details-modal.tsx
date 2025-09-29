@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, Edit, Save, User, Pill, Calendar, Activity, Clock } from 'lucide-react';
-import { Patient } from '@/hooks/use-patients';
+import { Patient, usePatients } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { MedicationModal } from '@/components/medications/medication-modal';
@@ -77,6 +77,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const [loadingProviders, setLoadingProviders] = useState(false);
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
   const { pharmacies, loading: pharmaciesLoading } = usePharmacies();
+  const { invalidatePatients } = usePatients();
   
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
@@ -231,10 +232,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         fetchProviders();
       }
       
+      // Invalidate patients cache to ensure fresh data is available for medication modal
+      // This ensures that even if some queries timeout, the cache has the current patient data
+      invalidatePatients();
+      
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, canEditProvider]);
+  }, [patient, canEditProvider, invalidatePatients]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
@@ -316,6 +321,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         
         // Show success message and close modal after a brief delay to let user see the success
         alert('Patient updated successfully!');
+        
+        // Invalidate patients cache to ensure medication modal gets updated data
+        invalidatePatients();
         
         // Close modal after a short delay to allow parent to refresh data
         setTimeout(() => {

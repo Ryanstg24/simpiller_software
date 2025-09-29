@@ -77,38 +77,12 @@ export function PasswordChangeModal({
       console.log('Starting password change process...');
       setLoadingStep('Changing password...');
       
-      // Change password using Supabase
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        console.error('Error changing password:', error);
-        
-        // Handle specific error cases
-        if (error.message.includes('New password should be different from the old password')) {
-          setError('Please choose a different password than your current temporary password.');
-        } else if (error.message.includes('Password should be at least')) {
-          setError('Password must be at least 6 characters long.');
-        } else {
-          setError(`Failed to change password: ${error.message}`);
-        }
-        
-        setLoading(false);
-        if (timeoutId) clearTimeout(timeoutId);
-        return;
-      }
-
-      console.log('Password changed successfully in Supabase Auth');
-
-      // Get the current user ID
-      console.log('Getting current user...');
-      setLoadingStep('Updating user record...');
+      // Get the current user ID first
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
         console.error('Error getting user:', userError);
-        setError('Failed to update user record. Please try again.');
+        setError('Failed to get user information. Please try again.');
         setLoading(false);
         if (timeoutId) clearTimeout(timeoutId);
         return;
@@ -116,20 +90,39 @@ export function PasswordChangeModal({
 
       console.log('Got user ID:', user.id);
 
-      // Update the user record to remove the password change requirement
-      console.log('Updating user record in database...');
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ password_change_required: false })
-        .eq('id', user.id);
+      // Use the API route to change password and update database
+      setLoadingStep('Updating password...');
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          newPassword: newPassword
+        })
+      });
 
-      if (updateError) {
-        console.error('Error updating user record:', updateError);
-        // Don't fail the whole operation - password was changed successfully
-        console.log('Password changed successfully, but database update failed. Proceeding anyway.');
-      } else {
-        console.log('Password changed and database updated successfully');
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error changing password:', result.error);
+        
+        // Handle specific error cases
+        if (result.error.includes('New password should be different from the old password')) {
+          setError('Please choose a different password than your current temporary password.');
+        } else if (result.error.includes('Password should be at least')) {
+          setError('Password must be at least 6 characters long.');
+        } else {
+          setError(`Failed to change password: ${result.error}`);
+        }
+        
+        setLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
+        return;
       }
+
+      console.log('Password changed and database updated successfully');
 
       // Success - show success message briefly then close
       console.log('Password change process completed successfully');
