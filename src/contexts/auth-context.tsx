@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [rolesFetched, setRolesFetched] = useState(false);
   const router = useRouter();
 
   // Session timeout handling
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setUserRoles([]);
       setPasswordChangeRequired(false);
+      setRolesFetched(false);
       
       // Force redirect to login page
       console.log('Session timeout - redirecting to login');
@@ -127,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await fetchUserRoles(session.user.id);
         } else {
           setUserRoles([]);
+          setRolesFetched(false);
         }
         
         setIsLoading(false);
@@ -139,11 +142,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchUserRoles = async (userId: string) => {
+  const fetchUserRoles = async (userId: string, forceRefresh = false) => {
+    // Don't fetch if we already have roles and it's not a forced refresh
+    if (rolesFetched && !forceRefresh) {
+      console.log('User roles already fetched, skipping...');
+      return;
+    }
+
     try {
-      // Add timeout to prevent hanging
+      console.log('Fetching user roles for user:', userId);
+      // Increase timeout to 30 seconds to handle slow queries
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('User roles fetch timeout')), 10000)
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 30000)
       );
 
       const fetchPromise = Promise.all([
@@ -190,11 +200,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setPasswordChangeRequired(false); // Set default on error
       }
+
+      // Mark roles as fetched
+      setRolesFetched(true);
+      console.log('User roles fetched successfully');
     } catch (error) {
       console.error('Error fetching user roles:', error);
       // Set safe defaults on error
       setUserRoles([]);
       setPasswordChangeRequired(false);
+      setRolesFetched(false);
     }
   };
 
@@ -257,7 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Refresh user data from database
       if (user?.id) {
         console.log('Refreshing user session data...');
-        await fetchUserRoles(user.id);
+        await fetchUserRoles(user.id, true); // Force refresh
       }
     },
     passwordChangeRequired: mounted ? passwordChangeRequired : false,
