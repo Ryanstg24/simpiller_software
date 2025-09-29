@@ -151,46 +151,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('Fetching user roles for user:', userId);
-      // Increase timeout to 30 seconds to handle slow queries
+      // Use a reasonable timeout - if it's taking longer, there's a deeper issue
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('User roles fetch timeout')), 30000)
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 5000)
       );
 
-      const fetchPromise = Promise.all([
-        supabase
-          .from('user_role_assignments')
-          .select(`
-            user_roles (
-              id, 
-              name, 
-              organization_id, 
-              facility_id, 
-              permissions
-            )
-          `)
-          .eq('user_id', userId),
-        supabase
-          .from('users')
-          .select('password_change_required')
-          .eq('id', userId)
-          .single()
+      // Try a simpler approach first - get role assignments and then fetch roles separately
+      const roleAssignmentsPromise = supabase
+        .from('user_role_assignments')
+        .select('role_id')
+        .eq('user_id', userId);
+
+      const userPromise = supabase
+        .from('users')
+        .select('password_change_required')
+        .eq('id', userId)
+        .single();
+
+      const [roleAssignmentsResult, userResult] = await Promise.race([
+        Promise.all([roleAssignmentsPromise, userPromise]),
+        timeoutPromise
       ]);
 
-      const [roleResult, userResult] = await Promise.race([fetchPromise, timeoutPromise]);
-
-      // Process role data
-      if (roleResult.error) {
-        console.error('Error fetching role assignments:', roleResult.error);
-        setUserRoles([]); // Set empty array on error
-      } else if (roleResult.data && roleResult.data.length > 0) {
-        const roles = roleResult.data
-          .map((assignment: { user_roles: UserRole[] }) => assignment.user_roles)
-          .filter(Boolean)
-          .flat();
-        setUserRoles(roles);
-      } else {
-        setUserRoles([]);
+      let roles: UserRole[] = [];
+      
+      if (!roleAssignmentsResult.error && roleAssignmentsResult.data && roleAssignmentsResult.data.length > 0) {
+        // Get the role IDs
+        const roleIds = roleAssignmentsResult.data.map(assignment => assignment.role_id);
+        
+        // Fetch the actual roles
+        const rolesResult = await supabase
+          .from('user_roles')
+          .select('id, name, organization_id, facility_id, permissions')
+          .in('id', roleIds);
+          
+        if (!rolesResult.error && rolesResult.data) {
+          roles = rolesResult.data;
+        }
       }
+
+      // Set the roles
+      setUserRoles(roles);
 
       // Process password change requirement
       if (!userResult.error && userResult.data) {
@@ -206,7 +207,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('User roles fetched successfully');
     } catch (error) {
       console.error('Error fetching user roles:', error);
-      // Set safe defaults on error
+      
+      // If we already have roles and this is just a timeout, don't clear them
+      if (rolesFetched && userRoles.length > 0 && error instanceof Error && error.message.includes('timeout')) {
+        console.log('Timeout occurred but keeping existing roles to prevent access denied');
+        return;
+      }
+      
+      // Only clear roles if this is the first fetch or a critical error
       setUserRoles([]);
       setPasswordChangeRequired(false);
       setRolesFetched(false);
