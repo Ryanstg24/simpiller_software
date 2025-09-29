@@ -23,7 +23,10 @@ export function useSessionTimeout({
       clearTimeout(timeoutRef.current);
     }
 
-    console.log(`[Session Timeout] Setting timeout for ${timeoutMinutes} minutes`);
+    // Only log timeout setting occasionally to reduce spam
+    if (Math.random() < 0.1) { // 10% chance to log
+      console.log(`[Session Timeout] Setting timeout for ${timeoutMinutes} minutes`);
+    }
     
     timeoutRef.current = setTimeout(() => {
       const timeSinceLastActivity = Date.now() - lastActivityRef.current;
@@ -45,7 +48,10 @@ export function useSessionTimeout({
     if (!enabled) return;
     const now = Date.now();
     const timeSinceLastActivity = now - lastActivityRef.current;
-    console.log(`[Session Timeout] Activity detected. Time since last activity: ${Math.round(timeSinceLastActivity / 1000)}s`);
+    // Only log if it's been more than 5 seconds since last activity to reduce spam
+    if (timeSinceLastActivity > 5000) {
+      console.log(`[Session Timeout] Activity detected. Time since last activity: ${Math.round(timeSinceLastActivity / 1000)}s`);
+    }
     lastActivityRef.current = now;
     resetTimeout(); // Reset the timeout when activity is detected
   }, [enabled, resetTimeout]);

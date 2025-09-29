@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [rolesFetched, setRolesFetched] = useState(false);
+  const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null);
   const router = useRouter();
 
   // Session timeout handling
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserRoles([]);
       setPasswordChangeRequired(false);
       setRolesFetched(false);
+      setLastFetchedUserId(null);
       
       // Force redirect to login page
       console.log('Session timeout - redirecting to login');
@@ -130,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserRoles([]);
           setRolesFetched(false);
+          setLastFetchedUserId(null);
         }
         
         setIsLoading(false);
@@ -143,9 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchUserRoles = async (userId: string, forceRefresh = false) => {
-    // Don't fetch if we already have roles and it's not a forced refresh
-    if (rolesFetched && !forceRefresh) {
-      console.log('User roles already fetched, skipping...');
+    // Don't fetch if we already have roles for this user and it's not a forced refresh
+    if (rolesFetched && lastFetchedUserId === userId && !forceRefresh) {
+      console.log('User roles already fetched for this user, skipping...');
       return;
     }
 
@@ -202,8 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPasswordChangeRequired(false); // Set default on error
       }
 
-      // Mark roles as fetched
+      // Mark roles as fetched for this user
       setRolesFetched(true);
+      setLastFetchedUserId(userId);
       console.log('User roles fetched successfully');
     } catch (error) {
       console.error('Error fetching user roles:', error);
@@ -218,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserRoles([]);
       setPasswordChangeRequired(false);
       setRolesFetched(false);
+      setLastFetchedUserId(null);
     }
   };
 
