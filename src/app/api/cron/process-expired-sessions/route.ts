@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const { data: expiredSessions, error: sessionsError } = await supabaseAdmin
       .from('medication_scan_sessions')
-      .select('id, patient_id, medication_ids, scheduled_time, expires_at, status')
+      .select('id, patient_id, medication_ids, scheduled_time, expires_at, is_active')
       .lt('expires_at', now.toISOString()) // Sessions that have expired
-      .eq('status', 'pending'); // Still pending (never scanned)
+      .eq('is_active', true); // Still active (never scanned)
 
     if (sessionsError) {
       console.error('[Process Expired Sessions] Error fetching expired sessions:', sessionsError);
@@ -93,11 +93,11 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Mark session as expired
+        // Mark session as inactive (expired)
         const { error: updateError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .update({ 
-            status: 'expired'
+            is_active: false
           })
           .eq('id', session.id);
 
