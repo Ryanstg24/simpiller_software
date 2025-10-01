@@ -13,6 +13,17 @@ interface UserRole {
   permissions: Record<string, unknown>;
 }
 
+interface UserRoleAssignment {
+  role_id: string;
+  user_roles: {
+    id: string;
+    name: string;
+    organization_id?: string;
+    facility_id?: string;
+    permissions: Record<string, unknown>;
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -70,7 +81,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
       }
 
       // Transform the data to match our interface
-      const roles: UserRole[] = data.map((assignment: any) => ({
+      const roles: UserRole[] = data.map((assignment: UserRoleAssignment) => ({
         id: assignment.user_roles.id,
         name: assignment.user_roles.name,
         organization_id: assignment.user_roles.organization_id,
