@@ -2,12 +2,26 @@
   "functions": {
     "src/app/api/cron/send-medication-alerts/route.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/cron/process-expired-sessions/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/cron/process-chautauqua-sftp/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/send-medication-alerts",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-expired-sessions",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/process-chautauqua-sftp",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
