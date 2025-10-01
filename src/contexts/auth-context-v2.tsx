@@ -70,7 +70,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
       }
 
       // Transform the data to match our interface
-      const roles: UserRole[] = data.map(assignment => ({
+      const roles: UserRole[] = data.map((assignment: any) => ({
         id: assignment.user_roles.id,
         name: assignment.user_roles.name,
         organization_id: assignment.user_roles.organization_id,
