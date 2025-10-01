@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [rolesFetched, setRolesFetched] = useState(false);
   const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const router = useRouter();
 
   // Session timeout handling
@@ -67,11 +68,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Enable session timeout only when user is logged in
+  // Temporarily disable session timeout to fix platform instability
+  // TODO: Re-enable once auth system is stable
   useSessionTimeout({
     timeoutMinutes: 30, // 30 minutes of inactivity
     onTimeout: handleSessionTimeout,
-    enabled: !!user && !!session
+    enabled: false // Disabled to prevent platform instability
   });
 
   // Debug logging for session timeout
@@ -159,6 +161,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Debounce: Don't fetch if we've fetched in the last 5 seconds (unless forced)
+    const now = Date.now();
+    if (!forceRefresh && (now - lastFetchTime) < 5000) {
+      console.log('Debouncing role fetch - too soon since last fetch');
+      return;
+    }
+
     // If we have roles for a different user, clear them first
     if (lastFetchedUserId && lastFetchedUserId !== userId) {
       console.log('User changed, clearing previous roles');
@@ -169,9 +178,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('Fetching user roles for user:', userId);
-      // Use a very short timeout - if it's taking longer, there's a serious issue
+      // Increase timeout to 10 seconds to prevent frequent timeouts
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('User roles fetch timeout')), 3000)
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 10000)
       );
 
       // Try a simpler approach first - get role assignments and then fetch roles separately
@@ -223,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Mark roles as fetched for this user
       setRolesFetched(true);
       setLastFetchedUserId(userId);
+      setLastFetchTime(now);
       console.log('User roles fetched successfully');
     } catch (error) {
       console.error('Error fetching user roles:', error);
@@ -247,14 +257,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPasswordChangeRequired(false);
         setRolesFetched(true);
         setLastFetchedUserId(userId);
+        setLastFetchTime(now);
         return;
       }
       
-      // Only clear roles if this is a critical error (not timeout)
-      setUserRoles([]);
-      setPasswordChangeRequired(false);
-      setRolesFetched(false);
-      setLastFetchedUserId(null);
+      // Only clear roles if this is a critical error (not timeout) and we don't have existing roles
+      if (!rolesFetched || userRoles.length === 0) {
+        console.log('Critical error and no existing roles - clearing auth state');
+        setUserRoles([]);
+        setPasswordChangeRequired(false);
+        setRolesFetched(false);
+        setLastFetchedUserId(null);
+      } else {
+        console.log('Critical error but keeping existing roles to prevent platform instability');
+      }
     }
   };
 
