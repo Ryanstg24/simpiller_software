@@ -21,10 +21,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const { data: expiredSessions, error: sessionsError } = await supabaseAdmin
       .from('medication_scan_sessions')
-      .select('id, patient_id, medication_ids, scheduled_time, expires_at, is_active, processed_for_missed')
+      .select('id, patient_id, medication_ids, scheduled_time, expires_at, status')
       .lt('expires_at', now.toISOString()) // Sessions that have expired
-      .eq('is_active', true) // Still active (never scanned)
-      .is('processed_for_missed', null); // Not yet processed for missed logging
+      .eq('status', 'pending'); // Still pending (never scanned)
 
     if (sessionsError) {
       console.error('[Process Expired Sessions] Error fetching expired sessions:', sessionsError);
@@ -94,12 +93,11 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Mark session as processed for missed logging
+        // Mark session as expired
         const { error: updateError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .update({ 
-            processed_for_missed: now.toISOString(),
-            is_active: false // Also deactivate the session
+            status: 'expired'
           })
           .eq('id', session.id);
 
