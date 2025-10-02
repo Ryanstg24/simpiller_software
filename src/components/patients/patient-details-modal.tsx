@@ -82,11 +82,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [providersFetchedForPatient, setProvidersFetchedForPatient] = useState<string | null>(null);
 
   // Ensure tab reflects requested initial tab when opening or changing patient
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab || 'details');
+    } else {
+      // Reset providers fetched state when modal closes
+      setProvidersFetchedForPatient(null);
     }
   }, [isOpen, initialTab, patient?.id]);
 
@@ -204,11 +208,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       }
       
       fetchMedications();
-      if (canEditProvider) {
-        console.log('Calling fetchProviders from useEffect');
+      if (canEditProvider && providersFetchedForPatient !== patient.id) {
+        console.log('Calling fetchProviders from useEffect for patient:', patient.id);
         fetchProviders();
-      } else {
+        setProvidersFetchedForPatient(patient.id);
+      } else if (!canEditProvider) {
         console.log('Not calling fetchProviders - canEditProvider is false');
+      } else {
+        console.log('Providers already fetched for this patient:', patient.id);
       }
       
       // Invalidate patients cache to ensure fresh data is available for medication modal
@@ -218,7 +225,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, canEditProvider, invalidatePatients, formData.id]);
+  }, [patient?.id, canEditProvider]); // Removed formData.id and invalidatePatients to prevent infinite loops
 
   const handleSavePatient = async () => {
     if (!patient) return;
