@@ -98,15 +98,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
-  // Debug provider dropdown state
-  console.log('Provider Dropdown Debug:', {
-    canEditProvider,
-    isSimpillerAdmin,
-    isOrganizationAdmin,
-    loadingProviders,
-    providersCount: providers.length,
-    providers: providers.slice(0, 3) // Show first 3 providers
-  });
 
 
   const fetchMedications = useCallback(async () => {
@@ -154,32 +145,20 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   }, [patient]);
 
   const fetchProviders = useCallback(async () => {
-    // Temporarily bypass canEditProvider check for debugging
-    console.log('canEditProvider:', canEditProvider, 'isSimpillerAdmin:', isSimpillerAdmin, 'isOrganizationAdmin:', isOrganizationAdmin);
-    
-    // Force fetch providers for debugging
-    console.log('Forcing provider fetch for debugging...');
+    if (!canEditProvider) {
+      return;
+    }
 
-    console.log('Starting to fetch providers...');
     setLoadingProviders(true);
     
     try {
       // Ultra-simplified approach: Just get all active users for now
       // We can add role filtering later once basic connectivity is working
-      console.log('Fetching users from database...');
-      
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Provider fetch timeout')), 15000)
-      );
-      
-      const usersPromise = supabase
+      const { data: allUsers, error: usersError } = await supabase
         .from('users')
         .select('id, first_name, last_name, email')
         .eq('is_active', true)
         .limit(50); // Limit to prevent huge queries
-      
-      const { data: allUsers, error: usersError } = await Promise.race([usersPromise, timeoutPromise]);
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
@@ -187,7 +166,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      console.log('Successfully fetched users:', allUsers?.length || 0);
       // For now, just return all active users as potential providers
       // TODO: Add proper role filtering once basic connectivity is stable
       setProviders(allUsers || []);
@@ -196,7 +174,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       console.error('Error fetching providers:', error);
       setProviders([]);
     } finally {
-      console.log('Setting loadingProviders to false');
       setLoadingProviders(false);
     }
   }, [canEditProvider]);
@@ -205,8 +182,9 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     if (patient) {
       setFormData(patient);
       fetchMedications();
-      // Always fetch providers for debugging
-      fetchProviders();
+      if (canEditProvider) {
+        fetchProviders();
+      }
       
       // Invalidate patients cache to ensure fresh data is available for medication modal
       // This ensures that even if some queries timeout, the cache has the current patient data
@@ -215,7 +193,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, invalidatePatients]);
+  }, [patient, canEditProvider, invalidatePatients]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
@@ -638,7 +616,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                             value={formData.assigned_provider_id || ''}
                             onChange={(e) => setFormData({ ...formData, assigned_provider_id: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                            // disabled={loadingProviders} // Temporarily disabled for debugging
+                            disabled={loadingProviders}
                           >
                             <option value="">Select Provider</option>
                             {loadingProviders ? (

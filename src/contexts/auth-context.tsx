@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [rolesFetched, setRolesFetched] = useState(false);
   const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [fetchInterval, setFetchInterval] = useState<number>(300000); // 5 minutes default
   const router = useRouter();
 
   // Session timeout handling
@@ -163,8 +164,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Debounce: Don't fetch if we've fetched in the last 5 seconds (unless forced)
     const now = Date.now();
-    if (!forceRefresh && (now - lastFetchTime) < 5000) {
-      console.log('Debouncing role fetch - too soon since last fetch');
+    if (!forceRefresh && (now - lastFetchTime) < fetchInterval) {
+      console.log('Debouncing role fetch - too soon since last fetch (interval:', fetchInterval / 1000, 'seconds)');
       return;
     }
 
@@ -178,9 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('Fetching user roles for user:', userId);
-      // Increase timeout to 10 seconds to prevent frequent timeouts
+      // Increase timeout to 30 seconds to prevent frequent timeouts
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('User roles fetch timeout')), 10000)
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 30000)
       );
 
       // Try a simpler approach first - get role assignments and then fetch roles separately

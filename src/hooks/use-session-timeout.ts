@@ -48,8 +48,8 @@ export function useSessionTimeout({
     if (!enabled) return;
     const now = Date.now();
     const timeSinceLastActivity = now - lastActivityRef.current;
-    // Only log if it's been more than 5 seconds since last activity to reduce spam
-    if (timeSinceLastActivity > 5000) {
+    // Only log if it's been more than 30 seconds since last activity to reduce spam
+    if (timeSinceLastActivity > 30000) {
       console.log(`[Session Timeout] Activity detected. Time since last activity: ${Math.round(timeSinceLastActivity / 1000)}s`);
     }
     lastActivityRef.current = now;
