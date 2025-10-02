@@ -176,9 +176,11 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       if (usersError) {
         console.error('Error fetching users:', usersError);
         setProviders([]);
+        setLoadingProviders(false); // Ensure loading is set to false on error
         return;
       }
 
+      console.log('Successfully fetched providers:', allUsers?.length || 0);
       // For now, just return all active users as potential providers
       // TODO: Add proper role filtering once basic connectivity is stable
       setProviders(allUsers || []);
@@ -187,6 +189,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       console.error('Error fetching providers:', error);
       setProviders([]);
     } finally {
+      console.log('Setting loadingProviders to false in finally block');
       setLoadingProviders(false);
     }
   }, [canEditProvider]);
@@ -194,7 +197,12 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   useEffect(() => {
     console.log('Patient details useEffect triggered:', { patient: !!patient, canEditProvider });
     if (patient) {
-      setFormData(patient);
+      // Only set form data if it's not already set to prevent flashing
+      if (!formData.id || formData.id !== patient.id) {
+        console.log('Setting form data for patient:', patient.id);
+        setFormData(patient);
+      }
+      
       fetchMedications();
       if (canEditProvider) {
         console.log('Calling fetchProviders from useEffect');
@@ -210,7 +218,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, canEditProvider, invalidatePatients]);
+  }, [patient, canEditProvider, invalidatePatients, formData.id]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
