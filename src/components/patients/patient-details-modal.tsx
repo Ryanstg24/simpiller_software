@@ -101,6 +101,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Debug provider dropdown state
   console.log('Provider Dropdown Debug:', {
     canEditProvider,
+    isSimpillerAdmin,
+    isOrganizationAdmin,
     loadingProviders,
     providersCount: providers.length,
     providers: providers.slice(0, 3) // Show first 3 providers
@@ -152,10 +154,11 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   }, [patient]);
 
   const fetchProviders = useCallback(async () => {
-    if (!canEditProvider) {
-      console.log('Cannot edit provider, skipping fetch');
-      return;
-    }
+    // Temporarily bypass canEditProvider check for debugging
+    console.log('canEditProvider:', canEditProvider, 'isSimpillerAdmin:', isSimpillerAdmin, 'isOrganizationAdmin:', isOrganizationAdmin);
+    
+    // Force fetch providers for debugging
+    console.log('Forcing provider fetch for debugging...');
 
     console.log('Starting to fetch providers...');
     setLoadingProviders(true);
@@ -202,9 +205,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     if (patient) {
       setFormData(patient);
       fetchMedications();
-      if (canEditProvider) {
-        fetchProviders();
-      }
+      // Always fetch providers for debugging
+      fetchProviders();
       
       // Invalidate patients cache to ensure fresh data is available for medication modal
       // This ensures that even if some queries timeout, the cache has the current patient data
@@ -213,7 +215,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       // Use patient's time preferences if available, otherwise use defaults
       // Time preferences are now handled by the MedicationModal component
     }
-  }, [patient, canEditProvider, invalidatePatients]);
+  }, [patient, invalidatePatients]);
 
   const handleSavePatient = async () => {
     if (!patient) return;
