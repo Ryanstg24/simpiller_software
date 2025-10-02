@@ -209,7 +209,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       
       if (isOrganizationAdmin && userOrganizationId) {
         providerUserIds = roleAssignments
-          ?.filter(ra => ra.user_roles.organization_id === userOrganizationId)
+          ?.filter(ra => ra.user_roles[0]?.organization_id === userOrganizationId)
           ?.map(ra => ra.user_id) || [];
       }
 
