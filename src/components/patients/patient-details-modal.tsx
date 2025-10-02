@@ -98,6 +98,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
+  // Debug provider dropdown state
+  console.log('Provider Dropdown Debug:', {
+    canEditProvider,
+    loadingProviders,
+    providersCount: providers.length,
+    providers: providers.slice(0, 3) // Show first 3 providers
+  });
+
 
   const fetchMedications = useCallback(async () => {
     if (!patient) return;
@@ -613,7 +621,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                             value={formData.assigned_provider_id || ''}
                             onChange={(e) => setFormData({ ...formData, assigned_provider_id: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                            disabled={loadingProviders}
+                            // disabled={loadingProviders} // Temporarily disabled for debugging
                           >
                             <option value="">Select Provider</option>
                             {loadingProviders ? (
