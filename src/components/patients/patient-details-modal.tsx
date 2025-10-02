@@ -152,18 +152,31 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   }, [patient]);
 
   const fetchProviders = useCallback(async () => {
-    if (!canEditProvider) return;
+    if (!canEditProvider) {
+      console.log('Cannot edit provider, skipping fetch');
+      return;
+    }
 
+    console.log('Starting to fetch providers...');
+    setLoadingProviders(true);
+    
     try {
-      setLoadingProviders(true);
-      
       // Ultra-simplified approach: Just get all active users for now
       // We can add role filtering later once basic connectivity is working
-      const { data: allUsers, error: usersError } = await supabase
+      console.log('Fetching users from database...');
+      
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Provider fetch timeout')), 15000)
+      );
+      
+      const usersPromise = supabase
         .from('users')
         .select('id, first_name, last_name, email')
         .eq('is_active', true)
         .limit(50); // Limit to prevent huge queries
+      
+      const { data: allUsers, error: usersError } = await Promise.race([usersPromise, timeoutPromise]);
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
@@ -171,6 +184,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
+      console.log('Successfully fetched users:', allUsers?.length || 0);
       // For now, just return all active users as potential providers
       // TODO: Add proper role filtering once basic connectivity is stable
       setProviders(allUsers || []);
@@ -179,6 +193,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       console.error('Error fetching providers:', error);
       setProviders([]);
     } finally {
+      console.log('Setting loadingProviders to false');
       setLoadingProviders(false);
     }
   }, [canEditProvider]);
