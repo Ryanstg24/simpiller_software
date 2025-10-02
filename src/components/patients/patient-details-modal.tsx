@@ -149,33 +149,13 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     try {
       setLoadingProviders(true);
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Provider fetch timeout')), 10000)
-      );
-
-      // First test a simple query to see if we can access users table
-      const testPromise = supabase
+      // Ultra-simplified approach: Just get all active users for now
+      // We can add role filtering later once basic connectivity is working
+      const { data: allUsers, error: usersError } = await supabase
         .from('users')
-        .select('id, first_name, last_name')
-        .limit(1);
-
-      const { error: testError } = await Promise.race([testPromise, timeoutPromise]);
-
-      if (testError) {
-        console.error('Simple users query failed:', testError);
-        setProviders([]);
-        return;
-      }
-
-      // Simplified approach: Get all active users and filter by role in memory
-      // This is more reliable than complex joins
-      const usersPromise = supabase
-        .from('users')
-        .select('id, first_name, last_name, email, is_active')
-        .eq('is_active', true);
-
-      const { data: allUsers, error: usersError } = await Promise.race([usersPromise, timeoutPromise]);
+        .select('id, first_name, last_name, email')
+        .eq('is_active', true)
+        .limit(50); // Limit to prevent huge queries
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
@@ -183,51 +163,17 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      if (!allUsers || allUsers.length === 0) {
-        setProviders([]);
-        return;
-      }
-
-      // Get provider role assignments for these users
-      const userIds = allUsers.map(u => u.id);
-      const roleAssignmentsPromise = supabase
-        .from('user_role_assignments')
-        .select('user_id, user_roles!inner(name, organization_id)')
-        .in('user_id', userIds)
-        .eq('user_roles.name', 'provider');
-
-      const { data: roleAssignments, error: roleError } = await Promise.race([roleAssignmentsPromise, timeoutPromise]);
-
-      if (roleError) {
-        console.error('Error fetching role assignments:', roleError);
-        setProviders([]);
-        return;
-      }
-
-      // Filter providers by organization if needed
-      let providerUserIds = roleAssignments?.map(ra => ra.user_id) || [];
-      
-      if (isOrganizationAdmin && userOrganizationId) {
-        providerUserIds = roleAssignments
-          ?.filter(ra => ra.user_roles[0]?.organization_id === userOrganizationId)
-          ?.map(ra => ra.user_id) || [];
-      }
-
-      // Get the provider details
-      const providerDetails = allUsers.filter(user => providerUserIds.includes(user.id));
-
-      setProviders(providerDetails || []);
+      // For now, just return all active users as potential providers
+      // TODO: Add proper role filtering once basic connectivity is stable
+      setProviders(allUsers || []);
       
     } catch (error) {
       console.error('Error fetching providers:', error);
-      if (error instanceof Error && error.message.includes('timeout')) {
-        console.log('Providers fetch timed out, using empty array');
-      }
       setProviders([]);
     } finally {
       setLoadingProviders(false);
     }
-  }, [canEditProvider, isOrganizationAdmin, userOrganizationId]);
+  }, [canEditProvider]);
 
   useEffect(() => {
     if (patient) {
