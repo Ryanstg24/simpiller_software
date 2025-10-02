@@ -98,6 +98,16 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
+  // Debug provider dropdown state
+  console.log('Provider Dropdown Debug:', {
+    canEditProvider,
+    isSimpillerAdmin,
+    isOrganizationAdmin,
+    loadingProviders,
+    providersCount: providers.length,
+    providers: providers.slice(0, 3)
+  });
+
 
 
   const fetchMedications = useCallback(async () => {
@@ -145,10 +155,13 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   }, [patient]);
 
   const fetchProviders = useCallback(async () => {
+    console.log('fetchProviders called, canEditProvider:', canEditProvider);
     if (!canEditProvider) {
+      console.log('Cannot edit provider, returning early');
       return;
     }
 
+    console.log('Starting to fetch providers...');
     setLoadingProviders(true);
     
     try {
@@ -179,11 +192,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   }, [canEditProvider]);
 
   useEffect(() => {
+    console.log('Patient details useEffect triggered:', { patient: !!patient, canEditProvider });
     if (patient) {
       setFormData(patient);
       fetchMedications();
       if (canEditProvider) {
+        console.log('Calling fetchProviders from useEffect');
         fetchProviders();
+      } else {
+        console.log('Not calling fetchProviders - canEditProvider is false');
       }
       
       // Invalidate patients cache to ensure fresh data is available for medication modal
@@ -614,7 +631,12 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                         {canEditProvider ? (
                           <select
                             value={formData.assigned_provider_id || ''}
-                            onChange={(e) => setFormData({ ...formData, assigned_provider_id: e.target.value })}
+                            onChange={(e) => {
+                              console.log('Provider dropdown changed:', e.target.value);
+                              setFormData({ ...formData, assigned_provider_id: e.target.value });
+                            }}
+                            onClick={() => console.log('Provider dropdown clicked')}
+                            onFocus={() => console.log('Provider dropdown focused')}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                             disabled={loadingProviders}
                           >
