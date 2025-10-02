@@ -313,17 +313,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isProvider = userRoles.some(role => role.name === 'provider');
   const isBilling = userRoles.some(role => role.name === 'billing');
 
-  // Debug logging for role computation
-  console.log('Auth Context - Role Debug:', {
-    userRoles,
-    isSimpillerAdmin,
-    isOrganizationAdmin,
-    isProvider,
-    isBilling,
-    mounted,
-    rolesFetched,
-    lastFetchedUserId
-  });
   
   const userOrganizationId = userRoles.find(role => 
     role.name !== 'simpiller_admin'

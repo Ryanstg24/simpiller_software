@@ -98,14 +98,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
-  // Debug logging for provider edit permissions
-  console.log('Patient Details Modal - Auth Debug:', {
-    isSimpillerAdmin,
-    isOrganizationAdmin,
-    canEditProvider,
-    canEditPharmacy,
-    userOrganizationId
-  });
 
   const fetchMedications = useCallback(async () => {
     if (!patient) return;
@@ -113,7 +105,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     try {
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Medications fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Medications fetch timeout')), 10000)
       );
 
       const medicationsPromise = supabase
@@ -159,7 +151,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Provider fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Provider fetch timeout')), 10000)
       );
 
       // First test a simple query to see if we can access users table
@@ -176,49 +168,53 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      // Get users who have provider roles
-      let providerQuery = supabase
+      // Simplified approach: Get all active users and filter by role in memory
+      // This is more reliable than complex joins
+      const usersPromise = supabase
+        .from('users')
+        .select('id, first_name, last_name, email, is_active')
+        .eq('is_active', true);
+
+      const { data: allUsers, error: usersError } = await Promise.race([usersPromise, timeoutPromise]);
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        setProviders([]);
+        return;
+      }
+
+      if (!allUsers || allUsers.length === 0) {
+        setProviders([]);
+        return;
+      }
+
+      // Get provider role assignments for these users
+      const userIds = allUsers.map(u => u.id);
+      const roleAssignmentsPromise = supabase
         .from('user_role_assignments')
-        .select(`
-          user_id,
-          user_roles!inner(name, organization_id)
-        `)
+        .select('user_id, user_roles!inner(name, organization_id)')
+        .in('user_id', userIds)
         .eq('user_roles.name', 'provider');
 
-      // Filter by organization if user is organization admin
+      const { data: roleAssignments, error: roleError } = await Promise.race([roleAssignmentsPromise, timeoutPromise]);
+
+      if (roleError) {
+        console.error('Error fetching role assignments:', roleError);
+        setProviders([]);
+        return;
+      }
+
+      // Filter providers by organization if needed
+      let providerUserIds = roleAssignments?.map(ra => ra.user_id) || [];
+      
       if (isOrganizationAdmin && userOrganizationId) {
-        providerQuery = providerQuery.eq('user_roles.organization_id', userOrganizationId);
+        providerUserIds = roleAssignments
+          ?.filter(ra => ra.user_roles.organization_id === userOrganizationId)
+          ?.map(ra => ra.user_id) || [];
       }
 
-      const { data: providerUsers, error: providerError } = await Promise.race([providerQuery, timeoutPromise]);
-
-      if (providerError) {
-        console.error('Error fetching provider roles:', providerError);
-        setProviders([]);
-        return;
-      }
-
-      const providerUserIds = providerUsers?.map(u => u.user_id) || [];
-
-      if (providerUserIds.length === 0) {
-        setProviders([]);
-        return;
-      }
-
-      // Get the full user details for these provider users
-      const detailsPromise = supabase
-        .from('users')
-        .select('id, first_name, last_name, email')
-        .eq('is_active', true)
-        .in('id', providerUserIds);
-
-      const { data: providerDetails, error: detailsError } = await Promise.race([detailsPromise, timeoutPromise]);
-
-      if (detailsError) {
-        console.error('Error fetching provider details:', detailsError);
-        setProviders([]);
-        return;
-      }
+      // Get the provider details
+      const providerDetails = allUsers.filter(user => providerUserIds.includes(user.id));
 
       setProviders(providerDetails || []);
       
