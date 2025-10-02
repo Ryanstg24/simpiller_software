@@ -98,6 +98,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
+  // Debug logging for provider edit permissions
+  console.log('Patient Details Modal - Auth Debug:', {
+    isSimpillerAdmin,
+    isOrganizationAdmin,
+    canEditProvider,
+    canEditPharmacy,
+    userOrganizationId
+  });
+
   const fetchMedications = useCallback(async () => {
     if (!patient) return;
 
