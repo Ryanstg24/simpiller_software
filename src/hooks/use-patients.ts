@@ -186,7 +186,7 @@ export function usePatients() {
       type SupabaseResponse<T> = { data: T[] | null; error: unknown };
       const { data, error } = await withTimeout(
         query as unknown as Promise<SupabaseResponse<Patient>>,
-        15000,
+        60000, // Increased to 60 seconds
         'Patients load timed out'
       );
 
@@ -217,14 +217,14 @@ export function usePatients() {
       )) {
         return false;
       }
-      // Retry up to 2 times for other errors
-      return failureCount < 2;
+      // Retry only once for other errors to reduce load
+      return failureCount < 1;
     },
-    retryDelay: (attempt: number) => Math.min(2000 * attempt, 4000),
+    retryDelay: (attempt: number) => Math.min(5000 * attempt, 10000), // Longer delays
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes - keep data fresh longer
-    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache much longer to prevent disappearing
+    staleTime: 10 * 60 * 1000, // 10 minutes - keep data fresh much longer
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache much longer to prevent disappearing
   });
 
   const invalidatePatients = () => {

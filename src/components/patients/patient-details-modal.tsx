@@ -178,66 +178,47 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      console.log('Fetching providers for organization:', patientOrgId);
-
-      // First, let's check what roles exist for this organization
-      const { data: allRoles, error: allRolesError } = await supabase
-        .from('user_roles')
-        .select('id, name, organization_id')
-        .eq('organization_id', patientOrgId);
-      
-      console.log('All roles in organization:', allRoles);
-
-      // Get users who have provider roles in the patient's organization
-      const { data: roleAssignments, error: roleError } = await supabase
-        .from('user_role_assignments')
-        .select(`
-          user_id,
-          user_roles!inner(
-            name,
-            organization_id
-          )
-        `)
-        .eq('user_roles.name', 'provider')
-        .eq('user_roles.organization_id', patientOrgId);
-
-      console.log('Role assignments query result:', { roleAssignments, roleError });
-
-      if (roleError) {
-        console.error('Error fetching provider roles:', roleError);
-        setProviders([]);
-        setLoadingProviders(false);
-        return;
-      }
-
-      if (!roleAssignments || roleAssignments.length === 0) {
-        console.log('No providers found for organization:', patientOrgId);
-        setProviders([]);
-        setLoadingProviders(false);
-        return;
-      }
-
-      // Get the user details for these provider users
-      const providerUserIds = roleAssignments.map(ra => ra.user_id);
-      console.log('Provider user IDs to fetch:', providerUserIds);
-      
-      const { data: providerUsers, error: usersError } = await supabase
+      // Simplified approach: Get all active users in the organization first
+      const { data: allUsers, error: usersError } = await supabase
         .from('users')
         .select('id, first_name, last_name, email, is_active')
         .eq('is_active', true)
-        .in('id', providerUserIds);
-
-      console.log('Provider users query result:', { providerUsers, usersError });
+        .limit(100);
 
       if (usersError) {
-        console.error('Error fetching provider users:', usersError);
+        console.error('Error fetching users:', usersError);
         setProviders([]);
         setLoadingProviders(false);
         return;
       }
 
-      console.log('Successfully fetched providers:', providerUsers?.length || 0);
-      setProviders(providerUsers || []);
+      if (!allUsers || allUsers.length === 0) {
+        setProviders([]);
+        setLoadingProviders(false);
+        return;
+      }
+
+      // Get role assignments for these users
+      const userIds = allUsers.map(u => u.id);
+      const { data: roleAssignments, error: roleError } = await supabase
+        .from('user_role_assignments')
+        .select('user_id, user_roles!inner(name, organization_id)')
+        .in('user_id', userIds)
+        .in('user_roles.name', ['provider', 'organization_admin'])
+        .eq('user_roles.organization_id', patientOrgId);
+
+      if (roleError) {
+        console.error('Error fetching role assignments:', roleError);
+        setProviders([]);
+        setLoadingProviders(false);
+        return;
+      }
+
+      // Filter users to only those with provider or org admin roles in the patient's organization
+      const eligibleUserIds = roleAssignments?.map(ra => ra.user_id) || [];
+      const eligibleUsers = allUsers.filter(user => eligibleUserIds.includes(user.id));
+
+      setProviders(eligibleUsers);
       
     } catch (error) {
       console.error('Error fetching providers:', error);
