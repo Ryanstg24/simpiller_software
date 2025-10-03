@@ -13,16 +13,14 @@ interface UserRole {
   permissions: Record<string, unknown>;
 }
 
-interface UserRoleAssignment {
-  role_id: string;
-  user_roles: {
-    id: string;
-    name: string;
-    organization_id?: string;
-    facility_id?: string;
-    permissions: Record<string, unknown>;
-  }[];
+interface DatabaseUserRole {
+  id: string;
+  name: string;
+  organization_id?: string;
+  facility_id?: string;
+  permissions?: Record<string, unknown>;
 }
+
 
 interface AuthContextType {
   user: User | null;
@@ -91,7 +89,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
       console.log('[Auth V2] Raw data from database:', data);
 
       // Transform the data to match our interface
-      const roles: UserRole[] = data.map((role: any) => ({
+      const roles: UserRole[] = data.map((role: DatabaseUserRole) => ({
         id: role.id,
         name: role.name,
         organization_id: role.organization_id,
