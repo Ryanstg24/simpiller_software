@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { AccessDenied } from './access-denied';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRoles, fallback }: ProtectedRouteProps) {
-  const { user, isLoading, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuth();
+  const { user, isLoading, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuthV2();
   const router = useRouter();
 
   // Redirect to login if not authenticated

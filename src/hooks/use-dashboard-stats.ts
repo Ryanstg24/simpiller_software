@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 interface DashboardStats {
   activePatients: number;
@@ -15,7 +15,7 @@ interface DashboardStats {
 }
 
 export function useDashboardStats() {
-  const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuth();
+  const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
   const {
     data: stats = {

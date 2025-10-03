@@ -2,7 +2,7 @@
 
 import { Settings, LogOut, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useRouter } from "next/navigation";
 
 interface HeaderProps {
@@ -18,7 +18,7 @@ interface HeaderProps {
 export function Header({ title, subtitle, user }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { signOut } = useAuth();
+  const { signOut } = useAuthV2();
   const router = useRouter();
 
   // Close menu when clicking outside

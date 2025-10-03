@@ -10,7 +10,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ProtectedRoute } from "@/components/auth/protected-route";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { StatsCardSkeleton } from "@/components/ui/loading-skeleton";
@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function Dashboard() {
-  const { isLoading, user } = useAuth();
+  const { isLoading, user } = useAuthV2();
   const userInfo = useUserDisplay();
   const { stats, loading: statsLoading, error } = useDashboardStats();
   const router = useRouter();

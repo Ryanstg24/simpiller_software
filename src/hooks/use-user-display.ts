@@ -1,9 +1,9 @@
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export function useUserDisplay() {
-  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId } = useAuth();
+  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling, userOrganizationId } = useAuthV2();
   const [mounted, setMounted] = useState(false);
   const [userInfo, setUserInfo] = useState({ 
     name: "Loading...", 

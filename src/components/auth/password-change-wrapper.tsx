@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { PasswordChangeModal } from './password-change-modal';
 import { useState } from 'react';
 
@@ -9,7 +9,7 @@ interface PasswordChangeWrapperProps {
 }
 
 export function PasswordChangeWrapper({ children }: PasswordChangeWrapperProps) {
-  const { passwordChangeRequired, setPasswordChangeRequired, refreshSession } = useAuth();
+  const { passwordChangeRequired, setPasswordChangeRequired } = useAuthV2();
 
   // Show modal if password change is required
   if (passwordChangeRequired) {
@@ -22,8 +22,7 @@ export function PasswordChangeWrapper({ children }: PasswordChangeWrapperProps) 
           }}
           onPasswordChanged={async () => {
             setPasswordChangeRequired(false);
-            // Refresh user data from database to ensure password_change_required is updated
-            await refreshSession();
+            // Password change requirement will be updated on next auth state change
           }}
         />
         {/* Show a minimal loading screen while password change is required */}

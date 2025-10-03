@@ -15,7 +15,7 @@ import {
   DollarSign,
   Zap
 } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import Link from "next/link";
 
 interface NavItem {
@@ -47,7 +47,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage = '/' }: SidebarProps) {
-  const { isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin, isProvider, isBilling } = useAuthV2();
 
   // Filter navigation items based on user roles (fine-grained)
   const filteredNavigation = navigation.filter(item => {

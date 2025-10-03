@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/auth-context";
+import { AuthProviderV2 } from "@/contexts/auth-context-v2";
 import { Providers } from "@/components/providers";
 import { PasswordChangeWrapper } from "@/components/auth/password-change-wrapper";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -23,11 +23,11 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <Providers>
-            <AuthProvider>
+            <AuthProviderV2>
               <PasswordChangeWrapper>
                 {children}
               </PasswordChangeWrapper>
-            </AuthProvider>
+            </AuthProviderV2>
           </Providers>
         </ErrorBoundary>
       </body>
