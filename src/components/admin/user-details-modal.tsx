@@ -13,6 +13,7 @@ interface UserDetailsModalProps {
 }
 
 interface UserRole {
+  id: string;
   name: string;
   organization_id?: string;
   organization?: {
