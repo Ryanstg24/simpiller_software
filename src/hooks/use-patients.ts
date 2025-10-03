@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 export interface Patient {
   id: string;
@@ -71,7 +71,7 @@ export interface Patient {
 }
 
 export function usePatients() {
-  const { isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user } = useAuthV2();
   const queryClient = useQueryClient();
 
   // Simple timeout wrapper for queries to avoid indefinite loading

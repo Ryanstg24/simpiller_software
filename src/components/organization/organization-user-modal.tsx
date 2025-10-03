@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, User, Edit } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import type { User as UserType } from '@/hooks/use-users';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export function OrganizationUserModal({
   onClose, 
   onUserUpdated 
 }: OrganizationUserModalProps) {
-  const { isOrganizationAdmin, userOrganizationId } = useAuth();
+  const { isOrganizationAdmin, userOrganizationId } = useAuthV2();
   const [isEditing, setIsEditing] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [formData, setFormData] = useState({

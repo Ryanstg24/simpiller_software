@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 export interface BillingOrganization {
   id: string;
@@ -58,7 +58,7 @@ export function useBillingAnalytics(filters: BillingFilters = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, isSimpillerAdmin } = useAuth();
+  const { user, isSimpillerAdmin } = useAuthV2();
 
   useEffect(() => {
     const fetchBillingData = async () => {

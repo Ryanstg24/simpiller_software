@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Mail, MapPin, Calendar, Shield, Save, X, Stethoscope, Upload } from 'lucide-react';
 import { HybridTimeInput } from '@/components/ui/hybrid-time-input';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useFacilities } from '@/hooks/use-facilities';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { supabase } from '@/lib/supabase';
@@ -25,7 +25,7 @@ interface Provider {
 }
 
 export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalProps) {
-  const { isSimpillerAdmin, userOrganizationId } = useAuth();
+  const { isSimpillerAdmin, userOrganizationId } = useAuthV2();
   const { facilities } = useFacilities();
   const { organizations } = useOrganizations();
   const [loading, setLoading] = useState(false);

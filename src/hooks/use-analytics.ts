@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 interface AnalyticsData {
   overallCompliance: number; // 30-day avg adherence across scoped patients
@@ -42,7 +42,7 @@ export function useAnalytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, isSimpillerAdmin, userOrganizationId } = useAuth();
+  const { user, isSimpillerAdmin, userOrganizationId } = useAuthV2();
 
   useEffect(() => {
     const fetchAnalytics = async () => {

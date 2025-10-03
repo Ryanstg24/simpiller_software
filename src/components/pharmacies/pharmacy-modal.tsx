@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Building2, Edit } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { supabase } from '@/lib/supabase';
 import { Pharmacy } from '@/hooks/use-pharmacies';
@@ -24,7 +24,7 @@ export function PharmacyModal({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isSimpillerAdmin, userOrganizationId } = useAuth();
+  const { isSimpillerAdmin, userOrganizationId } = useAuthV2();
   const { organizations } = useOrganizations();
   
   // Form data for editing pharmacy

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, Save, Building2 } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { supabase } from "@/lib/supabase";
 
@@ -15,7 +15,7 @@ interface AddFacilityModalProps {
 }
 
 export function AddFacilityModal({ isOpen, onClose, onSuccess }: AddFacilityModalProps) {
-  const { isSimpillerAdmin, user } = useAuth();
+  const { isSimpillerAdmin, user } = useAuthV2();
   const { organizations } = useOrganizations();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Edit, Save, User, Pill, Calendar, Activity, Clock } from 'lucide-react';
 import { Patient, usePatients } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { MedicationModal } from '@/components/medications/medication-modal';
 import { usePharmacies } from '@/hooks/use-pharmacies';
 import { ComplianceLogTab } from './compliance-log-tab';
@@ -75,7 +75,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const [medications, setMedications] = useState<Medication[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
-  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuthV2();
   const { pharmacies, loading: pharmaciesLoading } = usePharmacies();
   const { invalidatePatients } = usePatients();
   

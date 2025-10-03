@@ -1,6 +1,6 @@
 import { useDataCache } from './use-data-cache';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { cacheManager } from './use-data-cache';
 
 export interface Patient {
@@ -36,7 +36,7 @@ export interface Patient {
 }
 
 export function usePatientsOptimized() {
-  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId } = useAuth();
+  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId } = useAuthV2();
 
   const fetchPatients = async (): Promise<Patient[]> => {
     if (!user) {

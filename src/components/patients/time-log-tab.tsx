@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { Patient } from '@/hooks/use-patients';
 import { Plus, Edit, Trash2, Clock, Activity } from 'lucide-react';
 
@@ -37,7 +37,7 @@ const ACTIVITY_TYPES = [
 ];
 
 export function TimeLogTab({ patient }: TimeLogTabProps) {
-  const { user } = useAuth();
+  const { user } = useAuthV2();
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);

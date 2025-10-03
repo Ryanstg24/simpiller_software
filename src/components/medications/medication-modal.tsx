@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Pill } from 'lucide-react';
 import { usePatients, Patient } from '@/hooks/use-patients';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { supabase } from '@/lib/supabase';
 
 interface Medication {
@@ -58,7 +58,7 @@ export function MedicationModal({
   selectedPatientId 
 }: MedicationModalProps) {
   const { patients } = usePatients();
-  const { user } = useAuth();
+  const { user } = useAuthV2();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Medication>>({});
   const [selectedPatient, setSelectedPatient] = useState<string>(selectedPatientId || '');

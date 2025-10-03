@@ -1,6 +1,6 @@
 import { useDataCache } from './use-data-cache';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { usePatientsOptimized } from './use-patients-optimized';
 import { cacheManager } from './use-data-cache';
 
@@ -39,7 +39,7 @@ export interface Medication {
 }
 
 export function useMedicationsOptimized() {
-  const { user } = useAuth();
+  const { user } = useAuthV2();
   const { data: patients, loading: patientsLoading } = usePatientsOptimized();
 
   const fetchMedications = async (): Promise<Medication[]> => {

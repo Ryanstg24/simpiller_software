@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 export interface Pharmacy {
   id: string;
@@ -36,7 +36,7 @@ export function usePharmacies() {
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuthV2();
 
   const fetchPharmacies = async () => {
     try {

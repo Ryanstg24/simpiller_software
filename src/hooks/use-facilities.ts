@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { supabase } from '@/lib/supabase';
 
 export interface Facility {
@@ -26,7 +26,7 @@ export interface Facility {
 }
 
 export function useFacilities() {
-  const { user, isSimpillerAdmin } = useAuth();
+  const { user, isSimpillerAdmin } = useAuthV2();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
