@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Search, Building2, Phone, Mail, MapPin, Shield } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { usePharmacies } from "@/hooks/use-pharmacies";
 import { useState, useMemo } from "react";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
@@ -15,7 +15,7 @@ import { Pharmacy } from "@/hooks/use-pharmacies";
 
 export default function PharmaciesPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin, isOrganizationAdmin } = useAuth();
+  const { isSimpillerAdmin, isOrganizationAdmin } = useAuthV2();
   const { pharmacies, loading, error, deletePharmacy, refresh } = usePharmacies();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);

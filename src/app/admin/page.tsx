@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Plus, Building2, Users, Settings, Shield, DollarSign } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { AccessDenied } from "@/components/auth/access-denied";
 import Link from "next/link";
 
 export default function AdminPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
 
   if (!isSimpillerAdmin) {
     return <AccessDenied message="Simpiller Admin access required." />;

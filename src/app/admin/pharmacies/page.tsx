@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { usePharmacies, Pharmacy } from "@/hooks/use-pharmacies";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
@@ -16,7 +16,7 @@ import { Search, Plus } from "lucide-react";
 
 export default function AdminPharmaciesPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   const { pharmacies, loading, error } = usePharmacies();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);

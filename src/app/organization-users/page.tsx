@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useUsers, User } from "@/hooks/use-users";
 import { OrganizationUserModal } from "@/components/organization/organization-user-modal";
 import { AccessDenied } from "@/components/auth/access-denied";
@@ -16,7 +16,7 @@ import { Search } from "lucide-react";
 
 export default function OrganizationUsersPage() {
   const userInfo = useUserDisplay();
-  const { isOrganizationAdmin, userOrganizationId } = useAuth();
+  const { isOrganizationAdmin, userOrganizationId } = useAuthV2();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);

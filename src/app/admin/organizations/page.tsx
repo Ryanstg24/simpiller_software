@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Search, Building2, Users, Globe, ArrowLeft } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useOrganizations, Organization } from "@/hooks/use-organizations";
 import { OrganizationDetailsModal } from "@/components/admin/organization-details-modal";
 import { OrganizationEditModal } from "@/components/admin/organization-edit-modal";
@@ -17,7 +17,7 @@ import { useState, useMemo } from "react";
 
 export default function OrganizationsPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   const { organizations, loading, error } = useOrganizations();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);

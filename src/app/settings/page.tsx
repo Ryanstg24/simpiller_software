@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { User, Bell, Shield, Database, Save } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { supabase } from "@/lib/supabase";
 import { useState, useEffect } from "react";
 
 export default function SettingsPage() {
   const userInfo = useUserDisplay();
-  const { user } = useAuth();
+  const { user } = useAuthV2();
   const [isLoading, setIsLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [isDataLoaded, setIsDataLoaded] = useState(false);

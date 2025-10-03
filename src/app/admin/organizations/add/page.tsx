@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save, Building2, Globe, MapPin, Mail } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function AddOrganizationPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Search, Users, Mail, Phone, Shield, ArrowLeft, Tag } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useUsers } from "@/hooks/use-users";
 import Link from "next/link";
 import { useState, useMemo } from "react";
@@ -17,7 +17,7 @@ import { AccessDenied } from "@/components/auth/access-denied";
 
 export default function UsersPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   const { users, loading, error } = useUsers();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);

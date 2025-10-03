@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { signIn, user, isLoading: authLoading } = useAuth();
+  const { signIn, user, isLoading: authLoading } = useAuthV2();
   const router = useRouter();
 
   // Redirect if already logged in

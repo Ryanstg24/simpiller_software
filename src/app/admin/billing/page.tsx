@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { AccessDenied } from "@/components/auth/access-denied";
 import { 
   useBillingAnalytics, 
@@ -31,7 +31,7 @@ import { SetupFeeModal } from "@/components/admin/setup-fee-modal";
 
 export default function BillingPage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   
   // Billing analytics state
   const [billingFilters, setBillingFilters] = useState<BillingFilters>({

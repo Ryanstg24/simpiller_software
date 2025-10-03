@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useUserDisplay } from '@/hooks/use-user-display';
 import { supabase } from '@/lib/supabase';
 import { Sidebar } from "@/components/layout/sidebar";
@@ -53,7 +53,7 @@ interface BillingSummary {
 }
 
 function BillingPageContent() {
-  const { userOrganizationId, isOrganizationAdmin, isBilling } = useAuth();
+  const { userOrganizationId, isOrganizationAdmin, isBilling } = useAuthV2();
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
