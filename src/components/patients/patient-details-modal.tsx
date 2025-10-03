@@ -180,6 +180,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
       console.log('Fetching providers for organization:', patientOrgId);
 
+      // First, let's check what roles exist for this organization
+      const { data: allRoles, error: allRolesError } = await supabase
+        .from('user_roles')
+        .select('id, name, organization_id')
+        .eq('organization_id', patientOrgId);
+      
+      console.log('All roles in organization:', allRoles);
+
       // Get users who have provider roles in the patient's organization
       const { data: roleAssignments, error: roleError } = await supabase
         .from('user_role_assignments')
@@ -192,6 +200,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         `)
         .eq('user_roles.name', 'provider')
         .eq('user_roles.organization_id', patientOrgId);
+
+      console.log('Role assignments query result:', { roleAssignments, roleError });
 
       if (roleError) {
         console.error('Error fetching provider roles:', roleError);
@@ -209,11 +219,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
       // Get the user details for these provider users
       const providerUserIds = roleAssignments.map(ra => ra.user_id);
+      console.log('Provider user IDs to fetch:', providerUserIds);
+      
       const { data: providerUsers, error: usersError } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, is_active')
         .eq('is_active', true)
         .in('id', providerUserIds);
+
+      console.log('Provider users query result:', { providerUsers, usersError });
 
       if (usersError) {
         console.error('Error fetching provider users:', usersError);
