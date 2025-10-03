@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [rolesFetched, setRolesFetched] = useState(false);
   const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const [fetchInterval, setFetchInterval] = useState<number>(300000); // 5 minutes default
+  const [fetchInterval, setFetchInterval] = useState<number>(600000); // 10 minutes default
   const router = useRouter();
 
   // Session timeout handling
@@ -244,21 +244,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      // If this is a timeout and we don't have roles, try to use a fallback
+      // If this is a timeout and we don't have roles, keep empty roles instead of fallback
+      // This prevents the system from incorrectly assigning "provider" role to Simpiller Admins
       if (error instanceof Error && error.message.includes('timeout') && !rolesFetched) {
-        console.log('Timeout on first fetch - using fallback roles to prevent access denied');
-        // Set a basic role to prevent access denied - this is a temporary fallback
-        setUserRoles([{
-          id: 'fallback',
-          name: 'provider', // Default to provider role
-          organization_id: undefined,
-          facility_id: undefined,
-          permissions: {}
-        }]);
+        console.log('Timeout on first fetch - keeping empty roles, user will need to refresh');
+        setUserRoles([]);
         setPasswordChangeRequired(false);
-        setRolesFetched(true);
-        setLastFetchedUserId(userId);
-        setLastFetchTime(now);
+        setRolesFetched(false);
+        setLastFetchedUserId(null);
         return;
       }
       
