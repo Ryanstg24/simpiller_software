@@ -55,20 +55,28 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     try {
       console.log('[Auth V2] Fetching user roles for:', userId);
       
-      // Single query to get all role data at once
-      const { data, error } = await supabase
+      // First get the role assignments
+      const { data: assignments, error: assignmentsError } = await supabase
         .from('user_role_assignments')
-        .select(`
-          role_id,
-          user_roles!inner (
-            id,
-            name,
-            organization_id,
-            facility_id,
-            permissions
-          )
-        `)
+        .select('role_id')
         .eq('user_id', userId);
+
+      if (assignmentsError) {
+        console.error('[Auth V2] Error fetching role assignments:', assignmentsError);
+        return [];
+      }
+
+      if (!assignments || assignments.length === 0) {
+        console.log('[Auth V2] No role assignments found for user');
+        return [];
+      }
+
+      // Then get the role details
+      const roleIds = assignments.map(a => a.role_id);
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('id, name, organization_id, facility_id, permissions')
+        .in('id', roleIds);
 
       if (error) {
         console.error('[Auth V2] Error fetching roles:', error);
@@ -80,13 +88,15 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
         return [];
       }
 
+      console.log('[Auth V2] Raw data from database:', data);
+
       // Transform the data to match our interface
-      const roles: UserRole[] = data.map((assignment: UserRoleAssignment) => ({
-        id: assignment.user_roles[0].id,
-        name: assignment.user_roles[0].name,
-        organization_id: assignment.user_roles[0].organization_id,
-        facility_id: assignment.user_roles[0].facility_id,
-        permissions: assignment.user_roles[0].permissions || {}
+      const roles: UserRole[] = data.map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        organization_id: role.organization_id,
+        facility_id: role.facility_id,
+        permissions: role.permissions || {}
       }));
 
       console.log('[Auth V2] User roles fetched successfully:', roles);
@@ -170,14 +180,21 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     setUser(session?.user ?? null);
 
     if (session?.user) {
-      // Fetch roles and password requirement in parallel
-      const [roles, passwordRequired] = await Promise.all([
-        fetchUserRoles(session.user.id),
-        fetchPasswordChangeRequired(session.user.id)
-      ]);
+      try {
+        // Fetch roles and password requirement in parallel
+        const [roles, passwordRequired] = await Promise.all([
+          fetchUserRoles(session.user.id),
+          fetchPasswordChangeRequired(session.user.id)
+        ]);
 
-      setUserRoles(roles);
-      setPasswordChangeRequired(passwordRequired);
+        setUserRoles(roles);
+        setPasswordChangeRequired(passwordRequired);
+      } catch (error) {
+        console.error('[Auth V2] Error in auth state change:', error);
+        // Set default values on error to prevent app from breaking
+        setUserRoles([]);
+        setPasswordChangeRequired(false);
+      }
     } else {
       setUserRoles([]);
       setPasswordChangeRequired(false);
