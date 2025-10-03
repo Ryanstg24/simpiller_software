@@ -22,6 +22,16 @@ interface UserRole {
   };
 }
 
+// Interface for roles as they come from the User type (without id)
+interface UserRoleFromUser {
+  name: string;
+  organization_id?: string;
+  organization?: {
+    name: string;
+    acronym: string;
+  };
+}
+
 interface FormData {
   first_name: string;
   last_name: string;
@@ -29,7 +39,7 @@ interface FormData {
   phone: string;
   npi: string;
   is_active: boolean;
-  user_roles: UserRole[];
+  user_roles: UserRoleFromUser[];
 }
 
 export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserDetailsModalProps) {
@@ -295,10 +305,15 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
                           checked={formData.user_roles.some(ur => ur.name === role.name)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              // Add role
+                              // Add role (convert from UserRole to UserRoleFromUser)
+                              const roleToAdd: UserRoleFromUser = {
+                                name: role.name,
+                                organization_id: role.organization_id,
+                                organization: role.organization
+                              };
                               setFormData({
                                 ...formData,
-                                user_roles: [...formData.user_roles, role]
+                                user_roles: [...formData.user_roles, roleToAdd]
                               });
                             } else {
                               // Remove role
@@ -394,7 +409,7 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Roles and Permissions</h3>
                   {user.user_roles && user.user_roles.length > 0 ? (
                     <div className="space-y-3">
-                      {user.user_roles.map((role: UserRole, index: number) => (
+                      {user.user_roles.map((role: UserRoleFromUser, index: number) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center space-x-3">
                             <Shield className="h-5 w-5 text-blue-500" />
