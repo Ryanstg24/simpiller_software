@@ -71,7 +71,16 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
         return;
       }
 
-      setAvailableRoles(roles || []);
+      // Filter to unique role names to avoid duplicates
+      const uniqueRoles = roles?.reduce((acc: UserRole[], role) => {
+        const existingRole = acc.find(r => r.name === role.name);
+        if (!existingRole) {
+          acc.push(role);
+        }
+        return acc;
+      }, []) || [];
+
+      setAvailableRoles(uniqueRoles);
     } catch (error) {
       console.error('Error fetching roles:', error);
     }
