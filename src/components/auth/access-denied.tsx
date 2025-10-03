@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -13,7 +13,7 @@ export function AccessDenied({
   message = "You don't have permission to access this page.", 
   showSignOut = true 
 }: AccessDeniedProps) {
-  const { signOut } = useAuth();
+  const { signOut } = useAuthV2();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
