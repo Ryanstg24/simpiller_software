@@ -34,6 +34,7 @@ interface FormData {
 export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
   
   // Form data for editing user
   const [formData, setFormData] = useState<FormData>({
@@ -45,6 +46,25 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
     is_active: true,
     user_roles: []
   });
+
+  // Fetch available roles
+  const fetchAvailableRoles = async () => {
+    try {
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching roles:', error);
+        return;
+      }
+
+      setAvailableRoles(roles || []);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -59,6 +79,12 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAvailableRoles();
+    }
+  }, [isOpen]);
 
   const handleSaveUser = async () => {
     if (!user) return;
@@ -85,8 +111,47 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
         return;
       }
 
-      // Update user roles (this would need more complex logic for role management)
-      // For now, we'll just show a success message
+      // Update user roles
+      const currentRoleNames = user.user_roles?.map(ur => ur.name) || [];
+      const newRoleNames = formData.user_roles.map(ur => ur.name);
+      
+      // Find roles to add and remove
+      const rolesToAdd = newRoleNames.filter(roleName => !currentRoleNames.includes(roleName));
+      const rolesToRemove = currentRoleNames.filter(roleName => !newRoleNames.includes(roleName));
+      
+      // Remove old role assignments
+      if (rolesToRemove.length > 0) {
+        for (const roleName of rolesToRemove) {
+          const { error: removeError } = await supabase
+            .from('user_role_assignments')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('user_roles.name', roleName);
+          
+          if (removeError) {
+            console.error('Error removing role assignment:', removeError);
+          }
+        }
+      }
+      
+      // Add new role assignments
+      if (rolesToAdd.length > 0) {
+        for (const roleName of rolesToAdd) {
+          const role = availableRoles.find(r => r.name === roleName);
+          if (role) {
+            const { error: addError } = await supabase
+              .from('user_role_assignments')
+              .insert({
+                user_id: user.id,
+                role_id: role.id
+              });
+            
+            if (addError) {
+              console.error('Error adding role assignment:', addError);
+            }
+          }
+        }
+      }
       
       setIsEditing(false);
       onUserUpdated();
@@ -214,6 +279,44 @@ export function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserD
                         <option value="inactive">Inactive</option>
                       </select>
                     </div>
+                  </div>
+                </div>
+
+                {/* Role Assignment */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Role Assignment</h3>
+                  <div className="space-y-3">
+                    {availableRoles.map((role) => (
+                      <div key={role.name} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`role-${role.name}`}
+                          checked={formData.user_roles.some(ur => ur.name === role.name)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Add role
+                              setFormData({
+                                ...formData,
+                                user_roles: [...formData.user_roles, role]
+                              });
+                            } else {
+                              // Remove role
+                              setFormData({
+                                ...formData,
+                                user_roles: formData.user_roles.filter(ur => ur.name !== role.name)
+                              });
+                            }
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor={`role-${role.name}`} className="ml-2 text-sm text-gray-900">
+                          {role.name === 'simpiller_admin' && 'Simpiller Admin'}
+                          {role.name === 'organization_admin' && 'Organization Admin'}
+                          {role.name === 'provider' && 'Provider'}
+                          {role.name === 'billing' && 'Billing'}
+                        </label>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
