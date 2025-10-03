@@ -42,29 +42,24 @@ interface ComplianceScore {
   created_at: string;
 }
 
-interface MedicationLogData {
+interface SessionLogData {
   id: string;
-  medication_id: string;
+  session_id: string;
   patient_id: string;
-  status: 'verified' | 'failed' | 'pending' | 'taken' | 'missed' | 'skipped';
+  status: 'completed' | 'missed' | 'partial';
   event_date?: string;
-  taken_at?: string;
   created_at: string;
+  total_medications: number;
+  scanned_medications: number;
+  missed_medications: number;
   raw_scan_data?: string;
   qr_code_scanned?: string;
   source?: string;
-  medications?: {
-    name: string;
-    strength: string;
-    format: string;
-  }[] | {
-    medication_name: string;
-    dosage: string;
-  }[];
+  completion_time?: string;
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
-  const [logs, setLogs] = useState<MedicationLogData[]>([]);
+  const [logs, setLogs] = useState<SessionLogData[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -82,104 +77,37 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       // const mockLogs: MedicationLog[] = [];
       // const mockScores: ComplianceScore[] = [];
 
-      // Fetch real medication logs
+      // Fetch real session logs
       try {
         const { data: logsData, error: logsError } = await supabase
-          .from('medication_logs')
+          .from('session_logs')
           .select(`
             id,
-            medication_id,
+            session_id,
             patient_id,
             status,
             event_date,
             created_at,
+            total_medications,
+            scanned_medications,
+            missed_medications,
             raw_scan_data,
             qr_code_scanned,
             source,
-            medications (
-              name,
-              strength,
-              format
-            )
+            completion_time
           `)
           .eq('patient_id', patient.id)
           .order('created_at', { ascending: false })
           .limit(100); // Increased limit to show more comprehensive history
 
         if (logsError) {
-          console.error('Error fetching medication logs:', logsError);
+          console.error('Error fetching session logs:', logsError);
           setLogs([]);
         } else {
-          // Deduplicate logs - remove multiple scans of the same medication within a short time window
-          const deduplicatedLogs: MedicationLogData[] = [];
-          const seen = new Map<string, MedicationLogData>();
-          
-          (logsData as MedicationLogData[] || []).forEach((log) => {
-            const key = `${log.medication_id}_${log.status}_${log.event_date}`;
-            const existingLog = seen.get(key);
-            
-            if (!existingLog) {
-              // First time seeing this combination
-              seen.set(key, log);
-              deduplicatedLogs.push(log);
-            } else {
-              // Check if this is a duplicate scan within a few seconds
-              const existingTime = new Date(existingLog.created_at).getTime();
-              const currentTime = new Date(log.created_at).getTime();
-              const timeDiff = Math.abs(currentTime - existingTime);
-              
-              // If scans are more than 30 seconds apart, keep both
-              if (timeDiff > 30000) {
-                deduplicatedLogs.push(log);
-              }
-              // Otherwise, keep the first one (existingLog is already in the array)
-            }
-          });
-
-          // Transform the deduplicated data to match the expected interface
-          const transformedLogs = deduplicatedLogs.map((log) => {
-            // Handle medication info from joined data
-            let medicationName = '';
-            let dosage = '';
-            
-            // Get medication info from joined data
-            if (log.medications && log.medications.length > 0) {
-              const med = log.medications[0];
-              // Handle both data formats
-              if ('name' in med) {
-                medicationName = med.name;
-                dosage = `${med.strength} ${med.format}`;
-              } else if ('medication_name' in med) {
-                medicationName = med.medication_name;
-                dosage = med.dosage;
-              }
-            }
-            
-            // Normalize status values - medication_logs uses 'taken', 'missed', 'skipped'
-            let normalizedStatus = log.status;
-            if (log.status === 'verified') {
-              normalizedStatus = 'taken';
-            } else if (log.status === 'failed') {
-              normalizedStatus = 'failed';
-            }
-            
-            return {
-              id: log.id,
-              patient_id: log.patient_id,
-              medication_id: log.medication_id,
-              status: normalizedStatus as 'taken' | 'missed' | 'pending' | 'verified' | 'failed' | 'skipped',
-              taken_at: log.event_date, // Use event_date as taken_at
-              created_at: log.created_at,
-              medications: medicationName ? [{
-                medication_name: medicationName,
-                dosage: dosage
-              }] : []
-            };
-          });
-          setLogs(transformedLogs);
+          setLogs(logsData as SessionLogData[] || []);
         }
       } catch (error) {
-        console.error('Error fetching medication logs:', error);
+        console.error('Error fetching session logs:', error);
         setLogs([]);
       }
 
@@ -228,12 +156,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'taken':
+      case 'completed':
         return 'text-green-600 bg-green-100';
       case 'missed':
         return 'text-red-600 bg-red-100';
-      case 'verified':
-        return 'text-green-600 bg-green-100';
+      case 'partial':
+        return 'text-yellow-600 bg-yellow-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
@@ -283,8 +211,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Medication Adherence</h3>
-          <p className="text-sm text-gray-600">Track medication adherence and scanning history</p>
+          <h3 className="text-lg font-medium text-gray-900">Session Adherence</h3>
+          <p className="text-sm text-gray-600">Track medication session completion and scanning history</p>
         </div>
         <div className="flex items-center space-x-3">
           <select
@@ -378,28 +306,31 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
       {/* Recent Scan Logs */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h4 className="text-lg font-medium text-gray-900 mb-4">Recent Scan History</h4>
+        <h4 className="text-lg font-medium text-gray-900 mb-4">Recent Session History</h4>
         
         {/* Status Summary */}
         {logs.length > 0 && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex flex-wrap gap-2 text-sm">
               <span className="text-green-600">
-                ✅ Taken: {logs.filter(log => log.status === 'taken' || log.status === 'verified').length}
+                ✅ Completed: {logs.filter(log => log.status === 'completed').length}
+              </span>
+              <span className="text-yellow-600">
+                ⚠️ Partial: {logs.filter(log => log.status === 'partial').length}
               </span>
               <span className="text-red-600">
                 ❌ Missed: {logs.filter(log => log.status === 'missed').length}
               </span>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              Note: &quot;Missed&quot; includes expired scan sessions that were never scanned
+              Note: Sessions are marked as completed when at least one medication is scanned
             </div>
           </div>
         )}
         {logs.length === 0 ? (
           <div className="text-center py-8">
             <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No scan history found</p>
+            <p className="text-gray-600">No session history found</p>
             <p className="text-sm text-gray-500 mt-1">
               {selectedMonth ? 'for the selected month' : 'yet'}
             </p>
@@ -410,24 +341,20 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                    {log.status === 'taken' ? '✅ Taken' : 
+                    {log.status === 'completed' ? '✅ Completed' : 
                      log.status === 'missed' ? '❌ Missed' : 
-                     log.status === 'verified' ? '✅ Verified' :
+                     log.status === 'partial' ? '⚠️ Partial' :
                      log.status}
                   </span>
                   <div>
                     <div className="font-medium text-gray-900">
-                      {(() => {
-                        const med = log.medications?.[0];
-                        if (!med) return 'Medication';
-                        // Handle both data formats
-                        if ('name' in med) return med.name;
-                        if ('medication_name' in med) return med.medication_name;
-                        return 'Medication';
-                      })()}
+                      Medication Session
                     </div>
                     <div className="text-sm text-gray-600">
                       {formatDate(log.event_date || log.created_at)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {log.scanned_medications} of {log.total_medications} medications scanned
                     </div>
                     {log.source && (
                       <div className="text-xs text-gray-500">
@@ -439,12 +366,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                         {(() => {
                           try {
                             const scanData = JSON.parse(log.raw_scan_data);
-                            if (scanData.timeliness === 'overdue') {
+                            if (scanData.reason === 'session_expired') {
+                              return '⏰ Session expired';
+                            } else if (scanData.timeliness === 'overdue') {
                               return '⏰ Late (but within window)';
                             } else if (scanData.timeliness === 'missed') {
                               return '⏰ Missed (window expired)';
-                            } else if (scanData.reason === 'window_expired') {
-                              return '⏰ Link expired';
                             }
                           } catch (e) {
                             // Ignore parsing errors

@@ -74,6 +74,7 @@ export function usePatients() {
   const { isSimpillerAdmin, isOrganizationAdmin, isProvider, userOrganizationId, user } = useAuthV2();
   const queryClient = useQueryClient();
 
+
   // Simple timeout wrapper for queries to avoid indefinite loading
   function withTimeout<T>(promise: Promise<T>, ms: number, message = 'Request timed out'): Promise<T> {
     return new Promise<T>((resolve, reject) => {

@@ -292,10 +292,45 @@ CREATE TABLE medication_schedules (
 );
 
 -- =============================================
--- MEDICATION COMPLIANCE LOG (QR code scans)
+-- SESSION COMPLIANCE LOG (Session-level tracking)
+-- =============================================
+CREATE TABLE session_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES medication_scan_sessions(id) ON DELETE CASCADE,
+  patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  
+  -- Event details
+  event_key VARCHAR(20), -- YYYYMMDDH format
+  event_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  status VARCHAR(20) DEFAULT 'completed' CHECK (status IN ('completed', 'missed', 'partial')),
+  
+  -- Session details
+  total_medications INTEGER NOT NULL DEFAULT 0,
+  scanned_medications INTEGER NOT NULL DEFAULT 0,
+  missed_medications INTEGER NOT NULL DEFAULT 0,
+  
+  -- QR Code tracking (for the first scanned medication)
+  qr_code_scanned VARCHAR(255),
+  raw_scan_data TEXT,
+  
+  -- Alert tracking
+  alert_sent_at TIMESTAMP WITH TIME ZONE,
+  alert_type VARCHAR(20), -- 'sms', 'email'
+  alert_response VARCHAR(255),
+  
+  -- Metadata
+  source VARCHAR(50), -- 'qr_scan', 'manual', 'api', 'expired_session'
+  completion_time TIMESTAMP WITH TIME ZONE, -- When session was completed
+  
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- MEDICATION COMPLIANCE LOG (Individual medication tracking - kept for detailed tracking)
 -- =============================================
 CREATE TABLE medication_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_log_id UUID REFERENCES session_logs(id) ON DELETE CASCADE, -- Link to session log
   medication_id UUID NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
   patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
   schedule_id UUID REFERENCES medication_schedules(id) ON DELETE SET NULL,

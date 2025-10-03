@@ -62,35 +62,36 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        // Log each medication as missed
-        for (const medication of medications) {
-          const eventKey = new Date(session.scheduled_time).toISOString().slice(0, 13); // YYYYMMDDH format
-          
-          const { error: logError } = await supabaseAdmin
-            .from('medication_logs')
-            .insert({
-              medication_id: medication.id,
-              patient_id: session.patient_id,
-              schedule_id: null, // Will be determined by the system
-              event_key: eventKey,
-              event_date: new Date(session.scheduled_time).toISOString(), // Use scheduled time, not current time
-              status: 'missed',
-              source: 'expired_session',
-              raw_scan_data: JSON.stringify({
-                reason: 'session_expired',
-                sessionId: session.id,
-                scheduledTime: session.scheduled_time,
-                expiredAt: session.expires_at,
-                processedAt: now.toISOString()
-              }),
-            });
+        // Create session-level log for missed session
+        const eventKey = new Date(session.scheduled_time).toISOString().slice(0, 13); // YYYYMMDDH format
+        
+        const { error: sessionLogError } = await supabaseAdmin
+          .from('session_logs')
+          .insert({
+            session_id: session.id,
+            patient_id: session.patient_id,
+            event_key: eventKey,
+            event_date: new Date(session.scheduled_time).toISOString(), // Use scheduled time, not current time
+            status: 'missed',
+            total_medications: medications.length,
+            scanned_medications: 0,
+            missed_medications: medications.length,
+            source: 'expired_session',
+            raw_scan_data: JSON.stringify({
+              reason: 'session_expired',
+              sessionId: session.id,
+              scheduledTime: session.scheduled_time,
+              expiredAt: session.expires_at,
+              processedAt: now.toISOString(),
+              medications: medications.map(m => ({ id: m.id, name: m.name }))
+            }),
+          });
 
-          if (logError) {
-            console.error(`[Process Expired Sessions] Error logging missed medication ${medication.id}:`, logError);
-            errors.push(`Session ${session.id}, Medication ${medication.id}: ${logError.message}`);
-          } else {
-            console.log(`[Process Expired Sessions] Logged missed medication: ${medication.name} for patient ${session.patient_id}`);
-          }
+        if (sessionLogError) {
+          console.error(`[Process Expired Sessions] Error logging missed session ${session.id}:`, sessionLogError);
+          errors.push(`Session ${session.id}: ${sessionLogError.message}`);
+        } else {
+          console.log(`[Process Expired Sessions] Logged missed session for patient ${session.patient_id} with ${medications.length} medications`);
         }
 
         // Mark session as inactive (expired)

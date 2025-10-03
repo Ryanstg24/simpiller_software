@@ -249,6 +249,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     role.name !== 'simpiller_admin'
   )?.organization_id || null;
 
+
   const contextValue: AuthContextType = {
     user,
     session,

@@ -85,11 +85,74 @@ export async function POST(request: NextRequest) {
       finalScheduleId = schedule?.id || null;
     }
 
-    // Create medication log entry (this also feeds Adherance log)
+    // Check if this is the first scan for this session
+    const { data: existingSessionLog, error: sessionLogError } = await supabaseAdmin
+      .from('session_logs')
+      .select('*')
+      .eq('session_id', scanSessionId)
+      .single();
+
+    let sessionLogId = existingSessionLog?.id;
+
+    if (!existingSessionLog) {
+      // Create session log entry (first scan of the session)
+      const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
+      const { data: sessionLog, error: sessionLogCreateError } = await supabaseAdmin
+        .from('session_logs')
+        .insert({
+          session_id: scanSessionId,
+          patient_id: patientId,
+          event_key: eventKey,
+          event_date: new Date().toISOString(),
+          status: 'completed', // Session is completed with first scan
+          total_medications: session.medication_ids?.length || 1,
+          scanned_medications: 1,
+          missed_medications: 0,
+          qr_code_scanned: scanData?.qrCode || null,
+          raw_scan_data: JSON.stringify(scanData),
+          source: 'qr_scan',
+          alert_sent_at: new Date().toISOString(),
+          alert_type: 'sms',
+          alert_response: 'scanned',
+          completion_time: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (sessionLogCreateError) {
+        console.error('Error creating session log:', sessionLogCreateError);
+        return NextResponse.json(
+          { error: 'Failed to create session log' },
+          { status: 500 }
+        );
+      }
+
+      sessionLogId = sessionLog.id;
+    } else {
+      // Update existing session log with additional scan
+      const { error: sessionLogUpdateError } = await supabaseAdmin
+        .from('session_logs')
+        .update({
+          scanned_medications: existingSessionLog.scanned_medications + 1,
+          missed_medications: Math.max(0, existingSessionLog.total_medications - (existingSessionLog.scanned_medications + 1))
+        })
+        .eq('id', existingSessionLog.id);
+
+      if (sessionLogUpdateError) {
+        console.error('Error updating session log:', sessionLogUpdateError);
+        return NextResponse.json(
+          { error: 'Failed to update session log' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Create individual medication log entry (for detailed tracking)
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
     const { data: logEntry, error: logError } = await supabaseAdmin
       .from('medication_logs')
       .insert({
+        session_log_id: sessionLogId,
         medication_id: medicationId,
         patient_id: patientId,
         schedule_id: finalScheduleId,
@@ -128,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate and update compliance score
-    await updateComplianceScore(patientId, medicationId);
+    await updateComplianceScore(patientId);
 
     return NextResponse.json({
       success: true,
@@ -148,25 +211,25 @@ export async function POST(request: NextRequest) {
 /**
  * Calculate and update patient compliance score for ALL medications
  */
-async function updateComplianceScore(patientId: string, medicationId: string) {
+async function updateComplianceScore(patientId: string) {
   try {
-    // Get all medication logs for this patient in the last 30 days
+    // Get all session logs for this patient in the last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: logs, error: logsError } = await supabaseAdmin
-      .from('medication_logs')
-      .select('medication_id, status, event_date')
+    const { data: sessionLogs, error: sessionLogsError } = await supabaseAdmin
+      .from('session_logs')
+      .select('status, event_date, total_medications, scanned_medications')
       .eq('patient_id', patientId)
       .gte('event_date', thirtyDaysAgo.toISOString())
       .order('event_date', { ascending: true });
 
-    if (logsError) {
-      console.error('Error fetching medication logs for compliance:', logsError);
+    if (sessionLogsError) {
+      console.error('Error fetching session logs for compliance:', sessionLogsError);
       return;
     }
 
-    // Get all active medications for this patient
+    // Get all medication schedules for this patient to calculate expected sessions
     const { data: medications, error: medicationsError } = await supabaseAdmin
       .from('medications')
       .select('id')
@@ -178,7 +241,6 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       return;
     }
 
-    // Get all schedules for this patient's medications
     const medicationIds = medications.map(m => m.id);
     const { data: schedules, error: schedulesError } = await supabaseAdmin
       .from('medication_schedules')
@@ -191,17 +253,36 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       return;
     }
 
-    // Calculate total expected doses across all medications
-    const totalExpectedDoses = schedules.reduce((total, schedule) => {
-      const scheduleData = [{ time_of_day: schedule.time_of_day, days_of_week: schedule.days_of_week }];
-      return total + calculateExpectedDoses(scheduleData, thirtyDaysAgo);
-    }, 0);
+    // Calculate expected sessions for the last 30 days
+    // Group schedules by time of day to count unique session times
+    const sessionTimes = new Set<string>();
+    schedules.forEach(schedule => {
+      sessionTimes.add(schedule.time_of_day);
+    });
 
-    // Calculate total taken doses across all medications
-    const takenDoses = logs.filter(log => log.status === 'taken').length;
+    // Calculate expected sessions per day
+    let totalExpectedSessions = 0;
     
-    // Calculate overall compliance score
-    const complianceScore = totalExpectedDoses > 0 ? (takenDoses / totalExpectedDoses) * 100 : 100;
+    for (let day = 0; day < 30; day++) {
+      const checkDate = new Date(thirtyDaysAgo);
+      checkDate.setDate(checkDate.getDate() + day);
+      const dayOfWeek = checkDate.getDay() === 0 ? 7 : checkDate.getDay(); // Convert Sunday from 0 to 7
+      
+      // Count how many session times are scheduled for this day of week
+      const scheduledSessionsForDay = schedules.filter(schedule => 
+        schedule.days_of_week & (1 << (dayOfWeek - 1)) // Check if this day is set in the bitmask
+      ).length;
+      
+      if (scheduledSessionsForDay > 0) {
+        totalExpectedSessions += sessionTimes.size; // One session per time slot
+      }
+    }
+
+    // Count completed sessions (any session with status 'completed')
+    const completedSessions = sessionLogs.filter(log => log.status === 'completed').length;
+    
+    // Calculate overall compliance score based on sessions
+    const complianceScore = totalExpectedSessions > 0 ? (completedSessions / totalExpectedSessions) * 100 : 100;
 
     // Ensure compliance score is an integer between 0 and 100
     const roundedScore = Math.max(0, Math.min(100, Math.round(complianceScore)));
@@ -254,7 +335,7 @@ async function updateComplianceScore(patientId: string, medicationId: string) {
       console.log('Adherence score update failed, but scan logging will continue');
     }
 
-    console.log(`Overall compliance score for patient ${patientId}: ${roundedScore}% (${takenDoses}/${totalExpectedDoses} doses, calculated: ${complianceScore.toFixed(2)}%)`);
+    console.log(`Overall compliance score for patient ${patientId}: ${roundedScore}% (${completedSessions}/${totalExpectedSessions} sessions completed)`);
 
   } catch (error) {
     console.error('Error updating compliance score:', error);
