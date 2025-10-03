@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [rolesFetched, setRolesFetched] = useState(false);
   const [lastFetchedUserId, setLastFetchedUserId] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const [fetchInterval, setFetchInterval] = useState<number>(600000); // 10 minutes default
+  const [fetchInterval, setFetchInterval] = useState<number>(300000); // 5 minutes default
   const router = useRouter();
 
   // Session timeout handling
@@ -179,15 +179,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('Fetching user roles for user:', userId);
-      // Increase timeout to 30 seconds to prevent frequent timeouts
+      // Reduce timeout to 5 seconds for faster failure
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('User roles fetch timeout')), 30000)
+        setTimeout(() => reject(new Error('User roles fetch timeout')), 5000)
       );
 
-      // Try a simpler approach first - get role assignments and then fetch roles separately
-      const roleAssignmentsPromise = supabase
+      // Single optimized query with join
+      const rolesPromise = supabase
         .from('user_role_assignments')
-        .select('role_id')
+        .select(`
+          user_roles!inner (
+            id,
+            name,
+            organization_id,
+            facility_id,
+            permissions
+          )
+        `)
         .eq('user_id', userId);
 
       const userPromise = supabase
@@ -196,26 +204,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
 
-      const [roleAssignmentsResult, userResult] = await Promise.race([
-        Promise.all([roleAssignmentsPromise, userPromise]),
+      const [rolesResult, userResult] = await Promise.race([
+        Promise.all([rolesPromise, userPromise]),
         timeoutPromise
       ]);
 
       let roles: UserRole[] = [];
       
-      if (!roleAssignmentsResult.error && roleAssignmentsResult.data && roleAssignmentsResult.data.length > 0) {
-        // Get the role IDs
-        const roleIds = roleAssignmentsResult.data.map(assignment => assignment.role_id);
-        
-        // Fetch the actual roles
-        const rolesResult = await supabase
-          .from('user_roles')
-          .select('id, name, organization_id, facility_id, permissions')
-          .in('id', roleIds);
-          
-        if (!rolesResult.error && rolesResult.data) {
-          roles = rolesResult.data;
-        }
+      if (!rolesResult.error && rolesResult.data && rolesResult.data.length > 0) {
+        // Transform the joined data
+        roles = rolesResult.data.map((assignment: any) => ({
+          id: assignment.user_roles.id,
+          name: assignment.user_roles.name,
+          organization_id: assignment.user_roles.organization_id,
+          facility_id: assignment.user_roles.facility_id,
+          permissions: assignment.user_roles.permissions || {}
+        }));
       }
 
       // Set the roles
