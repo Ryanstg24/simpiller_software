@@ -187,7 +187,7 @@ export function usePatients() {
       type SupabaseResponse<T> = { data: T[] | null; error: unknown };
       const { data, error } = await withTimeout(
         query as unknown as Promise<SupabaseResponse<Patient>>,
-        60000, // Increased to 60 seconds
+        10000, // 10 seconds - reasonable timeout
         'Patients load timed out'
       );
 

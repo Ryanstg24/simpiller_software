@@ -48,71 +48,80 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const router = useRouter();
 
-  // Fetch user roles with proper error handling and caching
+  // Fetch user roles with proper error handling and timeout
   const fetchUserRoles = useCallback(async (userId: string): Promise<UserRole[]> => {
     try {
-      console.log('[Auth V2] Fetching user roles for:', userId);
-      
-      // First get the role assignments
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('user_role_assignments')
-        .select('role_id')
-        .eq('user_id', userId);
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Role fetch timeout')), 5000)
+      );
 
-      if (assignmentsError) {
-        console.error('[Auth V2] Error fetching role assignments:', assignmentsError);
-        return [];
-      }
+      const fetchPromise = (async () => {
+        // First get the role assignments
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('user_role_assignments')
+          .select('role_id')
+          .eq('user_id', userId);
 
-      if (!assignments || assignments.length === 0) {
-        console.log('[Auth V2] No role assignments found for user');
-        return [];
-      }
+        if (assignmentsError) {
+          console.error('[Auth V2] Error fetching role assignments:', assignmentsError);
+          return [];
+        }
 
-      // Then get the role details
-      const roleIds = assignments.map(a => a.role_id);
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('id, name, organization_id, facility_id, permissions')
-        .in('id', roleIds);
+        if (!assignments || assignments.length === 0) {
+          return [];
+        }
 
-      if (error) {
-        console.error('[Auth V2] Error fetching roles:', error);
-        return [];
-      }
+        // Then get the role details
+        const roleIds = assignments.map(a => a.role_id);
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('id, name, organization_id, facility_id, permissions')
+          .in('id', roleIds);
 
-      if (!data || data.length === 0) {
-        console.log('[Auth V2] No roles found for user');
-        return [];
-      }
+        if (error) {
+          console.error('[Auth V2] Error fetching roles:', error);
+          return [];
+        }
 
-      console.log('[Auth V2] Raw data from database:', data);
+        if (!data || data.length === 0) {
+          return [];
+        }
 
-      // Transform the data to match our interface
-      const roles: UserRole[] = data.map((role: DatabaseUserRole) => ({
-        id: role.id,
-        name: role.name,
-        organization_id: role.organization_id,
-        facility_id: role.facility_id,
-        permissions: role.permissions || {}
-      }));
+        // Transform the data to match our interface
+        const roles: UserRole[] = data.map((role: DatabaseUserRole) => ({
+          id: role.id,
+          name: role.name,
+          organization_id: role.organization_id,
+          facility_id: role.facility_id,
+          permissions: role.permissions || {}
+        }));
 
-      console.log('[Auth V2] User roles fetched successfully:', roles);
-      return roles;
+        return roles;
+      })();
+
+      return await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error) {
       console.error('[Auth V2] Exception fetching roles:', error);
+      // Return empty array on timeout to prevent blocking the app
       return [];
     }
   }, []);
 
-  // Fetch password change requirement
+  // Fetch password change requirement with timeout
   const fetchPasswordChangeRequired = useCallback(async (userId: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Password check timeout')), 3000)
+      );
+
+      const fetchPromise = supabase
         .from('users')
         .select('password_change_required')
         .eq('id', userId)
         .single();
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (error) {
         console.error('[Auth V2] Error fetching password change requirement:', error);
@@ -201,7 +210,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, [fetchUserRoles, fetchPasswordChangeRequired]);
 
-  // Initialize auth on mount
+  // Initialize auth on mount - only run once
   useEffect(() => {
     initializeAuth();
 
@@ -211,7 +220,8 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [initializeAuth, handleAuthStateChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   // Sign in function
   const signIn = useCallback(async (email: string, password: string) => {
