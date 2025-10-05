@@ -263,6 +263,19 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
     try {
       setLoading(true);
+      
+      // Check if session is still valid before attempting update
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('Session error or no session:', sessionError);
+        alert('Your session has expired. Please refresh the page and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Session is valid, proceeding with update');
+      
       // Build minimal update with only changed fields and respecting role-based edit permissions
       const isAdmin = isSimpillerAdmin || isOrganizationAdmin;
       const baseAllowedFields = [
@@ -303,14 +316,24 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         return;
       }
 
-      // Timeout safeguard in case the request hangs (reduced from 15s to 8s)
+      // Increase timeout to 15 seconds and add better logging
+      const startTime = Date.now();
       const updatePromise = supabase
         .from('patients')
         .update(updateData)
-        .eq('id', patient.id);
+        .eq('id', patient.id)
+        .then(result => {
+          const duration = Date.now() - startTime;
+          console.log(`Update completed in ${duration}ms`);
+          return result;
+        });
 
       const timeoutPromise = new Promise<{ error: unknown }>((resolve) => {
-        setTimeout(() => resolve({ error: new Error('Request timed out') }), 8000);
+        setTimeout(() => {
+          const duration = Date.now() - startTime;
+          console.error(`Update timed out after ${duration}ms`);
+          resolve({ error: new Error('Request timed out') });
+        }, 15000); // Increased to 15 seconds
       });
 
       const { error } = await Promise.race([updatePromise, timeoutPromise]);

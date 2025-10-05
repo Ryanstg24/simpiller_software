@@ -30,6 +30,7 @@ export default function PatientsPage() {
   const { patients, loading, error } = usePatients();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [rtmStatusFilter, setRtmStatusFilter] = useState<string>('all');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -37,16 +38,29 @@ export default function PatientsPage() {
   const [progressLoading, setProgressLoading] = useState(false);
 
   const filteredPatients = useMemo(() => {
-    if (!searchTerm) return patients;
+    let filtered = patients;
     
-    return patients.filter((patient: Patient) => {
+    // Filter by search term
+    if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      const nameMatch = `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchLower);
-      const idMatch = patient.patient_id_alt?.toLowerCase().includes(searchLower);
-      const emailMatch = patient.email?.toLowerCase().includes(searchLower);
-      return nameMatch || idMatch || emailMatch;
-    });
-  }, [patients, searchTerm]);
+      filtered = filtered.filter((patient: Patient) => {
+        const nameMatch = `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchLower);
+        const idMatch = patient.patient_id_alt?.toLowerCase().includes(searchLower);
+        const emailMatch = patient.email?.toLowerCase().includes(searchLower);
+        return nameMatch || idMatch || emailMatch;
+      });
+    }
+    
+    // Filter by RTM status
+    if (rtmStatusFilter !== 'all') {
+      filtered = filtered.filter((patient: Patient) => {
+        const status = patient.rtm_status?.toLowerCase() || 'inactive';
+        return status === rtmStatusFilter;
+      });
+    }
+    
+    return filtered;
+  }, [patients, searchTerm, rtmStatusFilter]);
 
   const handleViewDetails = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -392,15 +406,28 @@ export default function PatientsPage() {
 
             {/* Search */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search patients by name, ID, or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
-                />
+              <div className="flex gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search patients by name, ID, or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                  />
+                </div>
+                <select
+                  value={rtmStatusFilter}
+                  onChange={(e) => setRtmStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="all">All RTM Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive (Opted Out)</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                </select>
               </div>
             </div>
 
@@ -423,15 +450,15 @@ export default function PatientsPage() {
                 <div className="text-center">
                   <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {searchTerm ? 'No patients found' : 'No patients yet'}
+                    {searchTerm || rtmStatusFilter !== 'all' ? 'No patients found' : 'No patients yet'}
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    {searchTerm 
-                      ? 'Try adjusting your search terms.' 
+                    {searchTerm || rtmStatusFilter !== 'all'
+                      ? 'Try adjusting your search terms or filters.' 
                       : 'Get started by adding your first patient.'
                     }
                   </p>
-                  {!searchTerm && (
+                  {!searchTerm && rtmStatusFilter === 'all' && (
                     <Button 
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={() => setShowAddModal(true)}
