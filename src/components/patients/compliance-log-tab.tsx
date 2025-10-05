@@ -42,24 +42,22 @@ interface ComplianceScore {
   created_at: string;
 }
 
-interface SessionLogData {
+interface ScanSessionData {
   id: string;
-  session_id: string;
   patient_id: string;
-  status: 'completed' | 'missed' | 'partial';
-  event_date?: string;
+  session_token?: string;
+  medication_ids: string[];
+  scheduled_time: string;
+  status: 'pending' | 'completed' | 'failed' | 'expired';
+  is_active: boolean;
+  expires_at: string;
+  completed_at?: string;
   created_at: string;
-  total_medications: number;
-  scanned_medications: number;
-  missed_medications: number;
-  raw_scan_data?: string;
-  qr_code_scanned?: string;
-  source?: string;
-  completion_time?: string;
+  updated_at: string;
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
-  const [logs, setLogs] = useState<SessionLogData[]>([]);
+  const [logs, setLogs] = useState<ScanSessionData[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -77,37 +75,35 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       // const mockLogs: MedicationLog[] = [];
       // const mockScores: ComplianceScore[] = [];
 
-      // Fetch real session logs
+      // Fetch scan sessions
       try {
         const { data: logsData, error: logsError } = await supabase
-          .from('session_logs')
+          .from('medication_scan_sessions')
           .select(`
             id,
-            session_id,
             patient_id,
+            session_token,
+            medication_ids,
+            scheduled_time,
             status,
-            event_date,
+            is_active,
+            expires_at,
+            completed_at,
             created_at,
-            total_medications,
-            scanned_medications,
-            missed_medications,
-            raw_scan_data,
-            qr_code_scanned,
-            source,
-            completion_time
+            updated_at
           `)
           .eq('patient_id', patient.id)
-          .order('created_at', { ascending: false })
-          .limit(100); // Increased limit to show more comprehensive history
+          .order('scheduled_time', { ascending: false })
+          .limit(100); // Show last 100 sessions
 
         if (logsError) {
-          console.error('Error fetching session logs:', logsError);
+          console.error('Error fetching scan sessions:', logsError);
           setLogs([]);
         } else {
-          setLogs(logsData as SessionLogData[] || []);
+          setLogs(logsData as ScanSessionData[] || []);
         }
       } catch (error) {
-        console.error('Error fetching session logs:', error);
+        console.error('Error fetching scan sessions:', error);
         setLogs([]);
       }
 
@@ -158,10 +154,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     switch (status) {
       case 'completed':
         return 'text-green-600 bg-green-100';
-      case 'missed':
+      case 'expired':
         return 'text-red-600 bg-red-100';
-      case 'partial':
+      case 'failed':
         return 'text-yellow-600 bg-yellow-100';
+      case 'pending':
+        return 'text-blue-600 bg-blue-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
@@ -315,15 +313,15 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               <span className="text-green-600">
                 ✅ Completed: {logs.filter(log => log.status === 'completed').length}
               </span>
-              <span className="text-yellow-600">
-                ⚠️ Partial: {logs.filter(log => log.status === 'partial').length}
-              </span>
               <span className="text-red-600">
-                ❌ Missed: {logs.filter(log => log.status === 'missed').length}
+                ❌ Expired: {logs.filter(log => log.status === 'expired').length}
+              </span>
+              <span className="text-blue-600">
+                ⏳ Pending: {logs.filter(log => log.status === 'pending' && log.is_active).length}
               </span>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              Note: Sessions are marked as completed when at least one medication is scanned
+              Note: A session counts as completed when at least one medication is scanned
             </div>
           </div>
         )}
@@ -342,8 +340,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                 <div className="flex items-center space-x-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
                     {log.status === 'completed' ? '✅ Completed' : 
-                     log.status === 'missed' ? '❌ Missed' : 
-                     log.status === 'partial' ? '⚠️ Partial' :
+                     log.status === 'expired' ? '❌ Expired' : 
+                     log.status === 'pending' ? '⏳ Pending' :
+                     log.status === 'failed' ? '⚠️ Failed' :
                      log.status}
                   </span>
                   <div>
@@ -351,33 +350,19 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                       Medication Session
                     </div>
                     <div className="text-sm text-gray-600">
-                      {formatDate(log.event_date || log.created_at)}
+                      {formatDate(log.scheduled_time)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {log.scanned_medications} of {log.total_medications} medications scanned
+                      {log.medication_ids.length} medication{log.medication_ids.length !== 1 ? 's' : ''} in session
                     </div>
-                    {log.source && (
+                    {log.completed_at && (
                       <div className="text-xs text-gray-500">
-                        Source: {log.source}
+                        Completed: {new Date(log.completed_at).toLocaleString()}
                       </div>
                     )}
-                    {log.raw_scan_data && (
+                    {log.status === 'expired' && (
                       <div className="text-xs text-gray-500">
-                        {(() => {
-                          try {
-                            const scanData = JSON.parse(log.raw_scan_data);
-                            if (scanData.reason === 'session_expired') {
-                              return '⏰ Session expired';
-                            } else if (scanData.timeliness === 'overdue') {
-                              return '⏰ Late (but within window)';
-                            } else if (scanData.timeliness === 'missed') {
-                              return '⏰ Missed (window expired)';
-                            }
-                          } catch (e) {
-                            // Ignore parsing errors
-                          }
-                          return null;
-                        })()}
+                        ⏰ Window expired at {new Date(log.expires_at).toLocaleString()}
                       </div>
                     )}
                   </div>

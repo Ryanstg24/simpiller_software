@@ -57,11 +57,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Scan window expired. Marked as missed.' }, { status: 400 });
     }
 
-    // Update scan session to completed
+    // Mark scan session as completed (first scan completes the session)
     const { error: sessionError } = await supabaseAdmin
       .from('medication_scan_sessions')
       .update({ 
-        is_active: false
+        status: 'completed',
+        is_active: false,
+        completed_at: new Date().toISOString()
       })
       .eq('id', scanSessionId);
 
@@ -85,74 +87,11 @@ export async function POST(request: NextRequest) {
       finalScheduleId = schedule?.id || null;
     }
 
-    // Check if this is the first scan for this session
-    const { data: existingSessionLog, error: sessionLogError } = await supabaseAdmin
-      .from('session_logs')
-      .select('*')
-      .eq('session_id', scanSessionId)
-      .single();
-
-    let sessionLogId = existingSessionLog?.id;
-
-    if (!existingSessionLog) {
-      // Create session log entry (first scan of the session)
-      const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
-      const { data: sessionLog, error: sessionLogCreateError } = await supabaseAdmin
-        .from('session_logs')
-        .insert({
-          session_id: scanSessionId,
-          patient_id: patientId,
-          event_key: eventKey,
-          event_date: new Date().toISOString(),
-          status: 'completed', // Session is completed with first scan
-          total_medications: session.medication_ids?.length || 1,
-          scanned_medications: 1,
-          missed_medications: 0,
-          qr_code_scanned: scanData?.qrCode || null,
-          raw_scan_data: JSON.stringify(scanData),
-          source: 'qr_scan',
-          alert_sent_at: new Date().toISOString(),
-          alert_type: 'sms',
-          alert_response: 'scanned',
-          completion_time: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (sessionLogCreateError) {
-        console.error('Error creating session log:', sessionLogCreateError);
-        return NextResponse.json(
-          { error: 'Failed to create session log' },
-          { status: 500 }
-        );
-      }
-
-      sessionLogId = sessionLog.id;
-    } else {
-      // Update existing session log with additional scan
-      const { error: sessionLogUpdateError } = await supabaseAdmin
-        .from('session_logs')
-        .update({
-          scanned_medications: existingSessionLog.scanned_medications + 1,
-          missed_medications: Math.max(0, existingSessionLog.total_medications - (existingSessionLog.scanned_medications + 1))
-        })
-        .eq('id', existingSessionLog.id);
-
-      if (sessionLogUpdateError) {
-        console.error('Error updating session log:', sessionLogUpdateError);
-        return NextResponse.json(
-          { error: 'Failed to update session log' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Create individual medication log entry (for detailed tracking)
+    // Create medication log entry
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
     const { data: logEntry, error: logError } = await supabaseAdmin
       .from('medication_logs')
       .insert({
-        session_log_id: sessionLogId,
         medication_id: medicationId,
         patient_id: patientId,
         schedule_id: finalScheduleId,
@@ -213,19 +152,19 @@ export async function POST(request: NextRequest) {
  */
 async function updateComplianceScore(patientId: string) {
   try {
-    // Get all session logs for this patient in the last 30 days
+    // Get all scan sessions for this patient in the last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: sessionLogs, error: sessionLogsError } = await supabaseAdmin
-      .from('session_logs')
-      .select('status, event_date, total_medications, scanned_medications')
+    const { data: scanSessions, error: sessionsError } = await supabaseAdmin
+      .from('medication_scan_sessions')
+      .select('status, scheduled_time, completed_at')
       .eq('patient_id', patientId)
-      .gte('event_date', thirtyDaysAgo.toISOString())
-      .order('event_date', { ascending: true });
+      .gte('scheduled_time', thirtyDaysAgo.toISOString())
+      .order('scheduled_time', { ascending: true });
 
-    if (sessionLogsError) {
-      console.error('Error fetching session logs for compliance:', sessionLogsError);
+    if (sessionsError) {
+      console.error('Error fetching scan sessions for compliance:', sessionsError);
       return;
     }
 
@@ -279,7 +218,7 @@ async function updateComplianceScore(patientId: string) {
     }
 
     // Count completed sessions (any session with status 'completed')
-    const completedSessions = sessionLogs.filter(log => log.status === 'completed').length;
+    const completedSessions = scanSessions.filter(session => session.status === 'completed').length;
     
     // Calculate overall compliance score based on sessions
     const complianceScore = totalExpectedSessions > 0 ? (completedSessions / totalExpectedSessions) * 100 : 100;
