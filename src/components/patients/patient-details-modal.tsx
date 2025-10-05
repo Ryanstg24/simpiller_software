@@ -326,11 +326,11 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         // Call the update callback to refresh parent data
         onPatientUpdated();
         
-        // Auto-populate medication schedules after patient update (in case time preferences changed)
-        try {
-          await fetch('/api/admin/populate-medication-schedules', { method: 'POST' });
-        } catch (e) {
-          console.warn('Populate medication schedules failed (non-blocking):', e);
+        // Auto-populate medication schedules in the background (don't await)
+        // This prevents blocking the UI if time preferences changed
+        if (updateData.morning_time || updateData.afternoon_time || updateData.evening_time || updateData.bedtime) {
+          fetch('/api/admin/populate-medication-schedules', { method: 'POST' })
+            .catch(e => console.warn('Background medication schedule population failed:', e));
         }
         
         // Keep modal open and switch to read mode with fresh data so user sees updates immediately
