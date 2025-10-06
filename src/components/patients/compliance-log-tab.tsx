@@ -50,18 +50,19 @@ interface ScanSessionData {
   scheduled_time: string;
   is_active: boolean;
   expires_at: string;
-  completed_at?: string; // Timestamp when session was completed (scanned)
   created_at: string;
+  // Joined data from medication_logs
+  has_taken_logs?: boolean; // Whether any medications were actually scanned/taken
 }
 
-// Helper to derive status from existing columns
+// Helper to derive status based on medication_logs
 function deriveSessionStatus(session: ScanSessionData): 'pending' | 'completed' | 'expired' {
-  // If completed_at is set, the session was scanned successfully
-  if (session.completed_at) {
+  // If any medication in the session was logged as 'taken', the session is completed
+  if (session.has_taken_logs) {
     return 'completed';
   }
   
-  // If not active and no completed_at, check if it expired
+  // If not active and no taken logs, it expired
   if (!session.is_active) {
     return 'expired';
   }
@@ -94,39 +95,53 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       // const mockLogs: MedicationLog[] = [];
       // const mockScores: ComplianceScore[] = [];
 
-      // Fetch scan sessions
+      // Fetch scan sessions with medication_logs to determine if session was completed
       try {
         console.log('[Compliance] Fetching scan sessions for patient:', patient.id);
         
-        const { data: logsData, error: logsError } = await supabase
+        // First, get all scan sessions
+        const { data: sessionsData, error: sessionsError } = await supabase
           .from('medication_scan_sessions')
-          .select(`
-            id,
-            patient_id,
-            session_token,
-            medication_ids,
-            scheduled_time,
-            is_active,
-            expires_at,
-            completed_at,
-            created_at
-          `)
+          .select('*')
           .eq('patient_id', patient.id)
           .order('scheduled_time', { ascending: false })
-          .limit(100); // Show last 100 sessions
+          .limit(100);
 
-        if (logsError) {
+        if (sessionsError) {
           console.error('[Compliance] Error fetching scan sessions:', {
-            error: logsError,
-            message: logsError.message,
-            details: logsError.details,
-            hint: logsError.hint,
-            code: logsError.code
+            error: sessionsError,
+            message: sessionsError.message,
+            details: sessionsError.details,
+            hint: sessionsError.hint,
+            code: sessionsError.code
           });
           setLogs([]);
+        } else if (sessionsData && sessionsData.length > 0) {
+          // For each session, check if any medications were logged as 'taken'
+          // Match by: patient, medication IDs, and time window (within 2 hours of scheduled time)
+          const sessionsWithStatus = await Promise.all(
+            sessionsData.map(async (session) => {
+              const { data: takenLogs } = await supabase
+                .from('medication_logs')
+                .select('id')
+                .eq('patient_id', session.patient_id)
+                .in('medication_id', session.medication_ids)
+                .eq('status', 'taken')
+                .gte('event_date', session.scheduled_time)
+                .lte('event_date', new Date(new Date(session.scheduled_time).getTime() + 2 * 60 * 60 * 1000).toISOString())
+                .limit(1);
+
+              return {
+                ...session,
+                has_taken_logs: takenLogs && takenLogs.length > 0
+              } as ScanSessionData;
+            })
+          );
+
+          console.log('[Compliance] Successfully fetched scan sessions:', sessionsWithStatus.length);
+          setLogs(sessionsWithStatus);
         } else {
-          console.log('[Compliance] Successfully fetched scan sessions:', logsData?.length || 0);
-          setLogs(logsData as ScanSessionData[] || []);
+          setLogs([]);
         }
       } catch (error) {
         console.error('[Compliance] Exception fetching scan sessions:', error);
@@ -380,9 +395,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                     <div className="text-xs text-gray-500">
                       {log.medication_ids.length} medication{log.medication_ids.length !== 1 ? 's' : ''} in session
                     </div>
-                    {status === 'completed' && log.completed_at && (
+                    {status === 'completed' && log.has_taken_logs && (
                       <div className="text-xs text-green-600 mt-1">
-                        ✓ Completed: {new Date(log.completed_at).toLocaleString()}
+                        ✓ Session completed - medications taken
                       </div>
                     )}
                     {status === 'expired' && (
