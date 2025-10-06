@@ -135,23 +135,28 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                 .lte('event_date', windowEnd)
                 .limit(1);
 
-              // Debug logging for troubleshooting
-              if (session.scheduled_time.includes('11:15')) {
-                console.log('[Compliance] DEBUG 11:15 session:', {
+              const hasTakenLogs = takenLogs && takenLogs.length > 0;
+
+              // Debug logging - show a few sessions to understand the data
+              if (sessionsData.indexOf(session) < 3) {
+                console.log('[Compliance] DEBUG session sample:', {
                   session_id: session.id,
                   scheduled: session.scheduled_time,
+                  is_active: session.is_active,
                   medication_ids: session.medication_ids,
+                  medication_count: session.medication_ids?.length,
                   windowStart,
                   windowEnd,
                   found_logs: takenLogs?.length || 0,
-                  logs: takenLogs,
+                  has_taken_logs: hasTakenLogs,
+                  logs_sample: takenLogs?.[0],
                   error: logsError
                 });
               }
 
               return {
                 ...session,
-                has_taken_logs: takenLogs && takenLogs.length > 0
+                has_taken_logs: hasTakenLogs
               } as ScanSessionData;
             })
           );
