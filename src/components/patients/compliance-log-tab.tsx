@@ -118,18 +118,36 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else if (sessionsData && sessionsData.length > 0) {
           // For each session, check if any medications were logged as 'taken'
-          // Match by: patient, medication IDs, and time window (within 2 hours of scheduled time)
+          // Match by: patient, medication IDs, and time window (within window: 30 min before to 2 hours after scheduled time)
           const sessionsWithStatus = await Promise.all(
             sessionsData.map(async (session) => {
-              const { data: takenLogs } = await supabase
+              // Allow 30 minutes before scheduled time (early scans) and 2 hours after
+              const windowStart = new Date(new Date(session.scheduled_time).getTime() - 30 * 60 * 1000).toISOString();
+              const windowEnd = new Date(new Date(session.scheduled_time).getTime() + 2 * 60 * 60 * 1000).toISOString();
+              
+              const { data: takenLogs, error: logsError } = await supabase
                 .from('medication_logs')
-                .select('id')
+                .select('id, event_date, medication_id')
                 .eq('patient_id', session.patient_id)
                 .in('medication_id', session.medication_ids)
                 .eq('status', 'taken')
-                .gte('event_date', session.scheduled_time)
-                .lte('event_date', new Date(new Date(session.scheduled_time).getTime() + 2 * 60 * 60 * 1000).toISOString())
+                .gte('event_date', windowStart)
+                .lte('event_date', windowEnd)
                 .limit(1);
+
+              // Debug logging for troubleshooting
+              if (session.scheduled_time.includes('11:15')) {
+                console.log('[Compliance] DEBUG 11:15 session:', {
+                  session_id: session.id,
+                  scheduled: session.scheduled_time,
+                  medication_ids: session.medication_ids,
+                  windowStart,
+                  windowEnd,
+                  found_logs: takenLogs?.length || 0,
+                  logs: takenLogs,
+                  error: logsError
+                });
+              }
 
               return {
                 ...session,
