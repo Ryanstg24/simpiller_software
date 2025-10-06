@@ -48,28 +48,29 @@ interface ScanSessionData {
   session_token?: string;
   medication_ids: string[];
   scheduled_time: string;
-  // Note: status, completed_at, updated_at don't exist in the table
-  // We derive status from is_active and expires_at
   is_active: boolean;
   expires_at: string;
+  completed_at?: string; // Timestamp when session was completed (scanned)
   created_at: string;
 }
 
 // Helper to derive status from existing columns
 function deriveSessionStatus(session: ScanSessionData): 'pending' | 'completed' | 'expired' {
-  // If not active, check if it expired or was completed
-  if (!session.is_active) {
-    // If it's past expiration and not active, it expired
-    if (new Date(session.expires_at) < new Date()) {
-      return 'expired';
-    }
-    // If it's not active but hasn't expired, it was completed
+  // If completed_at is set, the session was scanned successfully
+  if (session.completed_at) {
     return 'completed';
   }
+  
+  // If not active and no completed_at, check if it expired
+  if (!session.is_active) {
+    return 'expired';
+  }
+  
   // If still active and not expired, it's pending
   if (new Date(session.expires_at) > new Date()) {
     return 'pending';
   }
+  
   // If still marked active but past expiration, it's expired (edge case)
   return 'expired';
 }
@@ -107,6 +108,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             scheduled_time,
             is_active,
             expires_at,
+            completed_at,
             created_at
           `)
           .eq('patient_id', patient.id)
@@ -190,20 +192,18 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   };
 
   const formatDate = (dateString: string) => {
-    // For missed entries from expired sessions, we want to show the original scheduled time
-    // without timezone conversion, as it represents when the medication was supposed to be taken
     const date = new Date(dateString);
     
-    // Format as UTC to avoid timezone conversion issues
+    // Format in user's local timezone
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
-      timeZone: 'UTC'
-    }) + ' UTC';
+      hour12: true
+      // Removed timeZone: 'UTC' to use local time
+    });
   };
 
   const currentCompliance = getCurrentMonthCompliance();
@@ -380,9 +380,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                     <div className="text-xs text-gray-500">
                       {log.medication_ids.length} medication{log.medication_ids.length !== 1 ? 's' : ''} in session
                     </div>
-                    {status === 'completed' && !log.is_active && (
+                    {status === 'completed' && log.completed_at && (
                       <div className="text-xs text-green-600 mt-1">
-                        ✓ Session completed
+                        ✓ Completed: {new Date(log.completed_at).toLocaleString()}
                       </div>
                     )}
                     {status === 'expired' && (
