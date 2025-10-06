@@ -58,21 +58,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark scan session as completed (first scan completes the session)
+    // Only update is_active since status and completed_at columns don't exist
     const { error: sessionError } = await supabaseAdmin
       .from('medication_scan_sessions')
       .update({ 
-        status: 'completed',
-        is_active: false,
-        completed_at: new Date().toISOString()
+        is_active: false
       })
       .eq('id', scanSessionId);
 
     if (sessionError) {
       console.error('Error updating scan session:', sessionError);
-      return NextResponse.json(
-        { error: 'Failed to update scan session' },
-        { status: 500 }
-      );
+      // Don't fail the entire request if session update fails
+      // The medication_logs are still created, which is what matters
+      console.warn('Continuing despite session update error - medication_logs were created');
     }
 
     // Find the schedule_id if not provided

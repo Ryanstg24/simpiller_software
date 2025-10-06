@@ -63,10 +63,10 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark session as expired
+        // Only update is_active since status column doesn't exist
         const { error: updateError } = await supabaseAdmin
           .from('medication_scan_sessions')
           .update({ 
-            status: 'expired',
             is_active: false
           })
           .eq('id', session.id);
