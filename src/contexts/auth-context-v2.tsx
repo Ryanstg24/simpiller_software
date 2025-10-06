@@ -187,21 +187,27 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     setUser(session?.user ?? null);
 
     if (session?.user) {
-      try {
-        // Fetch roles and password requirement in parallel
-        const [roles, passwordRequired] = await Promise.all([
-          fetchUserRoles(session.user.id),
-          fetchPasswordChangeRequired(session.user.id)
-        ]);
+      // Only fetch roles on SIGNED_IN event, not on token refresh or other events
+      // This prevents unnecessary DB queries every 30 seconds
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        try {
+          // Fetch roles and password requirement in parallel
+          const [roles, passwordRequired] = await Promise.all([
+            fetchUserRoles(session.user.id),
+            fetchPasswordChangeRequired(session.user.id)
+          ]);
 
-        setUserRoles(roles);
-        setPasswordChangeRequired(passwordRequired);
-      } catch (error) {
-        console.error('[Auth V2] Error in auth state change:', error);
-        // Set default values on error to prevent app from breaking
-        setUserRoles([]);
-        setPasswordChangeRequired(false);
+          setUserRoles(roles);
+          setPasswordChangeRequired(passwordRequired);
+        } catch (error) {
+          console.error('[Auth V2] Error in auth state change:', error);
+          // Set default values on error to prevent app from breaking
+          setUserRoles([]);
+          setPasswordChangeRequired(false);
+        }
       }
+      // For TOKEN_REFRESHED and other events, keep existing roles
+      // Don't refetch roles unnecessarily
     } else {
       setUserRoles([]);
       setPasswordChangeRequired(false);
