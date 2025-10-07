@@ -323,10 +323,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }
   };
 
-  // Filter logs by selected month
+  // Filter logs by selected month (using local timezone)
   const filteredLogs = selectedMonth 
     ? logs.filter(log => {
-        const logMonth = new Date(log.event_date).toISOString().slice(0, 7);
+        const date = new Date(log.event_date);
+        // Format as YYYY-MM using local timezone (not UTC)
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const logMonth = `${year}-${month}`;
         return logMonth === selectedMonth;
       })
     : logs;
