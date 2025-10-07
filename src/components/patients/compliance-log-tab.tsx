@@ -9,28 +9,6 @@ interface ComplianceLogTabProps {
   patient: Patient;
 }
 
-interface MedicationLog {
-  id: string;
-  patient_id: string;
-  medication_id: string;
-  scan_method?: string;
-  scanned_medication_name?: string;
-  scanned_dosage?: string;
-  image_url?: string;
-  ocr_data?: Record<string, unknown>;
-  verification_score?: number;
-  session_token?: string;
-  status: 'verified' | 'failed' | 'pending' | 'taken' | 'missed' | 'skipped';
-  taken_at?: string;
-  created_at: string;
-  
-  // Joined data
-  medications?: {
-    medication_name: string;
-    dosage: string;
-  }[];
-}
-
 interface ComplianceScore {
   id: string;
   patient_id: string;
@@ -54,6 +32,25 @@ interface MedicationLogData {
     strength: string;
     format: string;
   };
+}
+
+// Type for raw Supabase response (before mapping)
+interface RawMedicationLogResponse {
+  id: string;
+  medication_id: string;
+  patient_id: string;
+  event_date: string;
+  status: 'taken' | 'missed' | 'skipped';
+  qr_code_scanned?: string;
+  medications?: {
+    name: string;
+    strength: string;
+    format: string;
+  } | Array<{
+    name: string;
+    strength: string;
+    format: string;
+  }>;
 }
 
 const getStatusColor = (status: string) => {
@@ -114,7 +111,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           setLogs([]);
         } else {
           // Map the data to handle Supabase join structure (medications is an array with one item)
-          const mappedLogs: MedicationLogData[] = (logsData || []).map((log: any) => ({
+          const mappedLogs: MedicationLogData[] = (logsData || []).map((log: RawMedicationLogResponse) => ({
             id: log.id,
             medication_id: log.medication_id,
             patient_id: log.patient_id,
