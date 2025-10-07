@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/hooks/use-patients';
-import { Activity, Calendar } from 'lucide-react';
+import { Activity, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -66,11 +66,20 @@ const getStatusColor = (status: string) => {
   }
 };
 
+interface GroupedLog {
+  scheduledTime: string;
+  logs: MedicationLogData[];
+  status: 'taken' | 'missed' | 'partial';
+  takenCount: number;
+  totalCount: number;
+}
+
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [logs, setLogs] = useState<MedicationLogData[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const fetchComplianceData = useCallback(async () => {
     if (!patient?.id) {
@@ -234,7 +243,88 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     });
   };
 
+  // Group logs by scheduled time
+  const groupLogsByTime = (logs: MedicationLogData[]): GroupedLog[] => {
+    const grouped = new Map<string, MedicationLogData[]>();
+    
+    logs.forEach(log => {
+      // Round to nearest minute for grouping
+      const date = new Date(log.event_date);
+      const roundedTime = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes()
+      ).toISOString();
+      
+      if (!grouped.has(roundedTime)) {
+        grouped.set(roundedTime, []);
+      }
+      grouped.get(roundedTime)!.push(log);
+    });
+    
+    // Convert to array and calculate status for each group
+    return Array.from(grouped.entries()).map(([scheduledTime, groupLogs]) => {
+      const takenCount = groupLogs.filter(log => log.status === 'taken').length;
+      const totalCount = groupLogs.length;
+      
+      let status: 'taken' | 'missed' | 'partial';
+      if (takenCount === totalCount) {
+        status = 'taken';
+      } else if (takenCount === 0) {
+        status = 'missed';
+      } else {
+        status = 'partial';
+      }
+      
+      return {
+        scheduledTime,
+        logs: groupLogs,
+        status,
+        takenCount,
+        totalCount
+      };
+    }).sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime());
+  };
+
+  const toggleGroup = (scheduledTime: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(scheduledTime)) {
+        newSet.delete(scheduledTime);
+      } else {
+        newSet.add(scheduledTime);
+      }
+      return newSet;
+    });
+  };
+
+  const getGroupStatusBadge = (group: GroupedLog) => {
+    switch (group.status) {
+      case 'taken':
+        return {
+          icon: '✅',
+          text: 'Taken',
+          color: 'text-green-600 bg-green-100'
+        };
+      case 'missed':
+        return {
+          icon: '❌',
+          text: 'Missed',
+          color: 'text-red-600 bg-red-100'
+        };
+      case 'partial':
+        return {
+          icon: '⚠️',
+          text: 'Partially Taken',
+          color: 'text-yellow-600 bg-yellow-100'
+        };
+    }
+  };
+
   const currentCompliance = getCurrentMonthCompliance();
+  const groupedLogs = groupLogsByTime(logs);
 
   // Safety check for patient
   if (!patient) {
@@ -384,34 +474,82 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {logs.map((log) => (
-              <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                    {log.status === 'taken' ? '✅ Taken' : 
-                     log.status === 'missed' ? '❌ Missed' : 
-                     log.status === 'skipped' ? '⊘ Skipped' :
-                     log.status}
-                  </span>
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {log.medications?.name || 'Unknown Medication'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {log.medications?.strength} {log.medications?.format}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatDate(log.event_date)}
-                    </div>
-                    {log.qr_code_scanned && (
-                      <div className="text-xs text-green-600 mt-1">
-                        📱 Scanned via QR code
+            {groupedLogs.map((group) => {
+              const isExpanded = expandedGroups.has(group.scheduledTime);
+              const badge = getGroupStatusBadge(group);
+              
+              return (
+                <div key={group.scheduledTime} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Group Header - Clickable */}
+                  <button
+                    onClick={() => toggleGroup(group.scheduledTime)}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${badge.color}`}>
+                        {badge.icon} {badge.text}
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium text-gray-900">
+                          {formatDate(group.scheduledTime)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {group.status === 'partial' 
+                            ? `${group.takenCount} of ${group.totalCount} medications taken`
+                            : `${group.totalCount} medication${group.totalCount > 1 ? 's' : ''}`
+                          }
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                    <div className="text-gray-400">
+                      {isExpanded ? (
+                        <ChevronDown className="h-5 w-5" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5" />
+                      )}
+                    </div>
+                  </button>
+                  
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <div className="bg-white border-t border-gray-200">
+                      <div className="p-4 space-y-3">
+                        {group.logs.map((log) => (
+                          <div key={log.id} className="flex items-start space-x-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)} mt-0.5`}>
+                              {log.status === 'taken' ? '✅' : 
+                               log.status === 'missed' ? '❌' : 
+                               log.status === 'skipped' ? '⊘' :
+                               '?'}
+                            </span>
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">
+                                {log.medications?.name || 'Unknown Medication'}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {log.medications?.strength} {log.medications?.format}
+                              </div>
+                              {log.qr_code_scanned && (
+                                <div className="text-xs text-green-600 mt-1">
+                                  📱 Scanned via QR code
+                                </div>
+                              )}
+                            </div>
+                            <div className={`text-xs font-medium ${
+                              log.status === 'taken' ? 'text-green-600' :
+                              log.status === 'missed' ? 'text-red-600' :
+                              'text-yellow-600'
+                            }`}>
+                              {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
