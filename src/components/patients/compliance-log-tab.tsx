@@ -89,24 +89,38 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       try {
         console.log('[Adherence] Fetching logs for patient:', patient.id);
         
+        // First try without the join to see if we get all logs
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
-          .select(`
-            id,
-            medication_id,
-            patient_id,
-            event_date,
-            status,
-            qr_code_scanned,
-            medications (
-              name,
-              strength,
-              format
-            )
-          `)
+          .select('*')
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
           .limit(100);
+        
+        console.log('[Adherence] Raw query without join - Count:', logsData?.length);
+        
+        // If we have logs, fetch medication details separately
+        if (logsData && logsData.length > 0) {
+          const medicationIds = [...new Set(logsData.map((log: { medication_id: string }) => log.medication_id))];
+          console.log('[Adherence] Fetching details for', medicationIds.length, 'unique medications');
+          
+          const { data: medicationsData } = await supabase
+            .from('medications')
+            .select('id, name, strength, format')
+            .in('id', medicationIds);
+          
+          console.log('[Adherence] Medications fetched:', medicationsData?.length);
+          
+          // Map medications to a lookup object
+          const medicationsMap = new Map(
+            medicationsData?.map((med: { id: string; name: string; strength: string; format: string }) => [med.id, med]) || []
+          );
+          
+          // Attach medication details to logs
+          logsData.forEach((log: { medication_id: string; medications?: { name: string; strength: string; format: string } }) => {
+            log.medications = medicationsMap.get(log.medication_id);
+          });
+        }
         
         console.log('[Adherence] Query completed. Error:', logsError, 'Data count:', logsData?.length || 0);
 
@@ -117,7 +131,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           console.log('[Adherence] Raw logs from database:', logsData?.length || 0, 'records');
           if (logsData && logsData.length > 0) {
             // Show date range
-            const dates = logsData.map((l: any) => new Date(l.event_date));
+            const dates = logsData.map((l: { event_date: string }) => new Date(l.event_date));
             const newest = new Date(Math.max(...dates.map(d => d.getTime())));
             const oldest = new Date(Math.min(...dates.map(d => d.getTime())));
             console.log('[Adherence] Date range:', {
@@ -126,7 +140,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               today: new Date().toLocaleString()
             });
             // Show sample of recent logs
-            console.log('[Adherence] Most recent 3 logs:', logsData.slice(0, 3).map((l: any) => ({
+            console.log('[Adherence] Most recent 3 logs:', logsData.slice(0, 3).map((l: { event_date: string; status: string; medications?: unknown }) => ({
               date: l.event_date,
               status: l.status,
               medication: l.medications
