@@ -483,7 +483,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             </p>
             {logs.length > 0 && selectedMonth && (
               <p className="text-sm text-blue-600 mt-2">
-                Try selecting a different month or "All Time"
+                Try selecting a different month or &quot;All Time&quot;
               </p>
             )}
           </div>
