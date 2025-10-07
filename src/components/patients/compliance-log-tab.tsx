@@ -55,25 +55,25 @@ interface ScanSessionData {
   has_taken_logs?: boolean; // Whether any medications were actually scanned/taken
 }
 
-// Helper to derive status based on medication_logs
+// Helper to derive status based on medication_logs and time
+// Don't rely on is_active since past scans failed to update it
 function deriveSessionStatus(session: ScanSessionData): 'pending' | 'completed' | 'expired' {
+  const now = new Date();
+  const expiresAt = new Date(session.expires_at);
+  
   // If any medication in the session was logged as 'taken', the session is completed
+  // This is the definitive check - if they scanned, it's completed regardless of is_active
   if (session.has_taken_logs) {
     return 'completed';
   }
   
-  // If not active and no taken logs, it expired
-  if (!session.is_active) {
+  // If no logs and past expiration time, it expired (missed)
+  if (expiresAt < now) {
     return 'expired';
   }
   
-  // If still active and not expired, it's pending
-  if (new Date(session.expires_at) > new Date()) {
-    return 'pending';
-  }
-  
-  // If still marked active but past expiration, it's expired (edge case)
-  return 'expired';
+  // If no logs and not yet expired, it's still pending
+  return 'pending';
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
