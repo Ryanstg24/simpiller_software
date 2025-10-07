@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 as useAuth } from "@/contexts/auth-context-v2";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { supabase } from "@/lib/supabase";
 

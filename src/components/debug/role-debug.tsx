@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthV2 as useAuth } from '@/contexts/auth-context-v2';
 
 export function RoleDebug() {
   const { 

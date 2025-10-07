@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -47,13 +47,29 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const router = useRouter();
+  
+  // Role caching to prevent excessive database queries
+  const lastRoleFetchTime = useRef<number>(0);
+  const lastRoleFetchUserId = useRef<string | null>(null);
+  const ROLE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
   // Fetch user roles with proper error handling and timeout
-  const fetchUserRoles = useCallback(async (userId: string): Promise<UserRole[]> => {
+  const fetchUserRoles = useCallback(async (userId: string, forceRefresh: boolean = false): Promise<UserRole[]> => {
+    // Check cache first - if we fetched roles recently for this user, return cached roles
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastRoleFetchTime.current;
+    const isSameUser = lastRoleFetchUserId.current === userId;
+    
+    if (!forceRefresh && isSameUser && timeSinceLastFetch < ROLE_CACHE_TTL && userRoles.length > 0) {
+      console.log(`[Auth V2] Using cached roles (age: ${Math.round(timeSinceLastFetch / 1000)}s)`);
+      return userRoles;
+    }
+    
     try {
-      // Add timeout to prevent hanging
+      console.log(`[Auth V2] Fetching fresh roles for user: ${userId}`);
+      // Increased timeout from 5s to 15s for better reliability
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Role fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Role fetch timeout')), 15000)
       );
 
       const fetchPromise = (async () => {
@@ -65,10 +81,12 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
 
         if (assignmentsError) {
           console.error('[Auth V2] Error fetching role assignments:', assignmentsError);
-          return [];
+          // Return current roles instead of empty array to prevent access loss
+          return userRoles.length > 0 ? userRoles : [];
         }
 
         if (!assignments || assignments.length === 0) {
+          console.warn('[Auth V2] No role assignments found for user:', userId);
           return [];
         }
 
@@ -81,10 +99,12 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
 
         if (error) {
           console.error('[Auth V2] Error fetching roles:', error);
-          return [];
+          // Return current roles instead of empty array to prevent access loss
+          return userRoles.length > 0 ? userRoles : [];
         }
 
         if (!data || data.length === 0) {
+          console.warn('[Auth V2] No roles found for role IDs');
           return [];
         }
 
@@ -97,22 +117,32 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
           permissions: role.permissions || {}
         }));
 
+        // Update cache tracking
+        lastRoleFetchTime.current = Date.now();
+        lastRoleFetchUserId.current = userId;
+
         return roles;
       })();
 
       return await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error) {
       console.error('[Auth V2] Exception fetching roles:', error);
-      // Return empty array on timeout to prevent blocking the app
+      // If we have existing roles, keep them instead of clearing to prevent access denial
+      if (userRoles.length > 0) {
+        console.warn('[Auth V2] Keeping existing roles due to fetch error');
+        return userRoles;
+      }
+      // Only return empty if we truly have no roles
       return [];
     }
-  }, []);
+  }, [userRoles]);
 
   // Fetch password change requirement with timeout
   const fetchPasswordChangeRequired = useCallback(async (userId: string): Promise<boolean> => {
     try {
+      // Increased timeout from 3s to 10s for better reliability
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Password check timeout')), 3000)
+        setTimeout(() => reject(new Error('Password check timeout')), 10000)
       );
 
       const fetchPromise = supabase
@@ -125,15 +155,17 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('[Auth V2] Error fetching password change requirement:', error);
-        return false;
+        // On error, keep existing state instead of defaulting to false
+        return passwordChangeRequired;
       }
 
       return data?.password_change_required || false;
     } catch (error) {
       console.error('[Auth V2] Exception fetching password change requirement:', error);
-      return false;
+      // On timeout/exception, keep existing state to avoid unnecessary prompts
+      return passwordChangeRequired;
     }
-  }, []);
+  }, [passwordChangeRequired]);
 
   // Initialize auth state
   const initializeAuth = useCallback(async () => {
@@ -191,19 +223,23 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
       // This prevents unnecessary DB queries every 30 seconds
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         try {
-          // Fetch roles and password requirement in parallel
-          const [roles, passwordRequired] = await Promise.all([
-            fetchUserRoles(session.user.id),
-            fetchPasswordChangeRequired(session.user.id)
-          ]);
-
+          // Fetch roles - always needed
+          const roles = await fetchUserRoles(session.user.id);
           setUserRoles(roles);
-          setPasswordChangeRequired(passwordRequired);
+          
+          // Only check password requirement on actual sign-in, not on page load
+          // This reduces database queries and prevents unnecessary modal triggers
+          if (event === 'SIGNED_IN') {
+            const passwordRequired = await fetchPasswordChangeRequired(session.user.id);
+            setPasswordChangeRequired(passwordRequired);
+          }
         } catch (error) {
           console.error('[Auth V2] Error in auth state change:', error);
-          // Set default values on error to prevent app from breaking
-          setUserRoles([]);
-          setPasswordChangeRequired(false);
+          // Don't clear existing roles on error - keep them for stability
+          if (userRoles.length === 0) {
+            setUserRoles([]);
+          }
+          // Don't change password requirement on error
         }
       }
       // For TOKEN_REFRESHED and other events, keep existing roles
@@ -214,7 +250,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     }
 
     setIsLoading(false);
-  }, [fetchUserRoles, fetchPasswordChangeRequired]);
+  }, [fetchUserRoles, fetchPasswordChangeRequired, userRoles.length]);
 
   // Initialize auth on mount - only run once
   useEffect(() => {

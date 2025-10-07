@@ -87,7 +87,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
       // Fetch medication logs (individual medication taken/missed records)
       try {
-        console.log('[Adherence] Fetching logs for patient:', patient.id);
+        console.log('[Adherence] Fetching logs for patient:', patient.id, 'Name:', patient.first_name, patient.last_name);
         
         // First try without the join to see if we get all logs
         const { data: logsData, error: logsError } = await supabase
@@ -98,6 +98,17 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           .limit(100);
         
         console.log('[Adherence] Raw query without join - Count:', logsData?.length);
+        
+        // Check if there are ANY logs for this patient after Oct 4
+        if (logsData) {
+          const recentLogs = logsData.filter((log: { event_date: string }) => 
+            new Date(log.event_date) > new Date('2025-10-04')
+          );
+          console.log('[Adherence] Logs after Oct 4 for this patient:', recentLogs.length);
+          if (recentLogs.length > 0) {
+            console.log('[Adherence] Sample recent log:', recentLogs[0]);
+          }
+        }
         
         // If we have logs, fetch medication details separately
         if (logsData && logsData.length > 0) {
