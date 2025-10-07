@@ -102,17 +102,6 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   // Check if user can edit pharmacy assignment
   const canEditPharmacy = isSimpillerAdmin || isOrganizationAdmin;
 
-  // Debug provider dropdown state
-  console.log('Provider Dropdown Debug:', {
-    canEditProvider,
-    isSimpillerAdmin,
-    isOrganizationAdmin,
-    loadingProviders,
-    providersCount: providers.length,
-    providers: providers.slice(0, 3)
-  });
-
-
 
   const fetchMedications = useCallback(async () => {
     if (!patient) return;
