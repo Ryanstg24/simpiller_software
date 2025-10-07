@@ -87,6 +87,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
       // Fetch medication logs (individual medication taken/missed records)
       try {
+        console.log('[Adherence] Fetching logs for patient:', patient.id);
+        
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
           .select(`
@@ -105,6 +107,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
           .limit(100);
+        
+        console.log('[Adherence] Query completed. Error:', logsError, 'Data count:', logsData?.length || 0);
 
         if (logsError) {
           console.error('Error fetching medication logs:', logsError);
