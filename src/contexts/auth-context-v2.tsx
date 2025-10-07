@@ -51,6 +51,7 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
   // Role caching to prevent excessive database queries
   const lastRoleFetchTime = useRef<number>(0);
   const lastRoleFetchUserId = useRef<string | null>(null);
+  const hasInitializedRoles = useRef<boolean>(false); // Track if roles fetched for current session
   const ROLE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
   // Fetch user roles with proper error handling and timeout
@@ -219,13 +220,18 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
     setUser(session?.user ?? null);
 
     if (session?.user) {
-      // Only fetch roles on SIGNED_IN event, not on token refresh or other events
-      // This prevents unnecessary DB queries every 30 seconds
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      // Only fetch roles on INITIAL_SESSION or first SIGNED_IN
+      // CRITICAL FIX: SIGNED_IN can fire multiple times - we only want to fetch once per session
+      const shouldFetchRoles = (event === 'INITIAL_SESSION') || 
+                               (event === 'SIGNED_IN' && !hasInitializedRoles.current);
+      
+      if (shouldFetchRoles) {
+        console.log('[Auth V2] Fetching roles for event:', event);
         try {
           // Fetch roles - always needed
           const roles = await fetchUserRoles(session.user.id);
           setUserRoles(roles);
+          hasInitializedRoles.current = true; // Mark as initialized
           
           // Only check password requirement on actual sign-in, not on page load
           // This reduces database queries and prevents unnecessary modal triggers
@@ -241,12 +247,16 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
           }
           // Don't change password requirement on error
         }
+      } else {
+        console.log('[Auth V2] Skipping role fetch for event:', event, '(already initialized)');
       }
-      // For TOKEN_REFRESHED and other events, keep existing roles
+      // For TOKEN_REFRESHED and subsequent SIGNED_IN events, keep existing roles
       // Don't refetch roles unnecessarily
     } else {
+      // User signed out - reset everything
       setUserRoles([]);
       setPasswordChangeRequired(false);
+      hasInitializedRoles.current = false; // Reset for next session
     }
 
     setIsLoading(false);
