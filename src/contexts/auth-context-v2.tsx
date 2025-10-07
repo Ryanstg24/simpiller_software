@@ -296,10 +296,40 @@ export function AuthProviderV2({ children }: { children: React.ReactNode }) {
   const isProvider = userRoles.some(role => role.name === 'provider');
   const isBilling = userRoles.some(role => role.name === 'billing');
 
-  // Get organization ID from non-admin roles
-  const userOrganizationId = userRoles.find(role => 
-    role.name !== 'simpiller_admin'
-  )?.organization_id || null;
+  // Get organization ID with proper role prioritization
+  // CRITICAL FIX: Previously used .find() which returned FIRST role, causing org admins
+  // to see wrong organization's data if they had multiple roles
+  const userOrganizationId = (() => {
+    // Priority 1: organization_admin (highest authority)
+    const orgAdminRole = userRoles.find(role => role.name === 'organization_admin');
+    if (orgAdminRole?.organization_id) {
+      console.log('[Auth V2] Using organization_admin org:', orgAdminRole.organization_id);
+      return orgAdminRole.organization_id;
+    }
+    
+    // Priority 2: provider
+    const providerRole = userRoles.find(role => role.name === 'provider');
+    if (providerRole?.organization_id) {
+      console.log('[Auth V2] Using provider org:', providerRole.organization_id);
+      return providerRole.organization_id;
+    }
+    
+    // Priority 3: billing
+    const billingRole = userRoles.find(role => role.name === 'billing');
+    if (billingRole?.organization_id) {
+      console.log('[Auth V2] Using billing org:', billingRole.organization_id);
+      return billingRole.organization_id;
+    }
+    
+    // Fallback: any non-simpiller_admin role
+    const anyRole = userRoles.find(role => 
+      role.name !== 'simpiller_admin' && role.organization_id
+    );
+    if (anyRole?.organization_id) {
+      console.log('[Auth V2] Using fallback role org:', anyRole.organization_id);
+    }
+    return anyRole?.organization_id || null;
+  })();
 
 
   const contextValue: AuthContextType = {

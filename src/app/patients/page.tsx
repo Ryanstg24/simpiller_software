@@ -274,14 +274,6 @@ export default function PatientsPage() {
     const adher = Math.min(progress?.adherenceMinutes || 0, 80);
     const commPct = Math.round((comm / 20) * 100);
     const adherPct = Math.round((adher / 80) * 100);
-    
-    // Debug logging
-    console.log(`[ProgressBar] Patient ${patientId}: comm=${comm}/20 (${commPct}%), adher=${adher}/80 (${adherPct}%)`);
-    
-    // Safety check: if no progress data, show empty bars
-    if (!progress || (comm === 0 && adher === 0)) {
-      console.log(`[ProgressBar] No progress data for patient ${patientId} - showing empty bars`);
-    }
 
     return (
       <div className="flex items-center gap-4 w-full">
