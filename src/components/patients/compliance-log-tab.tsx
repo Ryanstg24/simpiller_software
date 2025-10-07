@@ -323,8 +323,16 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }
   };
 
+  // Filter logs by selected month
+  const filteredLogs = selectedMonth 
+    ? logs.filter(log => {
+        const logMonth = new Date(log.event_date).toISOString().slice(0, 7);
+        return logMonth === selectedMonth;
+      })
+    : logs;
+
   const currentCompliance = getCurrentMonthCompliance();
-  const groupedLogs = groupLogsByTime(logs);
+  const groupedLogs = groupLogsByTime(filteredLogs);
 
   // Safety check for patient
   if (!patient) {
@@ -449,28 +457,35 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         <h4 className="text-lg font-medium text-gray-900 mb-4">Recent Medication History</h4>
         
         {/* Status Summary */}
-        {logs.length > 0 && (
+        {filteredLogs.length > 0 && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex flex-wrap gap-2 text-sm">
               <span className="text-green-600">
-                ✅ Taken: {logs.filter(log => log.status === 'taken').length}
+                ✅ Taken: {filteredLogs.filter(log => log.status === 'taken').length}
               </span>
               <span className="text-red-600">
-                ❌ Missed: {logs.filter(log => log.status === 'missed').length}
+                ❌ Missed: {filteredLogs.filter(log => log.status === 'missed').length}
               </span>
               <span className="text-yellow-600">
-                ⊘ Skipped: {logs.filter(log => log.status === 'skipped').length}
+                ⊘ Skipped: {filteredLogs.filter(log => log.status === 'skipped').length}
               </span>
             </div>
           </div>
         )}
-        {logs.length === 0 ? (
+        {filteredLogs.length === 0 ? (
           <div className="text-center py-8">
             <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No medication history found</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {selectedMonth ? 'for the selected month' : 'yet'}
+            <p className="text-gray-600">
+              {selectedMonth 
+                ? `No medication history found for ${new Date(selectedMonth + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`
+                : 'No medication history found yet'
+              }
             </p>
+            {logs.length > 0 && selectedMonth && (
+              <p className="text-sm text-blue-600 mt-2">
+                Try selecting a different month or "All Time"
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
