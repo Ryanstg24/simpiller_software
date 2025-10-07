@@ -53,13 +53,20 @@ export class TwilioService {
       }
 
       console.log('📱 [REAL MODE] Sending SMS via Twilio...');
+      
+      // Build status callback URL
+      const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.simpiller.com';
+      const statusCallbackUrl = `${baseUrl}/api/sms/status-callback`;
+      
       const result = await client.messages.create({
         body: message.body,
         messagingServiceSid: message.from || messagingServiceSid,
         to: message.to,
+        statusCallback: statusCallbackUrl, // Track delivery status
       });
 
       console.log(`✅ SMS sent successfully to ${message.to}. SID: ${result.sid}`);
+      console.log(`📊 Status callback URL: ${statusCallbackUrl}`);
       return true;
     } catch (error) {
       console.error('❌ Error sending SMS:', error);
