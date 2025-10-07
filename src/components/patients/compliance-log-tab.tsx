@@ -110,6 +110,25 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           console.error('Error fetching medication logs:', logsError);
           setLogs([]);
         } else {
+          console.log('[Adherence] Raw logs from database:', logsData?.length || 0, 'records');
+          if (logsData && logsData.length > 0) {
+            // Show date range
+            const dates = logsData.map((l: any) => new Date(l.event_date));
+            const newest = new Date(Math.max(...dates.map(d => d.getTime())));
+            const oldest = new Date(Math.min(...dates.map(d => d.getTime())));
+            console.log('[Adherence] Date range:', {
+              newest: newest.toLocaleString(),
+              oldest: oldest.toLocaleString(),
+              today: new Date().toLocaleString()
+            });
+            // Show sample of recent logs
+            console.log('[Adherence] Most recent 3 logs:', logsData.slice(0, 3).map((l: any) => ({
+              date: l.event_date,
+              status: l.status,
+              medication: l.medications
+            })));
+          }
+          
           // Map the data to handle Supabase join structure (medications is an array with one item)
           const mappedLogs: MedicationLogData[] = (logsData || []).map((log: RawMedicationLogResponse) => ({
             id: log.id,
