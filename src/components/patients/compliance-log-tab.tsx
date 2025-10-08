@@ -243,25 +243,32 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     });
   };
 
-  // Group logs by scheduled time
+  // Group logs by 15-minute intervals (for UI grouping only - actual scan times preserved)
   const groupLogsByTime = (logs: MedicationLogData[]): GroupedLog[] => {
     const grouped = new Map<string, MedicationLogData[]>();
     
     logs.forEach(log => {
-      // Round to nearest minute for grouping
       const date = new Date(log.event_date);
-      const roundedTime = new Date(
+      
+      // Round to nearest 15-minute interval for grouping
+      // This groups scans within the same medication window together
+      const minutes = date.getMinutes();
+      const roundedMinutes = Math.floor(minutes / 15) * 15; // Rounds down to 0, 15, 30, or 45
+      
+      const intervalTime = new Date(
         date.getFullYear(),
         date.getMonth(),
         date.getDate(),
         date.getHours(),
-        date.getMinutes()
+        roundedMinutes,
+        0,
+        0
       ).toISOString();
       
-      if (!grouped.has(roundedTime)) {
-        grouped.set(roundedTime, []);
+      if (!grouped.has(intervalTime)) {
+        grouped.set(intervalTime, []);
       }
-      grouped.get(roundedTime)!.push(log);
+      grouped.get(intervalTime)!.push(log);
     });
     
     // Convert to array and calculate status for each group
@@ -280,7 +287,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       
       return {
         scheduledTime,
-        logs: groupLogs,
+        logs: groupLogs.sort((a, b) => 
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
+        ), // Sort logs within group by actual scan time (newest first)
         status,
         takenCount,
         totalCount
@@ -547,6 +556,13 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                               </div>
                               <div className="text-sm text-gray-600">
                                 {log.medications?.strength} {log.medications?.format}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(log.event_date).toLocaleString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
                               </div>
                               {log.qr_code_scanned && (
                                 <div className="text-xs text-green-600 mt-1">
