@@ -153,13 +153,9 @@ export default function PatientsPage() {
               // Use cycle_start_date if available, otherwise fall back to earliest medication
               let cycleAnchor: string | null = null;
               
-              console.log(`[Progress] ${patient.first_name} ${patient.last_name} - cycle_start_date from DB:`, patient.cycle_start_date);
-              
               if (patient.cycle_start_date) {
                 cycleAnchor = patient.cycle_start_date;
-                console.log(`[Progress] ✅ Using cycle_start_date for ${patient.first_name} ${patient.last_name}: ${cycleAnchor}`);
               } else {
-                console.log(`[Progress] ⚠️ No cycle_start_date found for ${patient.first_name} ${patient.last_name}, falling back to medication`);
                 // Fallback: Find earliest medication for this patient to anchor the cycle
                 const { data: med, error: medErr } = await supabase
                   .from('medications')
@@ -170,24 +166,18 @@ export default function PatientsPage() {
                   .single();
 
                 if (medErr || !med) {
-                  console.log(`[Progress] No cycle_start_date or medication found for patient ${patient.first_name} ${patient.last_name} - setting all to 0`);
                   return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
                 }
                 
                 cycleAnchor = med.created_at as string;
-                console.log(`[Progress] Using earliest medication date for ${patient.first_name} ${patient.last_name}: ${cycleAnchor}`);
               }
 
               const { cycleStart, cycleEnd } = computeCurrentCycle(cycleAnchor);
-              
-              console.log(`[Progress] ${patient.first_name} ${patient.last_name} - Calculated cycle: ${cycleStart.toISOString()} to ${cycleEnd.toISOString()}`);
 
               // Fetch provider_time_logs within the cycle window
               let communicationMinutes = 0;
               let adherenceMinutes = 0;
               let adherenceDays = 0;
-              
-              console.log(`[Progress] Patient ${patient.first_name} ${patient.last_name} - Cycle: ${cycleStart.toISOString()} to ${cycleEnd.toISOString()}`);
               
               try {
                 const { data: logs, error: logsErr } = await supabase
@@ -261,15 +251,8 @@ export default function PatientsPage() {
                 daysLeft,
               };
               
-              console.log(`[Progress] 📊 Final result for ${patient.first_name} ${patient.last_name}:`, {
-                ...result,
-                daysLeft: `${result.daysLeft}d`,
-                cycleAnchor
-              });
-              
               return [patient.id, result] as const;
             } catch (error) {
-              console.log(`[Progress] Exception for patient ${patient.first_name} ${patient.last_name}:`, error);
               return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
             }
           })
