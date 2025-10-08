@@ -220,6 +220,9 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           bedtime: formData.bedtime || null,
           timezone: formData.timezone || null,
           
+          // Billing Cycle (automatically set to NOW() by database default)
+          // cycle_start_date: new Date().toISOString(), // Handled by DB default
+          
           is_active: true
         });
 

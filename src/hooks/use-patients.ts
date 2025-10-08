@@ -51,6 +51,9 @@ export interface Patient {
   evening_time?: string;
   bedtime?: string;
   
+  // Billing Cycle
+  cycle_start_date?: string;
+  
   // Joined data
   facilities?: {
     name: string;

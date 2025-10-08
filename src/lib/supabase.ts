@@ -189,10 +189,12 @@ export type Database = {
           created_at: string
           updated_at: string
           last_active_at: string | null
+          cycle_start_date: string
         }
         Insert: {
           id?: string
           organization_id: string
+          cycle_start_date?: string
           facility_id?: string | null
           assigned_provider_id?: string | null
           patient_id_alt?: string | null
