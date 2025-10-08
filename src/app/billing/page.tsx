@@ -215,20 +215,22 @@ function BillingPageContent() {
         let providerName = 'Unassigned';
         try {
           if (timeLogs && timeLogs.length > 0) {
-            const firstLog: any = timeLogs[0];
+            const firstLog = timeLogs[0] as Record<string, unknown>;
             if (firstLog.users) {
-              const userInfo: any = Array.isArray(firstLog.users) ? firstLog.users[0] : firstLog.users;
+              const users = firstLog.users as Record<string, string> | Record<string, string>[];
+              const userInfo = Array.isArray(users) ? users[0] : users;
               if (userInfo && userInfo.first_name && userInfo.last_name) {
                 providerName = `${userInfo.first_name} ${userInfo.last_name}`;
               }
             }
           } else if (patient.users) {
-            const userInfo: any = Array.isArray(patient.users) ? patient.users[0] : patient.users;
+            const users = patient.users as Record<string, string> | Record<string, string>[];
+            const userInfo = Array.isArray(users) ? users[0] : users;
             if (userInfo && userInfo.first_name && userInfo.last_name) {
               providerName = `${userInfo.first_name} ${userInfo.last_name}`;
             }
           }
-        } catch (e) {
+        } catch {
           // Fallback to 'Unassigned' if any error
           providerName = 'Unassigned';
         }
