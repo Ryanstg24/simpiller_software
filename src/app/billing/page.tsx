@@ -57,6 +57,7 @@ function BillingPageContent() {
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [billingMode, setBillingMode] = useState<'per-patient' | 'date-range'>('per-patient');
   const [dateRange, setDateRange] = useState<{
     start: string;
     end: string;
@@ -79,16 +80,23 @@ function BillingPageContent() {
     showOnlyEligible: false,
   });
 
+  // Helper to compute current 30-day cycle for a patient
+  const computeCurrentCycle = (startISO: string) => {
+    const start = new Date(startISO);
+    const now = new Date();
+    const cycleMs = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = now.getTime() - start.getTime();
+    const cyclesPassed = Math.floor(elapsed / cycleMs);
+    const cycleStart = new Date(start.getTime() + cyclesPassed * cycleMs);
+    const cycleEnd = new Date(cycleStart.getTime() + cycleMs);
+    return { cycleStart, cycleEnd };
+  };
+
   const fetchBillingData = useCallback(async () => {
     if (!userOrganizationId) return;
 
     try {
       setLoading(true);
-
-      // Calculate date range for the selected period
-      const startDate = new Date(dateRange.start);
-      const endDate = new Date(dateRange.end);
-      endDate.setHours(23, 59, 59, 999); // End of day
 
       // Fetch patients for the organization
       const { data: patients, error: patientsError } = await supabase
@@ -99,6 +107,7 @@ function BillingPageContent() {
           last_name,
           adherence_score,
           created_at,
+          cycle_start_date,
           users!assigned_provider_id (
             first_name,
             last_name
@@ -112,65 +121,88 @@ function BillingPageContent() {
         return;
       }
 
-      // Fetch medication logs for adherence tracking
-      const { data: medicationLogs, error: logsError } = await supabase
-        .from('medication_logs')
-        .select('patient_id, event_date, status')
-        .in('patient_id', patients?.map(p => p.id) || [])
-        .gte('event_date', startDate.toISOString())
-        .lte('event_date', endDate.toISOString());
+      // Process billing data per patient based on mode
+      const processedData: BillingData[] = [];
 
-      if (logsError) {
-        console.error('Error fetching medication logs:', logsError);
-        return;
-      }
+      for (const patient of patients || []) {
+        // Determine date range based on billing mode
+        let cycleStart: Date;
+        let cycleEnd: Date;
 
-      // Fetch provider time logs
-      const { data: timeLogs, error: timeLogsError } = await supabase
-        .from('provider_time_logs')
-        .select(`
-          patient_id,
-          activity_type,
-          duration_minutes,
-          users!provider_id (
-            first_name,
-            last_name
-          )
-        `)
-        .in('patient_id', patients?.map(p => p.id) || [])
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
+        if (billingMode === 'per-patient' && patient.cycle_start_date) {
+          // Use patient's individual cycle
+          const cycle = computeCurrentCycle(patient.cycle_start_date);
+          cycleStart = cycle.cycleStart;
+          cycleEnd = cycle.cycleEnd;
+        } else if (billingMode === 'per-patient' && !patient.cycle_start_date) {
+          // Fallback: use earliest medication
+          const { data: med } = await supabase
+            .from('medications')
+            .select('created_at')
+            .eq('patient_id', patient.id)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .single();
+          
+          if (med?.created_at) {
+            const cycle = computeCurrentCycle(med.created_at);
+            cycleStart = cycle.cycleStart;
+            cycleEnd = cycle.cycleEnd;
+          } else {
+            // Skip patient if no cycle anchor
+            continue;
+          }
+        } else {
+          // Use manual date range
+          cycleStart = new Date(dateRange.start);
+          cycleEnd = new Date(dateRange.end);
+          cycleEnd.setHours(23, 59, 59, 999);
+        }
 
-      if (timeLogsError) {
-        console.error('Error fetching time logs:', timeLogsError);
-        return;
-      }
+        // Fetch medication logs for this patient's cycle
+        const { data: medicationLogs } = await supabase
+          .from('medication_logs')
+          .select('event_date, status')
+          .eq('patient_id', patient.id)
+          .gte('event_date', cycleStart.toISOString())
+          .lt('event_date', cycleEnd.toISOString());
 
-      // Process billing data
-      const processedData: BillingData[] = (patients || []).map(patient => {
-        const patientLogs = medicationLogs?.filter(log => log.patient_id === patient.id) || [];
-        const patientTimeLogs = timeLogs?.filter(log => log.patient_id === patient.id) || [];
+        // Fetch provider time logs for this patient's cycle (FIXED: use start_time not created_at)
+        const { data: timeLogs } = await supabase
+          .from('provider_time_logs')
+          .select(`
+            activity_type,
+            duration_minutes,
+            start_time,
+            users!provider_id (
+              first_name,
+              last_name
+            )
+          `)
+          .eq('patient_id', patient.id)
+          .gte('start_time', cycleStart.toISOString())
+          .lt('start_time', cycleEnd.toISOString());
 
         // Calculate adherence days (unique days with 'taken' status)
         const adherenceDays = new Set(
-          patientLogs
+          (medicationLogs || [])
             .filter(log => log.status === 'taken')
             .map(log => new Date(log.event_date).toDateString())
         ).size;
 
         // Calculate provider time by activity type
-        const patientCommunicationMinutes = patientTimeLogs
+        const patientCommunicationMinutes = (timeLogs || [])
           .filter(log => log.activity_type === 'patient_communication')
           .reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
 
-        const adherenceReviewMinutes = patientTimeLogs
+        const adherenceReviewMinutes = (timeLogs || [])
           .filter(log => log.activity_type === 'adherence_review')
           .reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
 
         const totalProviderTime = patientCommunicationMinutes + adherenceReviewMinutes;
 
         // CPT Code Eligibility Logic
-        const isOnboarded = new Date(patient.created_at) <= startDate;
+        const isOnboarded = new Date(patient.created_at) <= cycleStart;
         const cpt_98975 = isOnboarded && adherenceDays >= 16;
         
         // For 98976/77, we need medication class data (to be implemented)
@@ -179,10 +211,32 @@ function BillingPageContent() {
         const cpt_98980 = patientCommunicationMinutes >= 20 && adherenceReviewMinutes >= 20;
         const cpt_98981 = Math.floor(adherenceReviewMinutes / 20) - (cpt_98980 ? 1 : 0);
 
-        return {
+        // Get provider name from first time log or assigned provider
+        let providerName = 'Unassigned';
+        try {
+          if (timeLogs && timeLogs.length > 0) {
+            const firstLog: any = timeLogs[0];
+            if (firstLog.users) {
+              const userInfo: any = Array.isArray(firstLog.users) ? firstLog.users[0] : firstLog.users;
+              if (userInfo && userInfo.first_name && userInfo.last_name) {
+                providerName = `${userInfo.first_name} ${userInfo.last_name}`;
+              }
+            }
+          } else if (patient.users) {
+            const userInfo: any = Array.isArray(patient.users) ? patient.users[0] : patient.users;
+            if (userInfo && userInfo.first_name && userInfo.last_name) {
+              providerName = `${userInfo.first_name} ${userInfo.last_name}`;
+            }
+          }
+        } catch (e) {
+          // Fallback to 'Unassigned' if any error
+          providerName = 'Unassigned';
+        }
+
+        processedData.push({
           patient_id: patient.id,
           patient_name: `${patient.first_name} ${patient.last_name}`,
-          provider_name: patient.users && patient.users.length > 0 ? `${patient.users[0].first_name} ${patient.users[0].last_name}` : 'Unassigned',
+          provider_name: providerName,
           cpt_98975,
           cpt_98976_77,
           cpt_98980,
@@ -191,8 +245,8 @@ function BillingPageContent() {
           provider_time_minutes: totalProviderTime,
           patient_communication_minutes: patientCommunicationMinutes,
           adherence_review_minutes: adherenceReviewMinutes,
-        };
-      });
+        });
+      }
 
       setBillingData(processedData);
 
@@ -213,7 +267,7 @@ function BillingPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [userOrganizationId, dateRange]);
+  }, [userOrganizationId, dateRange, billingMode]);
 
   useEffect(() => {
     fetchBillingData();
@@ -376,36 +430,99 @@ function BillingPageContent() {
           <p className="mt-2 text-black">Track and export billing data for CPT codes</p>
         </div>
 
-        {/* Date Range Selector */}
+        {/* Billing Mode Toggle */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <h2 className="text-lg font-medium text-black mb-4">Billing Period</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Start Date</label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">End Date</label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={fetchBillingData} className="w-full bg-black text-white hover:bg-gray-800">
-                <Calendar className="h-4 w-4 mr-2" />
-                Update Data
-              </Button>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-black">Billing Mode</h2>
+          </div>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setBillingMode('per-patient')}
+              className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+                billingMode === 'per-patient'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <div className="flex flex-col items-center">
+                <Users className="h-5 w-5 mb-1" />
+                <span>Per-Patient Cycles</span>
+                <span className="text-xs mt-1 opacity-80">Uses each patient&apos;s cycle_start_date</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setBillingMode('date-range')}
+              className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+                billingMode === 'date-range'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <div className="flex flex-col items-center">
+                <Calendar className="h-5 w-5 mb-1" />
+                <span>Date Range</span>
+                <span className="text-xs mt-1 opacity-80">Manual date selection</span>
+              </div>
+            </button>
           </div>
         </div>
+
+        {/* Warning Banner for Date Range Mode */}
+        {billingMode === 'date-range' && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Date Range Mode Warning</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>You&apos;re using manual date range mode. This may not align with individual patient billing cycles.</p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Each patient has their own 30-day cycle based on their <code className="bg-yellow-100 px-1 py-0.5 rounded">cycle_start_date</code></li>
+                    <li>A single date range may only capture partial cycles for some patients</li>
+                    <li>Recommended: Use <strong>Per-Patient Cycles</strong> mode for accurate billing</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Date Range Selector (only shown in date-range mode) */}
+        {billingMode === 'date-range' && (
+          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+            <h2 className="text-lg font-medium text-black mb-4">Custom Date Range</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={fetchBillingData} className="w-full bg-black text-white hover:bg-gray-800">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Update Data
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filtering Options */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
