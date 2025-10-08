@@ -89,7 +89,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           `)
           .eq('patient_id', patient.id)
           .eq('provider_id', user?.id)
-          .order('created_at', { ascending: false });
+          .order('start_time', { ascending: false }); // Sort by actual log date, not creation time
 
         if (error) {
           console.warn('Provider time logs table not available yet, using mock data:', error);
@@ -221,16 +221,27 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
 
   // Month filter helpers
   const filteredTimeLogs = useMemo(() => {
-    if (!selectedMonth) return timeLogs;
-    const [yearStr, monthStr] = selectedMonth.split('-');
-    const year = Number(yearStr);
-    const monthIndex = Number(monthStr) - 1; // 0-based
-    // Use UTC boundaries to avoid TZ spillover
-    const monthStart = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
-    const nextMonthStart = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0));
-    return timeLogs.filter((log) => {
-      const when = log.start_time ? new Date(log.start_time) : new Date(log.created_at);
-      return when >= monthStart && when < nextMonthStart;
+    let filtered = timeLogs;
+    
+    // Filter by month if selected
+    if (selectedMonth) {
+      const [yearStr, monthStr] = selectedMonth.split('-');
+      const year = Number(yearStr);
+      const monthIndex = Number(monthStr) - 1; // 0-based
+      // Use UTC boundaries to avoid TZ spillover
+      const monthStart = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0));
+      const nextMonthStart = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0));
+      filtered = timeLogs.filter((log) => {
+        const when = log.start_time ? new Date(log.start_time) : new Date(log.created_at);
+        return when >= monthStart && when < nextMonthStart;
+      });
+    }
+    
+    // Sort by actual log date/time (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.start_time || a.created_at);
+      const dateB = new Date(b.start_time || b.created_at);
+      return dateB.getTime() - dateA.getTime(); // Descending (newest first)
     });
   }, [timeLogs, selectedMonth]);
 
