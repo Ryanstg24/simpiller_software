@@ -226,7 +226,18 @@ export default function PatientsPage() {
                   .single();
 
                 if (medErr || !med) {
-                  return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
+                  return [patient.id, { 
+                    communicationMinutes: 0, 
+                    adherenceMinutes: 0, 
+                    adherenceDays: 0, 
+                    cycleStart: null, 
+                    cycleEnd: null, 
+                    daysLeft: 0,
+                    lastScanDate: null,
+                    lastCommDate: null,
+                    lastReviewDate: null,
+                    alerts: []
+                  }] as const;
                 }
                 
                 cycleAnchor = med.created_at as string;
