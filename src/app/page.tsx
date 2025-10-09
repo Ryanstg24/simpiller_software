@@ -16,6 +16,10 @@ import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { StatsCardSkeleton } from "@/components/ui/loading-skeleton";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { AdherenceTrendsChart } from "@/components/dashboard/adherence-trends-chart";
+import { PatientStatusChart } from "@/components/dashboard/patient-status-chart";
+import { ComplianceHeatmap } from "@/components/dashboard/compliance-heatmap";
+import { CycleProgressChart } from "@/components/dashboard/cycle-progress-chart";
 
 export default function Dashboard() {
   const { isLoading, user } = useAuthV2();
@@ -160,18 +164,18 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Charts Section - Coming Soon */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Analytics Dashboard</h3>
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <Activity className="h-16 w-16 mx-auto" />
-                </div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Charts Coming Soon</h4>
-                <p className="text-gray-600">
-                  We&apos;re building interactive charts for adherence trends, patient status distribution, 
-                  medication compliance heatmap, and cycle progress tracking.
-                </p>
+            {/* Analytics Charts */}
+            <div className="space-y-6">
+              {/* Top Row - Line Chart and Donut Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AdherenceTrendsChart />
+                <PatientStatusChart />
+              </div>
+
+              {/* Bottom Row - Heatmap and Bar Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ComplianceHeatmap />
+                <CycleProgressChart />
               </div>
             </div>
           </main>
