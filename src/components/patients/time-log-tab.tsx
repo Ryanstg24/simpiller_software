@@ -149,17 +149,16 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
         console.log('Updating time log:', editingLog.id, 'with data:', updateData);
         console.log('Current user roles:', { isSimpillerAdmin, isOrganizationAdmin, isProvider, userId: user?.id });
 
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('provider_time_logs')
           .update(updateData)
-          .eq('id', editingLog.id)
-          .select();
+          .eq('id', editingLog.id);
 
         if (error) {
           console.error('Error updating time log:', error);
           throw error;
         } else {
-          console.log('Time log update successful:', data);
+          console.log('Time log update successful (no data returned due to RLS)');
         }
       } else {
         // Create new log - include provider_id
