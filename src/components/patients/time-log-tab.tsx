@@ -132,27 +132,34 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
       const startTime = new Date(formData.date + 'T09:00:00'); // Default to 9 AM
       const endTime = new Date(startTime.getTime() + (formData.duration_minutes * 60 * 1000));
 
-      const logData = {
-        patient_id: patient.id,
-        provider_id: user.id,
-        activity_type: formData.activity_type,
-        description: formData.description,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        duration_minutes: formData.duration_minutes,
-        // billing_code removed
-      };
-
       if (editingLog) {
-        // Update existing log
+        // Update existing log - don't change provider_id
+        const updateData = {
+          activity_type: formData.activity_type,
+          description: formData.description,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_minutes: formData.duration_minutes,
+        };
+
         const { error } = await supabase
           .from('provider_time_logs')
-          .update(logData)
+          .update(updateData)
           .eq('id', editingLog.id);
 
         if (error) throw error;
       } else {
-        // Create new log
+        // Create new log - include provider_id
+        const logData = {
+          patient_id: patient.id,
+          provider_id: user.id,
+          activity_type: formData.activity_type,
+          description: formData.description,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_minutes: formData.duration_minutes,
+        };
+
         const { error } = await supabase
           .from('provider_time_logs')
           .insert(logData);
