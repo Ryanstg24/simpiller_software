@@ -371,7 +371,7 @@ export default function PatientsPage() {
               // Fetch last scan date (most recent medication_log with status='taken')
               let lastScanDate: string | null = null;
               try {
-                const { data: lastScan } = await supabase
+                const { data: lastScan, error: scanError } = await supabase
                   .from('medication_logs')
                   .select('event_date')
                   .eq('patient_id', patient.id)
@@ -379,13 +379,20 @@ export default function PatientsPage() {
                   .order('event_date', { ascending: false })
                   .limit(1)
                   .single();
-                lastScanDate = lastScan?.event_date || null;
-              } catch {}
+
+                if (scanError) {
+                  console.warn(`Failed to fetch last scan for patient ${patient.id}:`, scanError);
+                } else {
+                  lastScanDate = lastScan?.event_date || null;
+                }
+              } catch (error) {
+                console.warn(`Exception fetching last scan for patient ${patient.id}:`, error);
+              }
 
               // Fetch last communication date (most recent patient_communication log)
               let lastCommDate: string | null = null;
               try {
-                const { data: lastComm } = await supabase
+                const { data: lastComm, error: commError } = await supabase
                   .from('provider_time_logs')
                   .select('start_time')
                   .eq('patient_id', patient.id)
@@ -393,13 +400,20 @@ export default function PatientsPage() {
                   .order('start_time', { ascending: false })
                   .limit(1)
                   .single();
-                lastCommDate = lastComm?.start_time || null;
-              } catch {}
+
+                if (commError) {
+                  console.warn(`Failed to fetch last comm for patient ${patient.id}:`, commError);
+                } else {
+                  lastCommDate = lastComm?.start_time || null;
+                }
+              } catch (error) {
+                console.warn(`Exception fetching last comm for patient ${patient.id}:`, error);
+              }
 
               // Fetch last adherence review date
               let lastReviewDate: string | null = null;
               try {
-                const { data: lastReview } = await supabase
+                const { data: lastReview, error: reviewError } = await supabase
                   .from('provider_time_logs')
                   .select('start_time')
                   .eq('patient_id', patient.id)
@@ -407,8 +421,15 @@ export default function PatientsPage() {
                   .order('start_time', { ascending: false })
                   .limit(1)
                   .single();
-                lastReviewDate = lastReview?.start_time || null;
-              } catch {}
+
+                if (reviewError) {
+                  console.warn(`Failed to fetch last review for patient ${patient.id}:`, reviewError);
+                } else {
+                  lastReviewDate = lastReview?.start_time || null;
+                }
+              } catch (error) {
+                console.warn(`Exception fetching last review for patient ${patient.id}:`, error);
+              }
 
               // Calculate alerts
               const alerts: PatientAlert[] = [];
