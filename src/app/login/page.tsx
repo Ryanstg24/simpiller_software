@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +59,16 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/simpiller_logo25.png"
+              alt="Simpiller Logo"
+              width={120}
+              height={120}
+              priority
+              className="rounded-lg"
+            />
+          </div>
           <h1 className="text-3xl font-bold text-blue-600">Simpiller</h1>
           <p className="mt-2 text-gray-800">Healthcare Medication Management</p>
         </div>
