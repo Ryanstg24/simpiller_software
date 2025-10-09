@@ -237,7 +237,7 @@ export default function PatientsPage() {
                     lastCommDate: null,
                     lastReviewDate: null,
                     alerts: []
-                  }] as const;
+                  }];
                 }
                 
                 cycleAnchor = med.created_at as string;
@@ -459,7 +459,7 @@ export default function PatientsPage() {
                 alerts,
               };
               
-              return [patient.id, result] as const;
+              return [patient.id, result];
             } catch (error) {
               return [patient.id, { 
                 communicationMinutes: 0, 
@@ -472,7 +472,7 @@ export default function PatientsPage() {
                 lastCommDate: null,
                 lastReviewDate: null,
                 alerts: []
-              }] as const;
+              }];
             }
           })
         );
