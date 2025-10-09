@@ -11,6 +11,7 @@ interface AdherenceTrendData {
   adherenceRate: number;
   totalScans: number;
   successfulScans: number;
+  [key: string]: any; // Add index signature for Recharts compatibility
 }
 
 interface AdherenceTrendsChartProps {

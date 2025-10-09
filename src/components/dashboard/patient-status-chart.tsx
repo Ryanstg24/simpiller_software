@@ -11,6 +11,7 @@ interface PatientStatusData {
   value: number;
   color: string;
   icon: React.ComponentType<{ className?: string }>;
+  [key: string]: any; // Add index signature for Recharts compatibility
 }
 
 interface PatientStatusChartProps {
