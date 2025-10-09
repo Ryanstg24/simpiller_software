@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuthV2 } from "@/contexts/auth-context-v2";
 import Link from "next/link";
+import Image from "next/image";
 
 interface NavItem {
   name: string;
@@ -62,8 +63,20 @@ export function Sidebar({ currentPage = '/' }: SidebarProps) {
   return (
     <div className="w-64 bg-white shadow-lg flex flex-col">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-blue-600">Simpiller</h1>
-        <p className="text-sm text-gray-500 mt-1">Medication Management</p>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/simpiller_logo25.png"
+            alt="Simpiller Logo"
+            width={40}
+            height={40}
+            priority
+            className="rounded-md"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-blue-600">Simpiller</h1>
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">Medication Management</p>
       </div>
 
       <nav className="flex-1">
