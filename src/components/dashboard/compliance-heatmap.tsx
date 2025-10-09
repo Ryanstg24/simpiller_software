@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 interface ComplianceHeatmapProps {
   className?: string;
+  selectedOrganizationId?: string | null;
 }
 
 interface DayData {
@@ -17,7 +18,7 @@ interface DayData {
   successfulScans: number;
 }
 
-export function ComplianceHeatmap({ className = '' }: ComplianceHeatmapProps) {
+export function ComplianceHeatmap({ className = '', selectedOrganizationId }: ComplianceHeatmapProps) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -26,7 +27,7 @@ export function ComplianceHeatmap({ className = '' }: ComplianceHeatmapProps) {
     isLoading,
     error
   } = useQuery({
-    queryKey: ['compliance-heatmap', user?.id, isSimpillerAdmin, userOrganizationId, currentMonth.toISOString()],
+    queryKey: ['compliance-heatmap', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId, currentMonth.toISOString()],
     queryFn: async (): Promise<DayData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -42,17 +43,22 @@ export function ComplianceHeatmap({ className = '' }: ComplianceHeatmapProps) {
       let logsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all medication logs
+        // Simpiller Admin sees all medication logs or filtered by organization
         logsQuery = supabase
           .from('medication_logs')
           .select(`
             event_date,
             status,
-            patients!inner(id)
+            patients!inner(id, organization_id)
           `)
           .gte('event_date', firstDay.toISOString())
           .lte('event_date', lastDay.toISOString())
           .order('event_date', { ascending: true });
+
+        // Apply organization filter if selected
+        if (selectedOrganizationId) {
+          logsQuery = logsQuery.eq('patients.organization_id', selectedOrganizationId);
+        }
 
       } else if (userOrganizationId) {
         // Organization Admin sees their organization's logs

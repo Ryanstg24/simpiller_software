@@ -20,11 +20,14 @@ import { AdherenceTrendsChart } from "@/components/dashboard/adherence-trends-ch
 import { PatientStatusChart } from "@/components/dashboard/patient-status-chart";
 import { ComplianceHeatmap } from "@/components/dashboard/compliance-heatmap";
 import { CycleProgressChart } from "@/components/dashboard/cycle-progress-chart";
+import { OrganizationFilter } from "@/components/dashboard/organization-filter";
+import { useOrganizationFilter } from "@/hooks/use-organization-filter";
 
 export default function Dashboard() {
   const { isLoading, user } = useAuthV2();
   const userInfo = useUserDisplay();
   const { stats, loading: statsLoading, error } = useDashboardStats();
+  const { selectedOrganizationId, handleOrganizationChange, isSimpillerAdmin } = useOrganizationFilter();
   const router = useRouter();
 
   // Redirect to login if not authenticated
@@ -128,22 +131,35 @@ export default function Dashboard() {
 
           {/* Dashboard Content */}
           <main className="p-6">
-            {/* Role Context */}
+            {/* Role Context and Organization Filter */}
             <div className="mb-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Viewing data for:</strong> {
+                          userInfo.role === 'simpiller_admin' ? 'All organizations and patients across the platform' :
+                          userInfo.role === 'organization_admin' ? 'Your organization only' :
+                          'Your assigned patients only'
+                        }
+                      </p>
+                    </div>
                   </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>Viewing data for:</strong> {
-                        userInfo.role === 'simpiller_admin' ? 'All organizations and patients across the platform' :
-                        userInfo.role === 'organization_admin' ? 'Your organization only' :
-                        'Your assigned patients only'
-                      }
-                    </p>
-                  </div>
+                  
+                  {/* Organization Filter for Simpiller Admins */}
+                  {isSimpillerAdmin && (
+                    <div className="ml-4">
+                      <OrganizationFilter
+                        selectedOrganizationId={selectedOrganizationId}
+                        onOrganizationChange={handleOrganizationChange}
+                        className="w-48"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -168,14 +184,14 @@ export default function Dashboard() {
             <div className="space-y-6">
               {/* Top Row - Line Chart and Donut Chart */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <AdherenceTrendsChart />
-                <PatientStatusChart />
+                <AdherenceTrendsChart selectedOrganizationId={selectedOrganizationId} />
+                <PatientStatusChart selectedOrganizationId={selectedOrganizationId} />
               </div>
 
               {/* Bottom Row - Heatmap and Bar Chart */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ComplianceHeatmap />
-                <CycleProgressChart />
+                <ComplianceHeatmap selectedOrganizationId={selectedOrganizationId} />
+                <CycleProgressChart selectedOrganizationId={selectedOrganizationId} />
               </div>
             </div>
           </main>

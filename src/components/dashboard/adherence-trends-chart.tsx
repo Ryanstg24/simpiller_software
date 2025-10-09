@@ -16,9 +16,10 @@ interface AdherenceTrendData {
 
 interface AdherenceTrendsChartProps {
   className?: string;
+  selectedOrganizationId?: string | null;
 }
 
-export function AdherenceTrendsChart({ className = '' }: AdherenceTrendsChartProps) {
+export function AdherenceTrendsChart({ className = '', selectedOrganizationId }: AdherenceTrendsChartProps) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
   const {
@@ -26,7 +27,7 @@ export function AdherenceTrendsChart({ className = '' }: AdherenceTrendsChartPro
     isLoading,
     error
   } = useQuery({
-    queryKey: ['adherence-trends', user?.id, isSimpillerAdmin, userOrganizationId],
+    queryKey: ['adherence-trends', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<AdherenceTrendData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -40,16 +41,21 @@ export function AdherenceTrendsChart({ className = '' }: AdherenceTrendsChartPro
       let logsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all medication logs
+        // Simpiller Admin sees all medication logs or filtered by organization
         logsQuery = supabase
           .from('medication_logs')
           .select(`
             event_date,
             status,
-            patients!inner(id)
+            patients!inner(id, organization_id)
           `)
           .gte('event_date', thirtyDaysAgo.toISOString())
           .order('event_date', { ascending: true });
+
+        // Apply organization filter if selected
+        if (selectedOrganizationId) {
+          logsQuery = logsQuery.eq('patients.organization_id', selectedOrganizationId);
+        }
 
       } else if (userOrganizationId) {
         // Organization Admin sees their organization's logs

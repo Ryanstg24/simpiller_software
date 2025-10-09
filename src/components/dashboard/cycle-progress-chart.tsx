@@ -15,9 +15,10 @@ interface CycleProgressData {
 
 interface CycleProgressChartProps {
   className?: string;
+  selectedOrganizationId?: string | null;
 }
 
-export function CycleProgressChart({ className = '' }: CycleProgressChartProps) {
+export function CycleProgressChart({ className = '', selectedOrganizationId }: CycleProgressChartProps) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
   const {
@@ -25,7 +26,7 @@ export function CycleProgressChart({ className = '' }: CycleProgressChartProps) 
     isLoading,
     error
   } = useQuery({
-    queryKey: ['cycle-progress', user?.id, isSimpillerAdmin, userOrganizationId],
+    queryKey: ['cycle-progress', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<CycleProgressData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -35,10 +36,15 @@ export function CycleProgressChart({ className = '' }: CycleProgressChartProps) 
       let patientsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all patients
+        // Simpiller Admin sees all patients or filtered by organization
         patientsQuery = supabase
           .from('patients')
           .select('id, cycle_start_date, is_active');
+
+        // Apply organization filter if selected
+        if (selectedOrganizationId) {
+          patientsQuery = patientsQuery.eq('organization_id', selectedOrganizationId);
+        }
 
       } else if (userOrganizationId) {
         // Organization Admin sees their organization's patients

@@ -16,9 +16,10 @@ interface PatientStatusData {
 
 interface PatientStatusChartProps {
   className?: string;
+  selectedOrganizationId?: string | null;
 }
 
-export function PatientStatusChart({ className = '' }: PatientStatusChartProps) {
+export function PatientStatusChart({ className = '', selectedOrganizationId }: PatientStatusChartProps) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
   const {
@@ -26,7 +27,7 @@ export function PatientStatusChart({ className = '' }: PatientStatusChartProps) 
     isLoading,
     error
   } = useQuery({
-    queryKey: ['patient-status', user?.id, isSimpillerAdmin, userOrganizationId],
+    queryKey: ['patient-status', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<PatientStatusData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -36,10 +37,15 @@ export function PatientStatusChart({ className = '' }: PatientStatusChartProps) 
       let patientsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all patients
+        // Simpiller Admin sees all patients or filtered by organization
         patientsQuery = supabase
           .from('patients')
           .select('id, is_active, rtm_status, cycle_start_date');
+
+        // Apply organization filter if selected
+        if (selectedOrganizationId) {
+          patientsQuery = patientsQuery.eq('organization_id', selectedOrganizationId);
+        }
 
       } else if (userOrganizationId) {
         // Organization Admin sees their organization's patients
