@@ -10,11 +10,17 @@ import { useUserDisplay } from "@/hooks/use-user-display";
 import { usePatients, Patient } from "@/hooks/use-patients";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
-import { Search, Plus, Users, Activity, AlertTriangle } from "lucide-react";
+import { Search, Plus, Users, Activity, AlertTriangle, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { StatsSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton";
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { refreshPatientData } from '@/lib/data-refresh';
+
+interface PatientAlert {
+  type: 'critical' | 'warning';
+  message: string;
+  icon: string;
+}
 
 interface PatientCycleProgress {
   communicationMinutes: number;
@@ -23,6 +29,10 @@ interface PatientCycleProgress {
   cycleStart: string | null;
   cycleEnd: string | null;
   daysLeft: number; // days left in current cycle
+  lastScanDate: string | null; // Most recent medication scan
+  lastCommDate: string | null; // Most recent patient communication
+  lastReviewDate: string | null; // Most recent adherence review
+  alerts: PatientAlert[]; // What needs attention
 }
 
 export default function PatientsPage() {
@@ -36,6 +46,8 @@ export default function PatientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [progressByPatientId, setProgressByPatientId] = useState<Record<string, PatientCycleProgress>>({});
   const [progressLoading, setProgressLoading] = useState(false);
+  const [needsAttentionExpanded, setNeedsAttentionExpanded] = useState(true);
+  const [onTrackExpanded, setOnTrackExpanded] = useState(false);
 
   const filteredPatients = useMemo(() => {
     let filtered = patients;
@@ -61,6 +73,28 @@ export default function PatientsPage() {
     
     return filtered;
   }, [patients, searchTerm, rtmStatusFilter]);
+
+  // Categorize patients into "Needs Attention" vs "On Track"
+  const { needsAttention, onTrack } = useMemo(() => {
+    const needsAttention: Patient[] = [];
+    const onTrack: Patient[] = [];
+
+    filteredPatients.forEach((patient: Patient) => {
+      const progress = progressByPatientId[patient.id];
+      if (progress && progress.alerts && progress.alerts.length > 0) {
+        needsAttention.push(patient);
+      } else {
+        onTrack.push(patient);
+      }
+    });
+
+    return { needsAttention, onTrack };
+  }, [filteredPatients, progressByPatientId]);
+
+  // Calculate metrics
+  const activePatients = patients.filter((p: Patient) => p.is_active).length;
+  const needsAttentionCount = needsAttention.length;
+  const cycleEndingSoonCount = Object.values(progressByPatientId).filter(p => p.daysLeft > 0 && p.daysLeft < 7).length;
 
   const handleViewDetails = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -93,6 +127,32 @@ export default function PatientsPage() {
 
   const getStatusText = (rtmStatus: string) => {
     return rtmStatus || 'Inactive';
+  };
+
+  // Render alert badges for patient
+  const renderAlertBadges = (patientId: string) => {
+    const progress = progressByPatientId[patientId];
+    if (!progress || !progress.alerts || progress.alerts.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2 mb-3">
+        {progress.alerts.map((alert, idx) => (
+          <span
+            key={idx}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              alert.type === 'critical'
+                ? 'bg-red-100 text-red-800'
+                : 'bg-yellow-100 text-yellow-800'
+            }`}
+          >
+            <span className="mr-1">{alert.icon}</span>
+            {alert.message}
+          </span>
+        ))}
+      </div>
+    );
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -242,6 +302,139 @@ export default function PatientsPage() {
               const msPerDay = 24 * 60 * 60 * 1000;
               const daysLeft = Math.max(0, Math.ceil((cycleEnd.getTime() - nowLocal.getTime()) / msPerDay));
 
+              // Fetch last scan date (most recent medication_log with status='taken')
+              let lastScanDate: string | null = null;
+              try {
+                const { data: lastScan } = await supabase
+                  .from('medication_logs')
+                  .select('event_date')
+                  .eq('patient_id', patient.id)
+                  .eq('status', 'taken')
+                  .order('event_date', { ascending: false })
+                  .limit(1)
+                  .single();
+                lastScanDate = lastScan?.event_date || null;
+              } catch {}
+
+              // Fetch last communication date (most recent patient_communication log)
+              let lastCommDate: string | null = null;
+              try {
+                const { data: lastComm } = await supabase
+                  .from('provider_time_logs')
+                  .select('start_time')
+                  .eq('patient_id', patient.id)
+                  .eq('activity_type', 'patient_communication')
+                  .order('start_time', { ascending: false })
+                  .limit(1)
+                  .single();
+                lastCommDate = lastComm?.start_time || null;
+              } catch {}
+
+              // Fetch last adherence review date
+              let lastReviewDate: string | null = null;
+              try {
+                const { data: lastReview } = await supabase
+                  .from('provider_time_logs')
+                  .select('start_time')
+                  .eq('patient_id', patient.id)
+                  .eq('activity_type', 'adherence_review')
+                  .order('start_time', { ascending: false })
+                  .limit(1)
+                  .single();
+                lastReviewDate = lastReview?.start_time || null;
+              } catch {}
+
+              // Calculate alerts
+              const alerts: PatientAlert[] = [];
+              
+              // Critical: No scans in 3+ days (if RTM active)
+              if (patient.rtm_status === 'active' && lastScanDate) {
+                const daysSinceScan = Math.floor((nowLocal.getTime() - new Date(lastScanDate).getTime()) / msPerDay);
+                if (daysSinceScan >= 3) {
+                  alerts.push({
+                    type: 'critical',
+                    message: `No scans ${daysSinceScan}d`,
+                    icon: '🚨'
+                  });
+                }
+              } else if (patient.rtm_status === 'active' && !lastScanDate) {
+                alerts.push({
+                  type: 'critical',
+                  message: 'No scans recorded',
+                  icon: '🚨'
+                });
+              }
+
+              // Warning: Communication overdue (7+ days)
+              if (lastCommDate) {
+                const daysSinceComm = Math.floor((nowLocal.getTime() - new Date(lastCommDate).getTime()) / msPerDay);
+                if (daysSinceComm >= 7) {
+                  alerts.push({
+                    type: 'warning',
+                    message: `Comm overdue ${daysSinceComm}d`,
+                    icon: '⚠️'
+                  });
+                }
+              } else if (communicationMinutes < 20) {
+                alerts.push({
+                  type: 'warning',
+                  message: 'Comm not started',
+                  icon: '⚠️'
+                });
+              }
+
+              // Warning: Adherence review overdue (7+ days)
+              if (lastReviewDate) {
+                const daysSinceReview = Math.floor((nowLocal.getTime() - new Date(lastReviewDate).getTime()) / msPerDay);
+                if (daysSinceReview >= 7) {
+                  alerts.push({
+                    type: 'warning',
+                    message: `Review overdue ${daysSinceReview}d`,
+                    icon: '⚠️'
+                  });
+                }
+              } else if (adherenceMinutes < 20) {
+                alerts.push({
+                  type: 'warning',
+                  message: 'Review not started',
+                  icon: '⚠️'
+                });
+              }
+
+              // Warning: Cycle ending soon (< 7 days)
+              if (daysLeft < 7 && daysLeft > 0) {
+                alerts.push({
+                  type: 'warning',
+                  message: `Cycle ends ${daysLeft}d`,
+                  icon: '⏰'
+                });
+              }
+
+              // Critical: Behind on requirements with little time left
+              if (daysLeft < 7) {
+                if (communicationMinutes < 20) {
+                  alerts.push({
+                    type: 'critical',
+                    message: 'Comm not met',
+                    icon: '🔴'
+                  });
+                }
+                if (adherenceMinutes < 80) {
+                  alerts.push({
+                    type: 'critical',
+                    message: 'Review mins low',
+                    icon: '🔴'
+                  });
+                }
+                if (adherenceDays < 16) {
+                  alerts.push({
+                    type: 'critical',
+                    message: 'Adherence days low',
+                    icon: '🔴'
+                  });
+                }
+              }
+
               const result = {
                 communicationMinutes,
                 adherenceMinutes,
@@ -249,11 +442,26 @@ export default function PatientsPage() {
                 cycleStart: cycleStart.toISOString(),
                 cycleEnd: cycleEnd.toISOString(),
                 daysLeft,
+                lastScanDate,
+                lastCommDate,
+                lastReviewDate,
+                alerts,
               };
               
               return [patient.id, result] as const;
             } catch (error) {
-              return [patient.id, { communicationMinutes: 0, adherenceMinutes: 0, adherenceDays: 0, cycleStart: null, cycleEnd: null, daysLeft: 0 }] as const;
+              return [patient.id, { 
+                communicationMinutes: 0, 
+                adherenceMinutes: 0, 
+                adherenceDays: 0, 
+                cycleStart: null, 
+                cycleEnd: null, 
+                daysLeft: 0,
+                lastScanDate: null,
+                lastCommDate: null,
+                lastReviewDate: null,
+                alerts: []
+              }] as const;
             }
           })
         );
@@ -362,16 +570,10 @@ export default function PatientsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center">
-                      <Activity className="h-8 w-8 text-purple-500 mr-3" />
+                      <AlertTriangle className="h-8 w-8 text-red-500 mr-3" />
                       <div>
-                        <p className="text-sm font-medium text-gray-600">This Month</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {patients.filter((p: Patient) => {
-                            const created = new Date(p.created_at);
-                            const now = new Date();
-                            return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
-                          }).length}
-                        </p>
+                        <p className="text-sm font-medium text-gray-600">Needs Attention</p>
+                        <p className="text-2xl font-bold text-gray-900">{needsAttentionCount}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -379,19 +581,10 @@ export default function PatientsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center">
-                      <Users className="h-8 w-8 text-yellow-500 mr-3" />
+                      <Clock className="h-8 w-8 text-orange-500 mr-3" />
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Avg Age</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {patients.length > 0 
-                            ? Math.round(patients.reduce((sum: number, p: Patient) => {
-                                if (p.date_of_birth) {
-                                  return sum + calculateAge(p.date_of_birth);
-                                }
-                                return sum;
-                              }, 0) / patients.filter((p: Patient) => p.date_of_birth).length)
-                            : 0}
-                        </p>
+                        <p className="text-sm font-medium text-gray-600">Cycle Ending Soon</p>
+                        <p className="text-2xl font-bold text-gray-900">{cycleEndingSoonCount}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -465,83 +658,196 @@ export default function PatientsPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border">
-                <div className="p-6 border-b">
-                  <h2 className="text-lg font-medium text-gray-900">
-                    Patients ({filteredPatients.length})
-                  </h2>
-                </div>
-                <div className="divide-y">
-                  {filteredPatients.map((patient: Patient) => (
-                    <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-medium text-sm">
-                              {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
-                            </span>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {patient.first_name} {patient.last_name}
-                            </h3>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600">
-                              {patient.patient_id_alt && (
-                                <span>ID: {patient.patient_id_alt}</span>
-                              )}
-                              {/* Age removed per request */}
-                              {patient.email && (
-                                <span>{patient.email}</span>
-                              )}
+              <>
+                {/* Needs Attention Section */}
+                {needsAttention.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border mb-6">
+                    <button
+                      onClick={() => setNeedsAttentionExpanded(!needsAttentionExpanded)}
+                      className="w-full p-6 border-b flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {needsAttentionExpanded ? (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-gray-500" />
+                        )}
+                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                        <h2 className="text-lg font-medium text-gray-900">
+                          Needs Attention ({needsAttention.length})
+                        </h2>
+                      </div>
+                    </button>
+                    {needsAttentionExpanded && (
+                      <div className="divide-y">
+                        {needsAttention.map((patient: Patient) => (
+                          <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors">
+                            {/* Alert Badges */}
+                            {renderAlertBadges(patient.id)}
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-blue-600 font-medium text-sm">
+                                    {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h3 className="text-lg font-medium text-gray-900">
+                                    {patient.first_name} {patient.last_name}
+                                  </h3>
+                                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                    {patient.patient_id_alt && (
+                                      <span>ID: {patient.patient_id_alt}</span>
+                                    )}
+                                    {patient.email && (
+                                      <span>{patient.email}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Inline compact progress + actions */}
+                              <div className="flex items-center justify-end gap-4 flex-1 ml-8">
+                                {renderProgressBars(patient.id)}
+                                {/* Adherence days and cycle remaining */}
+                                {(() => {
+                                  const p: PatientCycleProgress | undefined = progressByPatientId[patient.id];
+                                  return (
+                                    <>
+                                      <div className="text-xs text-gray-700 whitespace-nowrap">Adherence: {(p?.adherenceDays ?? 0)}/16</div>
+                                      <div className="text-xs text-gray-700 whitespace-nowrap ml-4">Cycle: {(p?.daysLeft ?? 0)}d</div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.rtm_status || '')}`}>
+                                  {getStatusText(patient.rtm_status || '')}
+                                </div>
+                                <Button 
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPatient(patient);
+                                    setIsModalOpen(true);
+                                    // open directly to Time Log tab
+                                    setTimeout(() => {
+                                      const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
+                                      el?.click();
+                                    }, 0);
+                                  }}
+                                >
+                                  Add Time Log
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleViewDetails(patient)}
+                                >
+                                  View Details
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {/* Inline compact progress + actions */}
-                        <div className="flex items-center justify-end gap-4 flex-1 ml-8">
-                          {renderProgressBars(patient.id)}
-                          {/* Adherence days and cycle remaining */}
-                          {(() => {
-                            const p: PatientCycleProgress | undefined = progressByPatientId[patient.id];
-                            return (
-                              <>
-                                <div className="text-xs text-gray-700 whitespace-nowrap">Adherence: {(p?.adherenceDays ?? 0)}/16</div>
-                                <div className="text-xs text-gray-700 whitespace-nowrap ml-4">Cycle: {(p?.daysLeft ?? 0)}d</div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.rtm_status || '')}`}>
-                            {getStatusText(patient.rtm_status || '')}
-                          </div>
-                          <Button 
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPatient(patient);
-                              setIsModalOpen(true);
-                              // open directly to Time Log tab
-                              setTimeout(() => {
-                                const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
-                                el?.click();
-                              }, 0);
-                            }}
-                          >
-                            Add Time Log
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleViewDetails(patient)}
-                          >
-                            View Details
-                          </Button>
-                        </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    )}
+                  </div>
+                )}
+
+                {/* On Track Section */}
+                {onTrack.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border">
+                    <button
+                      onClick={() => setOnTrackExpanded(!onTrackExpanded)}
+                      className="w-full p-6 border-b flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {onTrackExpanded ? (
+                          <ChevronDown className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-gray-500" />
+                        )}
+                        <Activity className="h-5 w-5 text-green-500" />
+                        <h2 className="text-lg font-medium text-gray-900">
+                          On Track ({onTrack.length})
+                        </h2>
+                      </div>
+                    </button>
+                    {onTrackExpanded && (
+                      <div className="divide-y">
+                        {onTrack.map((patient: Patient) => (
+                          <div key={patient.id} className="p-6 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-blue-600 font-medium text-sm">
+                                    {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h3 className="text-lg font-medium text-gray-900">
+                                    {patient.first_name} {patient.last_name}
+                                  </h3>
+                                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                    {patient.patient_id_alt && (
+                                      <span>ID: {patient.patient_id_alt}</span>
+                                    )}
+                                    {patient.email && (
+                                      <span>{patient.email}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Inline compact progress + actions */}
+                              <div className="flex items-center justify-end gap-4 flex-1 ml-8">
+                                {renderProgressBars(patient.id)}
+                                {/* Adherence days and cycle remaining */}
+                                {(() => {
+                                  const p: PatientCycleProgress | undefined = progressByPatientId[patient.id];
+                                  return (
+                                    <>
+                                      <div className="text-xs text-gray-700 whitespace-nowrap">Adherence: {(p?.adherenceDays ?? 0)}/16</div>
+                                      <div className="text-xs text-gray-700 whitespace-nowrap ml-4">Cycle: {(p?.daysLeft ?? 0)}d</div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.rtm_status || '')}`}>
+                                  {getStatusText(patient.rtm_status || '')}
+                                </div>
+                                <Button 
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPatient(patient);
+                                    setIsModalOpen(true);
+                                    // open directly to Time Log tab
+                                    setTimeout(() => {
+                                      const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
+                                      el?.click();
+                                    }, 0);
+                                  }}
+                                >
+                                  Add Time Log
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleViewDetails(patient)}
+                                >
+                                  View Details
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </main>
         </div>
