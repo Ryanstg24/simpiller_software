@@ -121,10 +121,14 @@ export default function PatientsPage() {
     return { needsAttention, onTrack };
   }, [filteredPatients, progressByPatientId, alertTypeFilter]);
 
-  // Calculate metrics
-  const activePatients = patients.filter((p: Patient) => p.is_active).length;
+  // Calculate metrics based on filtered patients
+  const totalPatientsCount = filteredPatients.length;
+  const activePatients = filteredPatients.filter((p: Patient) => p.is_active).length;
   const needsAttentionCount = needsAttention.length;
-  const cycleEndingSoonCount = Object.values(progressByPatientId).filter(p => p.daysLeft > 0 && p.daysLeft < 7).length;
+  const cycleEndingSoonCount = filteredPatients.filter((p: Patient) => {
+    const progress = progressByPatientId[p.id];
+    return progress && progress.daysLeft > 0 && progress.daysLeft < 7;
+  }).length;
 
   const handleViewDetails = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -613,7 +617,7 @@ export default function PatientsPage() {
                       <Users className="h-8 w-8 text-blue-500 mr-3" />
                       <div>
                         <p className="text-sm font-medium text-gray-600">Total Patients</p>
-                        <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
+                        <p className="text-2xl font-bold text-gray-900">{totalPatientsCount}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -624,7 +628,7 @@ export default function PatientsPage() {
                       <Users className="h-8 w-8 text-green-500 mr-3" />
                       <div>
                         <p className="text-sm font-medium text-gray-600">Active Patients</p>
-                        <p className="text-2xl font-bold text-gray-900">{patients.filter((p: Patient) => p.is_active).length}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activePatients}</p>
                       </div>
                     </div>
                   </CardContent>
