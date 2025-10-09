@@ -208,7 +208,7 @@ export default function PatientsPage() {
       setProgressLoading(true);
       try {
         const results = await Promise.all(
-          patients.map(async (patient: Patient) => {
+          patients.map(async (patient: Patient): Promise<[string, PatientCycleProgress]> => {
             try {
               // Use cycle_start_date if available, otherwise fall back to earliest medication
               let cycleAnchor: string | null = null;
