@@ -377,13 +377,12 @@ export default function PatientsPage() {
                   .eq('patient_id', patient.id)
                   .eq('status', 'taken')
                   .order('event_date', { ascending: false })
-                  .limit(1)
-                  .single();
+                  .limit(1);
 
                 if (scanError) {
                   console.warn(`Failed to fetch last scan for patient ${patient.id}:`, scanError);
                 } else {
-                  lastScanDate = lastScan?.event_date || null;
+                  lastScanDate = lastScan?.[0]?.event_date || null;
                 }
               } catch (error) {
                 console.warn(`Exception fetching last scan for patient ${patient.id}:`, error);
@@ -398,13 +397,12 @@ export default function PatientsPage() {
                   .eq('patient_id', patient.id)
                   .eq('activity_type', 'patient_communication')
                   .order('start_time', { ascending: false })
-                  .limit(1)
-                  .single();
+                  .limit(1);
 
                 if (commError) {
                   console.warn(`Failed to fetch last comm for patient ${patient.id}:`, commError);
                 } else {
-                  lastCommDate = lastComm?.start_time || null;
+                  lastCommDate = lastComm?.[0]?.start_time || null;
                 }
               } catch (error) {
                 console.warn(`Exception fetching last comm for patient ${patient.id}:`, error);
@@ -419,13 +417,12 @@ export default function PatientsPage() {
                   .eq('patient_id', patient.id)
                   .eq('activity_type', 'adherence_review')
                   .order('start_time', { ascending: false })
-                  .limit(1)
-                  .single();
+                  .limit(1);
 
                 if (reviewError) {
                   console.warn(`Failed to fetch last review for patient ${patient.id}:`, reviewError);
                 } else {
-                  lastReviewDate = lastReview?.start_time || null;
+                  lastReviewDate = lastReview?.[0]?.start_time || null;
                 }
               } catch (error) {
                 console.warn(`Exception fetching last review for patient ${patient.id}:`, error);

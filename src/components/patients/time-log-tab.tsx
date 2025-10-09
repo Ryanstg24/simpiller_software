@@ -104,6 +104,10 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           console.warn('Provider time logs table not available yet, using mock data:', error);
           setTimeLogs(mockTimeLogs);
         } else {
+          console.log('Fetched time logs:', data?.length || 0, 'records');
+          if (data && data.length > 0) {
+            console.log('Sample time log:', data[0]);
+          }
           setTimeLogs(data || []);
         }
       } catch (error) {
@@ -142,12 +146,21 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           duration_minutes: formData.duration_minutes,
         };
 
-        const { error } = await supabase
+        console.log('Updating time log:', editingLog.id, 'with data:', updateData);
+        console.log('Current user roles:', { isSimpillerAdmin, isOrganizationAdmin, isProvider, userId: user?.id });
+
+        const { data, error } = await supabase
           .from('provider_time_logs')
           .update(updateData)
-          .eq('id', editingLog.id);
+          .eq('id', editingLog.id)
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating time log:', error);
+          throw error;
+        } else {
+          console.log('Time log update successful:', data);
+        }
       } else {
         // Create new log - include provider_id
         const logData = {
@@ -168,8 +181,10 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
       }
 
       // Reset form and refresh data
+      console.log('Resetting form and refreshing time logs...');
       resetForm();
-      fetchTimeLogs();
+      await fetchTimeLogs();
+      console.log('Time logs refreshed after update');
     } catch (error) {
       console.error('Error saving time log:', error);
       alert('Failed to save time log. Please try again.');
