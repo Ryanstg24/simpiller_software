@@ -297,6 +297,8 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       }
 
       console.log('Patient updateData payload:', updateData);
+      console.log('Patient being updated:', { id: patient.id, organization_id: patient.organization_id });
+      console.log('Current user roles:', { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId });
 
       // If nothing changed, short-circuit
       if (Object.keys(updateData).length === 0) {
@@ -314,6 +316,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         .then(result => {
           const duration = Date.now() - startTime;
           console.log(`Update completed in ${duration}ms`);
+          console.log('Update result:', result);
           return result;
         });
 
@@ -329,11 +332,14 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
 
       if (error) {
         console.error('Error updating patient:', error);
-        try { console.error('Update payload (on error):', JSON.stringify(updateData)); } catch {}
+        console.error('Update payload (on error):', updateData);
+        console.error('Patient being updated:', { id: patient.id, organization_id: patient.organization_id });
+        console.error('Current user roles:', { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId });
+        
         const message = (typeof error === 'object' && error && 'message' in (error as Record<string, unknown>) && typeof (error as Record<string, unknown>).message === 'string')
           ? (error as Record<string, unknown>).message as string
           : 'Failed to update patient. Please try again.';
-        alert(message);
+        alert(`Update failed: ${message}`);
       } else {
         // Call the update callback to refresh parent data
         onPatientUpdated();
