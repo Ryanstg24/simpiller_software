@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 interface ComplianceHeatmapProps {

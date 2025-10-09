@@ -10,7 +10,7 @@ interface CycleProgressData {
   range: string;
   count: number;
   color: string;
-  [key: string]: any; // Add index signature for Recharts compatibility
+  [key: string]: string | number; // Add index signature for Recharts compatibility
 }
 
 interface CycleProgressChartProps {

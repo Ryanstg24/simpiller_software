@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Users, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 interface PatientStatusData {
@@ -11,7 +11,7 @@ interface PatientStatusData {
   value: number;
   color: string;
   icon: React.ComponentType<{ className?: string }>;
-  [key: string]: any; // Add index signature for Recharts compatibility
+  [key: string]: string | number | React.ComponentType<{ className?: string }>; // Add index signature for Recharts compatibility
 }
 
 interface PatientStatusChartProps {
