@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { usePatients, Patient } from "@/hooks/use-patients";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { PatientDetailsModal } from "@/components/patients/patient-details-modal";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { Search, Plus, Users, Activity, AlertTriangle, Clock, ChevronDown, ChevronRight } from "lucide-react";
@@ -35,12 +36,21 @@ interface PatientCycleProgress {
   alerts: PatientAlert[]; // What needs attention
 }
 
+interface Organization {
+  id: string;
+  name: string;
+}
+
 export default function PatientsPage() {
   const userInfo = useUserDisplay();
   const { patients, loading, error } = usePatients();
+  const { isSimpillerAdmin } = useAuthV2();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [rtmStatusFilter, setRtmStatusFilter] = useState<string>('all');
+  const [organizationFilter, setOrganizationFilter] = useState<string>('all');
+  const [alertTypeFilter, setAlertTypeFilter] = useState<string>('all');
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,6 +61,11 @@ export default function PatientsPage() {
 
   const filteredPatients = useMemo(() => {
     let filtered = patients;
+    
+    // Filter by organization (Simpiller Admins only)
+    if (isSimpillerAdmin && organizationFilter !== 'all') {
+      filtered = filtered.filter((patient: Patient) => patient.organization_id === organizationFilter);
+    }
     
     // Filter by search term
     if (searchTerm) {
@@ -72,7 +87,7 @@ export default function PatientsPage() {
     }
     
     return filtered;
-  }, [patients, searchTerm, rtmStatusFilter]);
+  }, [patients, searchTerm, rtmStatusFilter, organizationFilter, isSimpillerAdmin]);
 
   // Categorize patients into "Needs Attention" vs "On Track"
   const { needsAttention, onTrack } = useMemo(() => {
@@ -82,14 +97,29 @@ export default function PatientsPage() {
     filteredPatients.forEach((patient: Patient) => {
       const progress = progressByPatientId[patient.id];
       if (progress && progress.alerts && progress.alerts.length > 0) {
-        needsAttention.push(patient);
+        // Apply alert type filter
+        if (alertTypeFilter !== 'all') {
+          const hasMatchingAlert = progress.alerts.some(alert => {
+            if (alertTypeFilter === 'no_scans') return alert.message.includes('No scans');
+            if (alertTypeFilter === 'comm_overdue') return alert.message.includes('Comm overdue') || alert.message.includes('Comm not');
+            if (alertTypeFilter === 'review_overdue') return alert.message.includes('Review overdue') || alert.message.includes('Review not') || alert.message.includes('Review mins');
+            if (alertTypeFilter === 'cycle_ending') return alert.message.includes('Cycle ends');
+            if (alertTypeFilter === 'adherence_low') return alert.message.includes('Adherence days');
+            return true;
+          });
+          if (hasMatchingAlert) {
+            needsAttention.push(patient);
+          }
+        } else {
+          needsAttention.push(patient);
+        }
       } else {
         onTrack.push(patient);
       }
     });
 
     return { needsAttention, onTrack };
-  }, [filteredPatients, progressByPatientId]);
+  }, [filteredPatients, progressByPatientId, alertTypeFilter]);
 
   // Calculate metrics
   const activePatients = patients.filter((p: Patient) => p.is_active).length;
@@ -197,6 +227,27 @@ export default function PatientsPage() {
     const cycleEnd = new Date(cycleStart.getTime() + cycleMs);
     return { cycleStart, cycleEnd };
   };
+
+  // Fetch organizations for Simpiller Admins
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      if (!isSimpillerAdmin) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .order('name', { ascending: true });
+        
+        if (error) throw error;
+        setOrganizations(data || []);
+      } catch (error) {
+        console.error('Error fetching organizations:', error);
+      }
+    };
+
+    fetchOrganizations();
+  }, [isSimpillerAdmin]);
 
   // Load cycle-based progress for each patient
   useEffect(() => {
@@ -603,7 +654,7 @@ export default function PatientsPage() {
               </div>
             )}
 
-            {/* Search */}
+            {/* Search and Filters */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="flex gap-4">
                 <div className="relative flex-1">
@@ -616,6 +667,21 @@ export default function PatientsPage() {
                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
                   />
                 </div>
+                
+                {/* Organization Filter - Simpiller Admins Only */}
+                {isSimpillerAdmin && (
+                  <select
+                    value={organizationFilter}
+                    onChange={(e) => setOrganizationFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white min-w-[200px]"
+                  >
+                    <option value="all">All Organizations</option>
+                    {organizations.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                )}
+                
                 <select
                   value={rtmStatusFilter}
                   onChange={(e) => setRtmStatusFilter(e.target.value)}
@@ -673,22 +739,39 @@ export default function PatientsPage() {
                 {/* Needs Attention Section */}
                 {needsAttention.length > 0 && (
                   <div className="bg-white rounded-lg shadow-sm border mb-6">
-                    <button
-                      onClick={() => setNeedsAttentionExpanded(!needsAttentionExpanded)}
-                      className="w-full p-6 border-b flex items-center justify-between hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {needsAttentionExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-gray-500" />
-                        )}
-                        <AlertTriangle className="h-5 w-5 text-red-500" />
-                        <h2 className="text-lg font-medium text-gray-900">
-                          Needs Attention ({needsAttention.length})
-                        </h2>
+                    <div className="p-6 border-b">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setNeedsAttentionExpanded(!needsAttentionExpanded)}
+                          className="flex items-center space-x-3 hover:opacity-75 transition-opacity"
+                        >
+                          {needsAttentionExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-gray-500" />
+                          )}
+                          <AlertTriangle className="h-5 w-5 text-red-500" />
+                          <h2 className="text-lg font-medium text-gray-900">
+                            Needs Attention ({needsAttention.length})
+                          </h2>
+                        </button>
+                        
+                        {/* Alert Type Filter */}
+                        <select
+                          value={alertTypeFilter}
+                          onChange={(e) => setAlertTypeFilter(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 bg-white"
+                        >
+                          <option value="all">All Alerts</option>
+                          <option value="no_scans">🚨 No Scans</option>
+                          <option value="comm_overdue">⚠️ Communication</option>
+                          <option value="review_overdue">⚠️ Review</option>
+                          <option value="cycle_ending">⏰ Cycle Ending</option>
+                          <option value="adherence_low">🔴 Adherence Low</option>
+                        </select>
                       </div>
-                    </button>
+                    </div>
                     {needsAttentionExpanded && (
                       <div className="divide-y">
                         {needsAttention.map((patient: Patient) => (
