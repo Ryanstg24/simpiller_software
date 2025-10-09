@@ -169,7 +169,7 @@ export default function Dashboard() {
                 </div>
                 <h4 className="text-lg font-medium text-gray-900 mb-2">Charts Coming Soon</h4>
                 <p className="text-gray-600">
-                  We're building interactive charts for adherence trends, patient status distribution, 
+                  We&apos;re building interactive charts for adherence trends, patient status distribution, 
                   medication compliance heatmap, and cycle progress tracking.
                 </p>
               </div>
