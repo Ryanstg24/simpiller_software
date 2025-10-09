@@ -37,7 +37,7 @@ const ACTIVITY_TYPES = [
 ];
 
 export function TimeLogTab({ patient }: TimeLogTabProps) {
-  const { user } = useAuthV2();
+  const { user, isSimpillerAdmin, isOrganizationAdmin, isProvider } = useAuthV2();
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -77,7 +77,7 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
 
       // Try to fetch real data, but handle errors gracefully
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('provider_time_logs')
           .select(`
             *,
@@ -88,8 +88,17 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
             )
           `)
           .eq('patient_id', patient.id)
-          .eq('provider_id', user?.id)
           .order('start_time', { ascending: false }); // Sort by actual log date, not creation time
+
+        // Apply role-based filtering
+        // RLS policies should handle this, but we can add explicit filtering for clarity
+        if (isProvider && !isSimpillerAdmin && !isOrganizationAdmin) {
+          // Providers can only see their own time logs
+          query = query.eq('provider_id', user?.id);
+        }
+        // Simpiller admins and organization admins see all time logs (RLS handles this)
+
+        const { data, error } = await query;
 
         if (error) {
           console.warn('Provider time logs table not available yet, using mock data:', error);
