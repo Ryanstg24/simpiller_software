@@ -2,8 +2,8 @@
 
 import { 
   Users, 
-  Pill, 
-  Bell, 
+  AlertTriangle, 
+  UserPlus, 
   Activity
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -30,15 +30,6 @@ export default function Dashboard() {
     }
   }, [isLoading, user, router]);
 
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case "success": return "bg-green-400";
-      case "info": return "bg-blue-400";
-      case "warning": return "bg-yellow-400";
-      case "error": return "bg-red-400";
-      default: return "bg-gray-400";
-    }
-  };
 
   // Show loading state while auth is initializing
   if (isLoading) {
@@ -82,38 +73,38 @@ export default function Dashboard() {
 
   // Ensure stats object exists and has default values
   const safeStats = stats || {
+    totalPatients: 0,
+    needsAttention: 0,
+    newPatientsThisMonth: 0,
     activePatients: 0,
-    totalMedications: 0,
-    todaysAlerts: 0,
-    complianceRate: 0,
     recentActivity: []
   };
 
   const statsCards = [
     {
-      title: "Active Patients",
-      value: safeStats.activePatients.toLocaleString(),
+      title: "Total Patients",
+      value: safeStats.totalPatients.toLocaleString(),
       icon: Users,
       iconColor: "text-blue-600",
       iconBgColor: "bg-blue-100"
     },
     {
-      title: "Medications",
-      value: safeStats.totalMedications.toLocaleString(),
-      icon: Pill,
+      title: "Needs Attention",
+      value: safeStats.needsAttention.toLocaleString(),
+      icon: AlertTriangle,
+      iconColor: "text-red-600",
+      iconBgColor: "bg-red-100"
+    },
+    {
+      title: "New This Month",
+      value: safeStats.newPatientsThisMonth.toLocaleString(),
+      icon: UserPlus,
       iconColor: "text-green-600",
       iconBgColor: "bg-green-100"
     },
     {
-      title: "Today's Alerts",
-      value: safeStats.todaysAlerts.toString(),
-      icon: Bell,
-      iconColor: "text-yellow-600",
-      iconBgColor: "bg-yellow-100"
-    },
-    {
-      title: "Compliance Rate",
-      value: `${safeStats.complianceRate}%`,
+      title: "Active Patients",
+      value: safeStats.activePatients.toLocaleString(),
       icon: Activity,
       iconColor: "text-purple-600",
       iconBgColor: "bg-purple-100"
@@ -169,29 +160,18 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Recent Activity */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
-              </div>
-              <div className="p-6">
-                {safeStats.recentActivity.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No recent activity to display.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {safeStats.recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center space-x-4">
-                        <div className={`w-2 h-2 ${getActivityColor(activity.type)} rounded-full`}></div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                          <p className="text-sm text-gray-800">{activity.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* Charts Section - Coming Soon */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Analytics Dashboard</h3>
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Activity className="h-16 w-16 mx-auto" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">Charts Coming Soon</h4>
+                <p className="text-gray-600">
+                  We're building interactive charts for adherence trends, patient status distribution, 
+                  medication compliance heatmap, and cycle progress tracking.
+                </p>
               </div>
             </div>
           </main>

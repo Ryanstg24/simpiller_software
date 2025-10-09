@@ -107,6 +107,13 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
           console.log('Fetched time logs:', data?.length || 0, 'records');
           if (data && data.length > 0) {
             console.log('Sample time log:', data[0]);
+            // Check if our updated log is in the results
+            const updatedLog = data.find(log => log.id === '4352ddf2-d345-4043-8be3-115b1e18999c');
+            if (updatedLog) {
+              console.log('Found updated log in fetch results:', updatedLog);
+            } else {
+              console.log('Updated log NOT found in fetch results - RLS may be filtering it out');
+            }
           }
           setTimeLogs(data || []);
         }
@@ -182,6 +189,10 @@ export function TimeLogTab({ patient }: TimeLogTabProps) {
       // Reset form and refresh data
       console.log('Resetting form and refreshing time logs...');
       resetForm();
+      
+      // Small delay to ensure database has processed the update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await fetchTimeLogs();
       console.log('Time logs refreshed after update');
     } catch (error) {
