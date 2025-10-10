@@ -92,27 +92,30 @@ export async function POST(request: NextRequest) {
           // Update all missed logs in this group to "taken"
           const missedLogIds = missedLogs.map(log => log.id);
           
-          const { error: updateError } = await supabaseAdmin
-            .from('medication_logs')
-            .update({ 
-              status: 'taken',
-              raw_scan_data: JSON.stringify({
-                ...JSON.parse(log.raw_scan_data || '{}'),
-                historicalFix: true,
-                originalStatus: 'missed',
-                fixedAt: new Date().toISOString(),
-                reason: 'pack_scan_fix'
+          // Update each missed log individually to preserve its original raw_scan_data
+          for (const missedLog of missedLogs) {
+            const { error: updateError } = await supabaseAdmin
+              .from('medication_logs')
+              .update({ 
+                status: 'taken',
+                raw_scan_data: JSON.stringify({
+                  ...JSON.parse(missedLog.raw_scan_data || '{}'),
+                  historicalFix: true,
+                  originalStatus: 'missed',
+                  fixedAt: new Date().toISOString(),
+                  reason: 'pack_scan_fix'
+                })
               })
-            })
-            .in('id', missedLogIds);
+              .eq('id', missedLog.id);
 
-          if (updateError) {
-            console.error(`[Fix Historical Partial Logs] Error updating group ${groupKey}:`, updateError);
-            errors.push(`Group ${groupKey}: Failed to update logs`);
-          } else {
-            logsUpdated += missedLogIds.length;
-            console.log(`[Fix Historical Partial Logs] Updated ${missedLogIds.length} logs in group ${groupKey} from missed to taken`);
+            if (updateError) {
+              console.error(`[Fix Historical Partial Logs] Error updating log ${missedLog.id}:`, updateError);
+              errors.push(`Log ${missedLog.id}: Failed to update`);
+            }
           }
+          
+          logsUpdated += missedLogs.length;
+          console.log(`[Fix Historical Partial Logs] Updated ${missedLogs.length} logs in group ${groupKey} from missed to taken`);
         }
         
         processedGroups++;
