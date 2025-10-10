@@ -24,10 +24,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Pull scheduled_time to determine on_time/overdue/missed windows
+    // Pull scheduled_time and medication_ids to determine on_time/overdue/missed windows
     const { data: sessionRow } = await supabaseAdmin
       .from('medication_scan_sessions')
-      .select('scheduled_time')
+      .select('scheduled_time, medication_ids')
       .eq('id', scanSessionId)
       .single();
 
