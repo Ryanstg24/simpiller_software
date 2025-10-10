@@ -62,6 +62,50 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
+        // Create missed medication logs for each medication in the expired session
+        const missedLogsCreated = [];
+        for (const medicationId of session.medication_ids) {
+          try {
+            // Find the corresponding medication to get schedule_id
+            const medication = medications.find(med => med.id === medicationId);
+            if (!medication) {
+              console.warn(`[Process Expired Sessions] Medication ${medicationId} not found for session ${session.id}`);
+              continue;
+            }
+
+            // Create missed medication log
+            const { error: logError } = await supabaseAdmin
+              .from('medication_logs')
+              .insert({
+                medication_id: medicationId,
+                patient_id: session.patient_id,
+                schedule_id: null, // We don't have schedule_id in the session, could be enhanced later
+                event_key: new Date(session.scheduled_time).toISOString().slice(0, 13), // YYYYMMDDH format
+                event_date: session.scheduled_time, // Use scheduled time, not current time
+                status: 'missed',
+                source: 'cron_expired_session',
+                raw_scan_data: JSON.stringify({ 
+                  reason: 'session_expired', 
+                  sessionId: session.id,
+                  scheduledTime: session.scheduled_time,
+                  expiredAt: now.toISOString(),
+                  medicationName: medication.name
+                })
+              });
+
+            if (logError) {
+              console.error(`[Process Expired Sessions] Error creating missed log for medication ${medicationId}:`, logError);
+              errors.push(`Session ${session.id}: Failed to create missed log for medication ${medicationId}`);
+            } else {
+              missedLogsCreated.push(medicationId);
+              console.log(`[Process Expired Sessions] Created missed log for medication ${medicationId} (${medication.name})`);
+            }
+          } catch (error) {
+            console.error(`[Process Expired Sessions] Exception creating missed log for medication ${medicationId}:`, error);
+            errors.push(`Session ${session.id}: Exception creating missed log for medication ${medicationId}`);
+          }
+        }
+
         // Mark session as expired
         // Only update is_active since status column doesn't exist
         const { error: updateError } = await supabaseAdmin
@@ -76,7 +120,7 @@ export async function GET(request: NextRequest) {
           errors.push(`Session ${session.id}: Failed to update session status`);
         } else {
           processedCount++;
-          console.log(`[Process Expired Sessions] Processed session ${session.id} for patient ${session.patient_id}`);
+          console.log(`[Process Expired Sessions] Processed session ${session.id} for patient ${session.patient_id} - Created ${missedLogsCreated.length} missed logs`);
         }
 
       } catch (error) {
@@ -89,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Processed ${processedCount} expired sessions`,
+      message: `Processed ${processedCount} expired sessions and created missed medication logs`,
       processedCount,
       errors: errors.length > 0 ? errors : undefined
     });
