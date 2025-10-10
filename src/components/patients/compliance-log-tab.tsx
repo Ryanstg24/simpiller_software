@@ -69,7 +69,7 @@ const getStatusColor = (status: string) => {
 interface GroupedLog {
   scheduledTime: string;
   logs: MedicationLogData[];
-  status: 'taken' | 'missed' | 'partial';
+  status: 'taken' | 'missed';
   takenCount: number;
   totalCount: number;
 }
@@ -276,13 +276,13 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       const takenCount = groupLogs.filter(log => log.status === 'taken').length;
       const totalCount = groupLogs.length;
       
-      let status: 'taken' | 'missed' | 'partial';
-      if (takenCount === totalCount) {
+      let status: 'taken' | 'missed';
+      if (takenCount > 0) {
+        // If any medication in the pack was taken, consider the whole pack as taken
+        // This handles both new pack scans and historical data correctly
         status = 'taken';
-      } else if (takenCount === 0) {
-        status = 'missed';
       } else {
-        status = 'partial';
+        status = 'missed';
       }
       
       return {
@@ -322,12 +322,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           icon: '❌',
           text: 'Missed',
           color: 'text-red-600 bg-red-100'
-        };
-      case 'partial':
-        return {
-          icon: '⚠️',
-          text: 'Partially Taken',
-          color: 'text-yellow-600 bg-yellow-100'
         };
     }
   };
@@ -522,10 +516,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                           {formatDate(group.scheduledTime)}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {group.status === 'partial' 
-                            ? `${group.takenCount} of ${group.totalCount} medications taken`
-                            : `${group.totalCount} medication${group.totalCount > 1 ? 's' : ''}`
-                          }
+                          {group.totalCount} medication{group.totalCount > 1 ? 's' : ''}
                         </div>
                       </div>
                     </div>

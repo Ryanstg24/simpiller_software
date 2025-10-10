@@ -85,42 +85,73 @@ export async function POST(request: NextRequest) {
       finalScheduleId = schedule?.id || null;
     }
 
-    // Create medication log entry
+    // Create medication log entries for ALL medications in the session
+    // When a patient scans a medication pack, they're taking ALL medications in that pack
     const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
-    const { data: logEntry, error: logError } = await supabaseAdmin
-      .from('medication_logs')
-      .insert({
-        medication_id: medicationId,
-        patient_id: patientId,
-        schedule_id: finalScheduleId,
-        event_key: eventKey,
-        event_date: new Date().toISOString(),
-        status: 'taken',
-        qr_code_scanned: scanData?.qrCode || null,
-        raw_scan_data: JSON.stringify(scanData),
-        source: 'qr_scan',
-        alert_sent_at: new Date().toISOString(),
-        alert_type: 'sms',
-        alert_response: 'scanned'
-      })
-      .select()
-      .single();
+    const eventDate = new Date().toISOString();
+    
+    // Get all medication IDs from the session
+    const allMedicationIds = sessionRow?.medication_ids || [medicationId];
+    
+    // Create logs for all medications in the session
+    const logEntries = allMedicationIds.map(async (medId: string) => {
+      // Find schedule_id for this specific medication
+      let scheduleId = finalScheduleId;
+      if (medId !== medicationId) {
+        const { data: schedule } = await supabaseAdmin
+          .from('medication_schedules')
+          .select('id')
+          .eq('medication_id', medId)
+          .eq('is_active', true)
+          .single();
+        scheduleId = schedule?.id || null;
+      }
 
-    if (logError) {
-      console.error('Error creating medication log:', logError);
+      return supabaseAdmin
+        .from('medication_logs')
+        .insert({
+          medication_id: medId,
+          patient_id: patientId,
+          schedule_id: scheduleId,
+          event_key: eventKey,
+          event_date: eventDate,
+          status: 'taken',
+          qr_code_scanned: scanData?.qrCode || null,
+          raw_scan_data: JSON.stringify({
+            ...scanData,
+            packScan: true,
+            allMedicationsInPack: allMedicationIds,
+            scannedMedication: medicationId
+          }),
+          source: 'qr_scan',
+          alert_sent_at: new Date().toISOString(),
+          alert_type: 'sms',
+          alert_response: 'scanned'
+        });
+    });
+
+    // Execute all log insertions
+    const logResults = await Promise.all(logEntries);
+    
+    // Check for any errors
+    const logErrors = logResults.filter(result => result.error);
+    if (logErrors.length > 0) {
+      console.error('Error creating medication logs:', logErrors);
       return NextResponse.json(
-        { error: 'Failed to create medication log' },
+        { error: 'Failed to create some medication logs' },
         { status: 500 }
       );
     }
 
-    // Update medication last_dose_at
+    console.log(`Created medication logs for ${allMedicationIds.length} medications in pack scan`);
+
+    // Update last_dose_at for ALL medications in the pack
     const { error: medicationError } = await supabaseAdmin
       .from('medications')
       .update({ 
         last_dose_at: new Date().toISOString()
       })
-      .eq('id', medicationId);
+      .in('id', allMedicationIds);
 
     if (medicationError) {
       console.error('Error updating medication last_dose_at:', medicationError);
@@ -132,8 +163,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Scan logged successfully',
-      logEntry
+      message: `Medication pack scan logged successfully for ${allMedicationIds.length} medications`,
+      medicationsProcessed: allMedicationIds.length
     });
 
   } catch (error) {
