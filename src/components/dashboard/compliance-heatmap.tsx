@@ -237,7 +237,7 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
             <div
               key={index}
               className={`
-                h-8 w-8 rounded border-2 flex items-center justify-center text-xs font-medium cursor-pointer
+                h-8 w-8 rounded border-2 flex items-center justify-center text-xs font-medium cursor-pointer text-gray-900
                 ${getIntensityColor(day.adherenceRate)}
                 ${getIntensityBorder(day.adherenceRate)}
                 hover:ring-2 hover:ring-blue-300

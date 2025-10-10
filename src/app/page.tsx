@@ -26,8 +26,8 @@ import { useOrganizationFilter } from "@/hooks/use-organization-filter";
 export default function Dashboard() {
   const { isLoading, user } = useAuthV2();
   const userInfo = useUserDisplay();
-  const { stats, loading: statsLoading, error } = useDashboardStats();
   const { selectedOrganizationId, handleOrganizationChange, isSimpillerAdmin } = useOrganizationFilter();
+  const { stats, loading: statsLoading, error } = useDashboardStats(selectedOrganizationId);
   const router = useRouter();
 
   // Redirect to login if not authenticated

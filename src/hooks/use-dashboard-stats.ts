@@ -14,7 +14,7 @@ interface DashboardStats {
   }>;
 }
 
-export function useDashboardStats() {
+export function useDashboardStats(selectedOrganizationId?: string | null) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
   const {
@@ -28,7 +28,7 @@ export function useDashboardStats() {
     isLoading: loading,
     error
   } = useQuery({
-    queryKey: ['dashboard-stats', user?.id, isSimpillerAdmin, userOrganizationId],
+    queryKey: ['dashboard-stats', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<DashboardStats> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -43,10 +43,10 @@ export function useDashboardStats() {
       let allPatientsQuery, activePatientsQuery, newPatientsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all patients
+        // Simpiller Admin sees all patients or filtered by organization
         allPatientsQuery = supabase
           .from('patients')
-          .select('id, is_active, created_at');
+          .select('id, is_active, created_at, rtm_status, cycle_start_date');
         
         activePatientsQuery = supabase
           .from('patients')
@@ -58,11 +58,18 @@ export function useDashboardStats() {
           .select('id')
           .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
 
+        // Apply organization filter if selected
+        if (selectedOrganizationId) {
+          allPatientsQuery = allPatientsQuery.eq('organization_id', selectedOrganizationId);
+          activePatientsQuery = activePatientsQuery.eq('organization_id', selectedOrganizationId);
+          newPatientsQuery = newPatientsQuery.eq('organization_id', selectedOrganizationId);
+        }
+
       } else if (userOrganizationId) {
         // Organization Admin sees their organization's data
         allPatientsQuery = supabase
           .from('patients')
-          .select('id, is_active, created_at')
+          .select('id, is_active, created_at, rtm_status, cycle_start_date')
           .eq('organization_id', userOrganizationId);
         
         activePatientsQuery = supabase
@@ -81,7 +88,7 @@ export function useDashboardStats() {
         // Provider sees only their assigned patients
         allPatientsQuery = supabase
           .from('patients')
-          .select('id, is_active, created_at')
+          .select('id, is_active, created_at, rtm_status, cycle_start_date')
           .eq('assigned_provider_id', user.id);
         
         activePatientsQuery = supabase
@@ -123,8 +130,8 @@ export function useDashboardStats() {
       }
       newPatientsThisMonth = newPatientsResult.data?.length || 0;
 
-      // Calculate needs attention (placeholder for now - will be based on alert system)
-      needsAttention = Math.floor(totalPatients * 0.15); // 15% of patients need attention
+      // Calculate needs attention using the actual alert system logic
+      needsAttention = await calculateNeedsAttentionCount(allPatientsResult.data || []);
 
       // Generate recent activity based on available data
       const recentActivity = generateRecentActivity(totalPatients, activePatients, newPatientsThisMonth);
@@ -192,4 +199,135 @@ function generateRecentActivity(totalPatients: number, activePatients: number, n
   );
 
   return activities.slice(0, 4); // Return max 4 activities
+}
+
+async function calculateNeedsAttentionCount(patients: Array<{ id: string; is_active: boolean; rtm_status: string; cycle_start_date: string | null }>): Promise<number> {
+  if (!patients || patients.length === 0) return 0;
+
+  let needsAttentionCount = 0;
+  const nowLocal = new Date();
+  const msPerDay = 24 * 60 * 60 * 1000;
+
+  // Process patients in batches to avoid overwhelming the database
+  const batchSize = 10;
+  for (let i = 0; i < patients.length; i += batchSize) {
+    const batch = patients.slice(i, i + batchSize);
+    
+    const promises = batch.map(async (patient) => {
+      if (!patient.is_active) return false;
+
+      // Fetch last scan date (most recent medication_log with status='taken')
+      let lastScanDate: string | null = null;
+      try {
+        const { data: lastScan } = await supabase
+          .from('medication_logs')
+          .select('event_date')
+          .eq('patient_id', patient.id)
+          .eq('status', 'taken')
+          .order('event_date', { ascending: false })
+          .limit(1);
+
+        lastScanDate = lastScan?.[0]?.event_date || null;
+      } catch {}
+
+      // Fetch last communication date (most recent patient_communication log)
+      let lastCommDate: string | null = null;
+      try {
+        const { data: lastComm } = await supabase
+          .from('provider_time_logs')
+          .select('start_time')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'patient_communication')
+          .order('start_time', { ascending: false })
+          .limit(1);
+
+        lastCommDate = lastComm?.[0]?.start_time || null;
+      } catch {}
+
+      // Fetch last adherence review date
+      let lastReviewDate: string | null = null;
+      try {
+        const { data: lastReview } = await supabase
+          .from('provider_time_logs')
+          .select('start_time')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'adherence_review')
+          .order('start_time', { ascending: false })
+          .limit(1);
+
+        lastReviewDate = lastReview?.[0]?.start_time || null;
+      } catch {}
+
+      // Check for alerts using the same logic as the Patients page
+      const alerts: string[] = [];
+
+      // Critical: No scans in 3+ days (if RTM active)
+      if (patient.rtm_status === 'active' && lastScanDate) {
+        const daysSinceScan = Math.floor((nowLocal.getTime() - new Date(lastScanDate).getTime()) / msPerDay);
+        if (daysSinceScan >= 3) {
+          alerts.push('no-scans');
+        }
+      } else if (patient.rtm_status === 'active' && !lastScanDate) {
+        alerts.push('no-scans');
+      }
+
+      // Warning: Communication overdue (7+ days)
+      if (lastCommDate) {
+        const daysSinceComm = Math.floor((nowLocal.getTime() - new Date(lastCommDate).getTime()) / msPerDay);
+        if (daysSinceComm >= 7) {
+          alerts.push('comm-overdue');
+        }
+      } else {
+        // Check if patient has any communication logs at all
+        const { data: commLogs } = await supabase
+          .from('provider_time_logs')
+          .select('id')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'patient_communication')
+          .limit(1);
+        
+        if (!commLogs || commLogs.length === 0) {
+          alerts.push('comm-not-started');
+        }
+      }
+
+      // Warning: Adherence review overdue (7+ days)
+      if (lastReviewDate) {
+        const daysSinceReview = Math.floor((nowLocal.getTime() - new Date(lastReviewDate).getTime()) / msPerDay);
+        if (daysSinceReview >= 7) {
+          alerts.push('review-overdue');
+        }
+      } else {
+        // Check if patient has any review logs at all
+        const { data: reviewLogs } = await supabase
+          .from('provider_time_logs')
+          .select('id')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'adherence_review')
+          .limit(1);
+        
+        if (!reviewLogs || reviewLogs.length === 0) {
+          alerts.push('review-not-started');
+        }
+      }
+
+      // Warning: Cycle ending soon (< 7 days)
+      if (patient.cycle_start_date) {
+        const cycleStart = new Date(patient.cycle_start_date);
+        const cycleEnd = new Date(cycleStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const daysLeft = Math.ceil((cycleEnd.getTime() - nowLocal.getTime()) / msPerDay);
+        
+        if (daysLeft > 0 && daysLeft < 7) {
+          alerts.push('cycle-ending-soon');
+        }
+      }
+
+      return alerts.length > 0;
+    });
+
+    const batchResults = await Promise.all(promises);
+    needsAttentionCount += batchResults.filter(Boolean).length;
+  }
+
+  return needsAttentionCount;
 }
