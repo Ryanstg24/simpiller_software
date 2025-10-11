@@ -13,12 +13,8 @@ import {
   XCircle,
   Camera,
   Upload,
-  AlertTriangle,
-  Loader2,
   FlaskConical,
-  Smartphone,
-  Video,
-  Image as ImageIcon
+  Smartphone
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
@@ -39,7 +35,7 @@ interface TestOCRResponse {
   ocrResults?: {
     extractedText: string;
     confidence: number;
-    parsedData: any;
+    parsedData: Record<string, unknown>;
   };
 }
 

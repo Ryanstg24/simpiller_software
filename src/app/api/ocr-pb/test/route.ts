@@ -25,7 +25,7 @@ interface TestOCRResponse {
   ocrResults?: {
     extractedText: string;
     confidence: number;
-    parsedData: any;
+    parsedData: Record<string, unknown>;
   };
 }
 
