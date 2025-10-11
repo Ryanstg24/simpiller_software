@@ -69,39 +69,108 @@ export function PatientStatusChart({ className = '', selectedOrganizationId }: P
         throw new Error('Failed to fetch patient data');
       }
 
-      // Categorize patients
+      // Use the same alert logic as the Patients page
       const now = new Date();
-      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
       let activeRTM = 0;
       let needsAttention = 0;
       let cycleEndingSoon = 0;
       let inactive = 0;
 
-      patients?.forEach(patient => {
+      // Fetch alert data for each patient (same logic as Patients page)
+      for (const patient of patients || []) {
         if (!patient.is_active) {
           inactive++;
-          return;
+          continue;
         }
 
-        if (patient.rtm_status === 'active') {
-          // Check if cycle is ending soon
-          if (patient.cycle_start_date) {
-            const cycleStart = new Date(patient.cycle_start_date);
-            const cycleEnd = new Date(cycleStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-            
-            if (cycleEnd <= sevenDaysFromNow) {
-              cycleEndingSoon++;
-            } else {
-              activeRTM++;
-            }
-          } else {
-            activeRTM++;
+        // Calculate cycle progress
+        let daysLeft = 0;
+        if (patient.cycle_start_date) {
+          const cycleStart = new Date(patient.cycle_start_date);
+          const cycleEnd = new Date(cycleStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+          daysLeft = Math.max(0, Math.ceil((cycleEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+
+        // Fetch last scan date
+        const { data: lastScanData } = await supabase
+          .from('medication_logs')
+          .select('event_date')
+          .eq('patient_id', patient.id)
+          .eq('status', 'taken')
+          .order('event_date', { ascending: false })
+          .limit(1);
+
+        // Fetch last communication date
+        const { data: lastCommData } = await supabase
+          .from('provider_time_logs')
+          .select('start_time')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'patient_communication')
+          .order('start_time', { ascending: false })
+          .limit(1);
+
+        // Fetch last review date
+        const { data: lastReviewData } = await supabase
+          .from('provider_time_logs')
+          .select('start_time')
+          .eq('patient_id', patient.id)
+          .eq('activity_type', 'adherence_review')
+          .order('start_time', { ascending: false })
+          .limit(1);
+
+        const lastScanDate = lastScanData?.[0]?.event_date;
+        const lastCommDate = lastCommData?.[0]?.start_time;
+        const lastReviewDate = lastReviewData?.[0]?.start_time;
+
+        // Calculate alerts (same logic as Patients page)
+        const alerts = [];
+        
+        // No scans in 3+ days
+        if (lastScanDate) {
+          const daysSinceScan = Math.floor((now.getTime() - new Date(lastScanDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (daysSinceScan >= 3) {
+            alerts.push({ type: 'warning', message: `No scans in ${daysSinceScan} days` });
           }
         } else {
-          needsAttention++;
+          alerts.push({ type: 'warning', message: 'No scans recorded' });
         }
-      });
+
+        // Communication overdue (7+ days)
+        if (lastCommDate) {
+          const daysSinceComm = Math.floor((now.getTime() - new Date(lastCommDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (daysSinceComm >= 7) {
+            alerts.push({ type: 'warning', message: `Comm overdue ${daysSinceComm} days` });
+          }
+        } else {
+          alerts.push({ type: 'warning', message: 'Comm not recorded' });
+        }
+
+        // Review overdue (7+ days)
+        if (lastReviewDate) {
+          const daysSinceReview = Math.floor((now.getTime() - new Date(lastReviewDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (daysSinceReview >= 7) {
+            alerts.push({ type: 'warning', message: `Review overdue ${daysSinceReview} days` });
+          }
+        } else {
+          alerts.push({ type: 'warning', message: 'Review not recorded' });
+        }
+
+        // Cycle ending soon (< 7 days)
+        if (daysLeft > 0 && daysLeft < 7) {
+          alerts.push({ type: 'critical', message: `Cycle ends in ${daysLeft} days` });
+        }
+
+        // Categorize based on alerts
+        if (alerts.length > 0) {
+          if (daysLeft > 0 && daysLeft < 7) {
+            cycleEndingSoon++;
+          } else {
+            needsAttention++;
+          }
+        } else {
+          activeRTM++;
+        }
+      }
 
       return [
         {
