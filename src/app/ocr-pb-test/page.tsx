@@ -282,7 +282,7 @@ export default function OCRPBTestPage() {
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-black">OCR Pill Bottle Testing Console</h1>
                 <p className="text-gray-600 mt-2">
-                  Test pill bottle OCR functionality for cylindrical labels. This tool helps develop scanning methods for curved surfaces.
+                  Test pill bottle OCR functionality for cylindrical labels.
                 </p>
               </div>
 
@@ -292,7 +292,7 @@ export default function OCRPBTestPage() {
                   {/* Test Form */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center">
+                      <CardTitle className="flex items-center text-black">
                         <FlaskConical className="mr-2 h-5 w-5 text-black" />
                         Test Configuration
                       </CardTitle>
@@ -408,7 +408,7 @@ export default function OCRPBTestPage() {
                   {/* Image Capture Section */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center">
+                      <CardTitle className="flex items-center text-black">
                         <Camera className="mr-2 h-5 w-5 text-black" />
                         Image Capture
                       </CardTitle>
@@ -418,7 +418,7 @@ export default function OCRPBTestPage() {
                       <div className="space-y-3">
                         <div className="flex items-center space-x-2">
                           <Camera className="h-4 w-4 text-blue-600" />
-                          <Label className="text-sm font-medium">Camera Capture</Label>
+                          <Label className="text-sm font-medium text-black">Camera Capture</Label>
                         </div>
                         
                         {!isCapturing && (
@@ -487,7 +487,7 @@ export default function OCRPBTestPage() {
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
                           <Upload className="h-4 w-4 text-green-600" />
-                          <Label className="text-sm font-medium">File Upload</Label>
+                          <Label className="text-sm font-medium text-black">File Upload</Label>
                         </div>
                         <input
                           ref={fileInputRef}
@@ -497,7 +497,7 @@ export default function OCRPBTestPage() {
                           onChange={handleFileUpload}
                           className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-600">
                           Upload multiple images for different angles of the pill bottle
                         </p>
                       </div>
@@ -505,7 +505,7 @@ export default function OCRPBTestPage() {
                       {/* Captured Images Preview */}
                       {capturedImages.length > 0 && (
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium">Captured Images ({capturedImages.length})</Label>
+                          <Label className="text-sm font-medium text-black">Captured Images ({capturedImages.length})</Label>
                           <div className="grid grid-cols-2 gap-2">
                             {capturedImages.map((image, index) => (
                               <div key={index} className="relative">
