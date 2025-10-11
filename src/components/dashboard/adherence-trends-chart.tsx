@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info } from 'lucide-react';
 
 interface AdherenceTrendData {
   date: string;
@@ -33,7 +33,8 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         throw new Error('User not authenticated');
       }
 
-      // Get the last 30 days of data
+      // Get the last 30 days of data including today
+      const today = new Date();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -50,6 +51,7 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             patients!inner(id, organization_id)
           `)
           .gte('event_date', thirtyDaysAgo.toISOString())
+          .lte('event_date', today.toISOString())
           .order('event_date', { ascending: true });
 
         // Apply organization filter if selected
@@ -67,6 +69,7 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             patients!inner(id, organization_id)
           `)
           .gte('event_date', thirtyDaysAgo.toISOString())
+          .lte('event_date', today.toISOString())
           .eq('patients.organization_id', userOrganizationId)
           .order('event_date', { ascending: true });
 
@@ -80,6 +83,7 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             patients!inner(id, assigned_provider_id)
           `)
           .gte('event_date', thirtyDaysAgo.toISOString())
+          .lte('event_date', today.toISOString())
           .eq('patients.assigned_provider_id', user.id)
           .order('event_date', { ascending: true });
       }
@@ -167,9 +171,18 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
     <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Adherence Trends</h3>
-          <p className="text-sm text-gray-600">Daily medication adherence rates</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Adherence Trends</h3>
+            <p className="text-sm text-gray-600">Daily medication adherence rates</p>
+          </div>
+          <div className="group relative">
+            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              Shows daily percentage of successful medication scans vs total scheduled scans over the last 30 days
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+            </div>
+          </div>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-gray-900">{currentRate}%</div>

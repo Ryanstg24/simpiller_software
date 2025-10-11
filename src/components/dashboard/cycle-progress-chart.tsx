@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Calendar, Clock, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, Info } from 'lucide-react';
 
 interface CycleProgressData {
   range: string;
@@ -185,9 +185,18 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
     <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Cycle Progress Tracking</h3>
-          <p className="text-sm text-gray-600">{totalPatients} active patients</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Cycle Progress Tracking</h3>
+            <p className="text-sm text-gray-600">{totalPatients} active patients</p>
+          </div>
+          <div className="group relative">
+            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+              Shows distribution of patients by their current cycle progress (days remaining in their 30-day cycle)
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+            </div>
+          </div>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-gray-900">{completionRate}%</div>
