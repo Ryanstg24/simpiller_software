@@ -33,7 +33,7 @@ const navigation: NavItem[] = [
   { name: 'Schedule', href: '/schedule', icon: Calendar, requiredRole: 'provider' },
   { name: 'Alerts', href: '/alerts', icon: Bell, requiredRole: 'provider' },
   { name: 'SMS Test', href: '/sms-test', icon: TestTube, requiredRole: 'simpiller_admin' },
-  { name: 'OCR Testing', href: '/ocr-test', icon: Eye, requiredRole: 'simpiller_admin' },
+  { name: 'OCR PB Testing', href: '/ocr-pb-test', icon: Eye, requiredRole: 'simpiller_admin' },
   { name: 'Performance Test', href: '/performance-test', icon: Zap, requiredRole: 'simpiller_admin' },
   { name: 'Analytics', href: '/analytics', icon: Activity, requiredRole: 'organization_admin' },
   { name: 'Org Billing', href: '/billing', icon: DollarSign, requiredRole: 'organization_admin' },
