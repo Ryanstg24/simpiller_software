@@ -33,12 +33,12 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         throw new Error('User not authenticated');
       }
 
-      // Get the last 30 days of data including today
+      // Get the last 30 days of data including today (consistent with other charts)
       const today = new Date();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Build medication logs query based on user role
+      // Build medication logs query based on user role (same logic as other charts)
       let logsQuery;
 
       if (isSimpillerAdmin) {
@@ -109,22 +109,30 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         }
       });
 
-      // Convert to array and calculate adherence rates
-      const trendData: AdherenceTrendData[] = Object.entries(dailyData).map(([date, data]) => ({
-        date,
-        adherenceRate: data.total > 0 ? Math.round((data.successful / data.total) * 100) : 0,
-        totalScans: data.total,
-        successfulScans: data.successful
-      }));
-
-      // Sort by date
-      trendData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Create array for all days in the 30-day range (including days with no logs)
+      const trendData: AdherenceTrendData[] = [];
+      const currentDate = new Date(thirtyDaysAgo);
+      
+      while (currentDate <= today) {
+        const dateString = currentDate.toISOString().split('T')[0];
+        const dayData = dailyData[dateString];
+        
+        trendData.push({
+          date: dateString,
+          adherenceRate: dayData ? Math.round((dayData.successful / dayData.total) * 100) : 0,
+          totalScans: dayData?.total || 0,
+          successfulScans: dayData?.successful || 0
+        });
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
 
       return trendData;
     },
     enabled: !authLoading && !!user,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1,
   });
 
   // Calculate trend direction and percentage

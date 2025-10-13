@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
+import { useDashboardStats } from '@/hooks/use-dashboard-stats';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Users, AlertTriangle, CheckCircle, Clock, Info } from 'lucide-react';
 
@@ -22,40 +23,39 @@ interface PatientStatusChartProps {
 export function PatientStatusChart({ className = '', selectedOrganizationId }: PatientStatusChartProps) {
   const { user, isSimpillerAdmin, userOrganizationId, isLoading: authLoading } = useAuthV2();
 
+  // Use the same data source as the dashboard stats to ensure consistency
+  const { stats, loading: statsLoading, error: statsError } = useDashboardStats(selectedOrganizationId);
+
   const {
     data: statusData = [],
     isLoading,
     error
   } = useQuery({
-    queryKey: ['patient-status', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
+    queryKey: ['patient-status-breakdown', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<PatientStatusData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      // Build patients query based on user role
+      // Build patients query based on user role (same as dashboard stats)
       let patientsQuery;
 
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all patients or filtered by organization
         patientsQuery = supabase
           .from('patients')
           .select('id, is_active, rtm_status, cycle_start_date');
 
-        // Apply organization filter if selected
         if (selectedOrganizationId) {
           patientsQuery = patientsQuery.eq('organization_id', selectedOrganizationId);
         }
 
       } else if (userOrganizationId) {
-        // Organization Admin sees their organization's patients
         patientsQuery = supabase
           .from('patients')
           .select('id, is_active, rtm_status, cycle_start_date')
           .eq('organization_id', userOrganizationId);
 
       } else {
-        // Provider sees only their assigned patients
         patientsQuery = supabase
           .from('patients')
           .select('id, is_active, rtm_status, cycle_start_date')
@@ -69,107 +69,137 @@ export function PatientStatusChart({ className = '', selectedOrganizationId }: P
         throw new Error('Failed to fetch patient data');
       }
 
-      // Use the same alert logic as the Patients page
+      // Use the same calculateNeedsAttentionCount logic as dashboard stats
       const now = new Date();
       let activeRTM = 0;
       let needsAttention = 0;
       let cycleEndingSoon = 0;
       let inactive = 0;
 
-      // Fetch alert data for each patient (same logic as Patients page)
-      for (const patient of patients || []) {
-        if (!patient.is_active) {
-          inactive++;
-          continue;
-        }
-
-        // Calculate cycle progress
-        let daysLeft = 0;
-        if (patient.cycle_start_date) {
-          const cycleStart = new Date(patient.cycle_start_date);
-          const cycleEnd = new Date(cycleStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-          daysLeft = Math.max(0, Math.ceil((cycleEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-        }
-
-        // Fetch last scan date
-        const { data: lastScanData } = await supabase
-          .from('medication_logs')
-          .select('event_date')
-          .eq('patient_id', patient.id)
-          .eq('status', 'taken')
-          .order('event_date', { ascending: false })
-          .limit(1);
-
-        // Fetch last communication date
-        const { data: lastCommData } = await supabase
-          .from('provider_time_logs')
-          .select('start_time')
-          .eq('patient_id', patient.id)
-          .eq('activity_type', 'patient_communication')
-          .order('start_time', { ascending: false })
-          .limit(1);
-
-        // Fetch last review date
-        const { data: lastReviewData } = await supabase
-          .from('provider_time_logs')
-          .select('start_time')
-          .eq('patient_id', patient.id)
-          .eq('activity_type', 'adherence_review')
-          .order('start_time', { ascending: false })
-          .limit(1);
-
-        const lastScanDate = lastScanData?.[0]?.event_date;
-        const lastCommDate = lastCommData?.[0]?.start_time;
-        const lastReviewDate = lastReviewData?.[0]?.start_time;
-
-        // Calculate alerts (same logic as Patients page)
-        const alerts = [];
+      // Process patients in batches (same as dashboard stats)
+      const batchSize = 10;
+      for (let i = 0; i < (patients || []).length; i += batchSize) {
+        const batch = (patients || []).slice(i, i + batchSize);
         
-        // No scans in 3+ days
-        if (lastScanDate) {
-          const daysSinceScan = Math.floor((now.getTime() - new Date(lastScanDate).getTime()) / (1000 * 60 * 60 * 24));
-          if (daysSinceScan >= 3) {
-            alerts.push({ type: 'warning', message: `No scans in ${daysSinceScan} days` });
-          }
-        } else {
-          alerts.push({ type: 'warning', message: 'No scans recorded' });
-        }
+        const promises = batch.map(async (patient) => {
+          if (!patient.is_active) return { type: 'inactive' };
 
-        // Communication overdue (7+ days)
-        if (lastCommDate) {
-          const daysSinceComm = Math.floor((now.getTime() - new Date(lastCommDate).getTime()) / (1000 * 60 * 60 * 24));
-          if (daysSinceComm >= 7) {
-            alerts.push({ type: 'warning', message: `Comm overdue ${daysSinceComm} days` });
-          }
-        } else {
-          alerts.push({ type: 'warning', message: 'Comm not recorded' });
-        }
+          // Fetch last scan date
+          let lastScanDate: string | null = null;
+          try {
+            const { data: lastScan } = await supabase
+              .from('medication_logs')
+              .select('event_date')
+              .eq('patient_id', patient.id)
+              .eq('status', 'taken')
+              .order('event_date', { ascending: false })
+              .limit(1);
+            lastScanDate = lastScan?.[0]?.event_date || null;
+          } catch {}
 
-        // Review overdue (7+ days)
-        if (lastReviewDate) {
-          const daysSinceReview = Math.floor((now.getTime() - new Date(lastReviewDate).getTime()) / (1000 * 60 * 60 * 24));
-          if (daysSinceReview >= 7) {
-            alerts.push({ type: 'warning', message: `Review overdue ${daysSinceReview} days` });
-          }
-        } else {
-          alerts.push({ type: 'warning', message: 'Review not recorded' });
-        }
+          // Fetch last communication date
+          let lastCommDate: string | null = null;
+          try {
+            const { data: lastComm } = await supabase
+              .from('provider_time_logs')
+              .select('start_time')
+              .eq('patient_id', patient.id)
+              .eq('activity_type', 'patient_communication')
+              .order('start_time', { ascending: false })
+              .limit(1);
+            lastCommDate = lastComm?.[0]?.start_time || null;
+          } catch {}
 
-        // Cycle ending soon (< 7 days)
-        if (daysLeft > 0 && daysLeft < 7) {
-          alerts.push({ type: 'critical', message: `Cycle ends in ${daysLeft} days` });
-        }
+          // Fetch last review date
+          let lastReviewDate: string | null = null;
+          try {
+            const { data: lastReview } = await supabase
+              .from('provider_time_logs')
+              .select('start_time')
+              .eq('patient_id', patient.id)
+              .eq('activity_type', 'adherence_review')
+              .order('start_time', { ascending: false })
+              .limit(1);
+            lastReviewDate = lastReview?.[0]?.start_time || null;
+          } catch {}
 
-        // Categorize based on alerts
-        if (alerts.length > 0) {
-          if (daysLeft > 0 && daysLeft < 7) {
-            cycleEndingSoon++;
+          // Calculate alerts (same logic as dashboard stats)
+          const alerts = [];
+          const msPerDay = 24 * 60 * 60 * 1000;
+
+          // No scans in 3+ days
+          if (lastScanDate) {
+            const daysSinceScan = Math.floor((now.getTime() - new Date(lastScanDate).getTime()) / msPerDay);
+            if (daysSinceScan >= 3) {
+              alerts.push('scan-overdue');
+            }
           } else {
-            needsAttention++;
+            alerts.push('scan-not-started');
           }
-        } else {
-          activeRTM++;
-        }
+
+          // Communication overdue (7+ days)
+          if (lastCommDate) {
+            const daysSinceComm = Math.floor((now.getTime() - new Date(lastCommDate).getTime()) / msPerDay);
+            if (daysSinceComm >= 7) {
+              alerts.push('comm-overdue');
+            }
+          } else {
+            alerts.push('comm-not-started');
+          }
+
+          // Review overdue (7+ days)
+          if (lastReviewDate) {
+            const daysSinceReview = Math.floor((now.getTime() - new Date(lastReviewDate).getTime()) / msPerDay);
+            if (daysSinceReview >= 7) {
+              alerts.push('review-overdue');
+            }
+          } else {
+            alerts.push('review-not-started');
+          }
+
+          // Cycle ending soon (< 7 days)
+          let daysLeft = 0;
+          if (patient.cycle_start_date) {
+            const cycleStart = new Date(patient.cycle_start_date);
+            const cycleEnd = new Date(cycleStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+            daysLeft = Math.ceil((cycleEnd.getTime() - now.getTime()) / msPerDay);
+            
+            if (daysLeft > 0 && daysLeft < 7) {
+              alerts.push('cycle-ending-soon');
+            }
+          }
+
+          // Categorize based on alerts
+          if (alerts.length > 0) {
+            if (daysLeft > 0 && daysLeft < 7) {
+              return { type: 'cycle-ending-soon' };
+            } else {
+              return { type: 'needs-attention' };
+            }
+          } else {
+            return { type: 'active-rtm' };
+          }
+        });
+
+        const batchResults = await Promise.all(promises);
+        
+        // Count results
+        batchResults.forEach(result => {
+          switch (result.type) {
+            case 'inactive':
+              inactive++;
+              break;
+            case 'active-rtm':
+              activeRTM++;
+              break;
+            case 'needs-attention':
+              needsAttention++;
+              break;
+            case 'cycle-ending-soon':
+              cycleEndingSoon++;
+              break;
+          }
+        });
       }
 
       return [
@@ -206,7 +236,7 @@ export function PatientStatusChart({ className = '', selectedOrganizationId }: P
 
   const totalPatients = statusData.reduce((sum, item) => sum + item.value, 0);
 
-  if (isLoading) {
+  if (isLoading || statsLoading) {
     return (
       <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
         <div className="animate-pulse">
@@ -217,7 +247,7 @@ export function PatientStatusChart({ className = '', selectedOrganizationId }: P
     );
   }
 
-  if (error) {
+  if (error || statsError) {
     return (
       <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
         <div className="text-center py-8">

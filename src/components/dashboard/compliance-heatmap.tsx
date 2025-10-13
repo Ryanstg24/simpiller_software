@@ -132,6 +132,7 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
     enabled: !authLoading && !!user,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1,
   });
 
   const getIntensityColor = (rate: number) => {
@@ -198,8 +199,19 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
           </div>
           <div className="group relative">
             <Info className="h-4 w-4 text-gray-400 cursor-help" />
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-              Calendar view showing daily medication adherence rates. Darker colors indicate higher compliance rates
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-xs">
+              <div className="space-y-1">
+                <div>Calendar view showing daily medication adherence rates. Darker colors indicate higher compliance rates.</div>
+                <div className="border-t border-gray-600 pt-1">
+                  <div className="font-medium mb-1">Color Scale:</div>
+                  <div>• Gray: 0% (no scans)</div>
+                  <div>• Red: &lt;25%</div>
+                  <div>• Orange: 25-49%</div>
+                  <div>• Yellow: 50-74%</div>
+                  <div>• Light Green: 75-89%</div>
+                  <div>• Dark Green: 90-100%</div>
+                </div>
+              </div>
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
             </div>
           </div>
@@ -260,17 +272,17 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-between text-xs text-gray-600">
-        <span>Less</span>
-        <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div>
-          <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
-          <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div>
-          <div className="w-3 h-3 bg-yellow-100 border border-yellow-200 rounded"></div>
-          <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
-          <div className="w-3 h-3 bg-green-200 border border-green-300 rounded"></div>
+      <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-600 gap-2">
+        <span className="order-2 sm:order-1">Less</span>
+        <div className="flex items-center space-x-1 order-1 sm:order-2">
+          <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded" title="0%"></div>
+          <div className="w-3 h-3 bg-red-100 border border-red-200 rounded" title="&lt;25%"></div>
+          <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded" title="25-49%"></div>
+          <div className="w-3 h-3 bg-yellow-100 border border-yellow-200 rounded" title="50-74%"></div>
+          <div className="w-3 h-3 bg-green-100 border border-green-200 rounded" title="75-89%"></div>
+          <div className="w-3 h-3 bg-green-200 border border-green-300 rounded" title="90-100%"></div>
         </div>
-        <span>More</span>
+        <span className="order-3">More</span>
       </div>
     </div>
   );
