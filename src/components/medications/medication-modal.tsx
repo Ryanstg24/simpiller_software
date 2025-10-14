@@ -36,6 +36,10 @@ interface Medication {
     afternoon_time?: string;
     evening_time?: string;
     bedtime?: string;
+    morning_times?: string[];
+    afternoon_times?: string[];
+    evening_times?: string[];
+    bedtime_times?: string[];
     timezone?: string;
   };
 }
