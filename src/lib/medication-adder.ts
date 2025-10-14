@@ -364,7 +364,7 @@ export class MedicationAdder {
 
       // Get existing times array (or empty array if null)
       // Using type assertion for dynamic property access
-      const existingTimes: string[] = (patient as Record<string, string[] | string | null>)[arrayField] as string[] || [];
+      const existingTimes: string[] = (patient as unknown as Record<string, string[] | string | null>)[arrayField] as string[] || [];
       
       // Check if this time already exists in the array
       if (existingTimes.includes(formattedTime)) {
