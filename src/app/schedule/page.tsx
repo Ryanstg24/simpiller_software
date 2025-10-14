@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 
 interface ScheduleItem {
   id: string;
+  scheduleId: string;
   time: string;
   patient: string;
   medication: string;
@@ -22,21 +23,22 @@ interface ScheduleItem {
   medicationId: string;
 }
 
-interface Medication {
+interface MedicationSchedule {
   id: string;
+  medication_id: string;
   patient_id: string;
-  name: string;
-  strength: string;
-  format: string;
-  time_of_day?: string;
-  custom_time?: string;
-  status: string;
+  scheduled_time: string;
+  time_of_day: string;
+  is_active: boolean;
+  medications?: {
+    name: string;
+    strength: string;
+    format: string;
+    status: string;
+  };
   patients?: {
     first_name: string;
     last_name: string;
-    morning_time?: string;
-    afternoon_time?: string;
-    evening_time?: string;
     timezone?: string;
   };
 }
@@ -44,169 +46,161 @@ interface Medication {
 export default function SchedulePage() {
   const userInfo = useUserDisplay();
   const { patients, loading: patientsLoading } = usePatients();
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [medicationsLoading, setMedicationsLoading] = useState(true);
+  const [medicationSchedules, setMedicationSchedules] = useState<MedicationSchedule[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
-  const [takenTodayByMedId, setTakenTodayByMedId] = useState<Record<string, boolean>>({});
+  const [takenTodayByScheduleId, setTakenTodayByScheduleId] = useState<Record<string, boolean>>({});
 
-  // Fetch medications for the filtered patients
+  // Fetch medication schedules for the filtered patients
   useEffect(() => {
-    const fetchMedications = async () => {
+    const fetchSchedules = async () => {
       if (patients.length === 0) {
-        setMedications([]);
-        setMedicationsLoading(false);
+        setMedicationSchedules([]);
+        setSchedulesLoading(false);
         return;
       }
 
       try {
-        setMedicationsLoading(true);
+        setSchedulesLoading(true);
         const patientIds = patients.map((p: Patient) => p.id);
         
         const { data, error } = await supabase
-          .from('medications')
+          .from('medication_schedules')
           .select(`
-            *,
+            id,
+            medication_id,
+            patient_id,
+            scheduled_time,
+            time_of_day,
+            is_active,
+            medications (
+              name,
+              strength,
+              format,
+              status
+            ),
             patients (
               first_name,
               last_name,
-              morning_time,
-              afternoon_time,
-              evening_time,
               timezone
             )
           `)
           .in('patient_id', patientIds)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false });
+          .eq('is_active', true)
+          .order('scheduled_time', { ascending: true });
 
         if (error) {
-          console.error('Error fetching medications:', error);
-          setMedications([]);
+          console.error('Error fetching medication schedules:', error);
+          setMedicationSchedules([]);
         } else {
-          setMedications(data || []);
+          // Filter out schedules where medication is inactive
+          const activeSchedules = (data || []).filter(
+            (schedule: MedicationSchedule) => 
+              schedule.medications && schedule.medications.status === 'active'
+          );
+          setMedicationSchedules(activeSchedules);
         }
       } catch (error) {
-        console.error('Error fetching medications:', error);
-        setMedications([]);
+        console.error('Error fetching medication schedules:', error);
+        setMedicationSchedules([]);
       } finally {
-        setMedicationsLoading(false);
+        setSchedulesLoading(false);
       }
     };
 
-    fetchMedications();
+    fetchSchedules();
   }, [patients]);
 
-  // Pull today's logs after medications to determine completed status
+  // Pull today's logs to determine completed status by schedule_id
   useEffect(() => {
     const fetchLogs = async () => {
-      if (medications.length === 0) { setTakenTodayByMedId({}); return; }
-      const medIds = medications.map(m => m.id);
-      const start = new Date(); start.setHours(0,0,0,0);
-      const end = new Date(); end.setHours(23,59,59,999);
+      if (medicationSchedules.length === 0) { 
+        setTakenTodayByScheduleId({}); 
+        return; 
+      }
+      
+      const scheduleIds = medicationSchedules.map(s => s.id);
+      const start = new Date(); 
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(); 
+      end.setHours(23, 59, 59, 999);
+      
       const { data } = await supabase
         .from('medication_logs')
-        .select('medication_id, status, event_date')
-        .in('medication_id', medIds)
+        .select('schedule_id, status, event_date')
+        .in('schedule_id', scheduleIds)
         .gte('event_date', start.toISOString())
         .lt('event_date', end.toISOString());
+      
       const map: Record<string, boolean> = {};
-      (data || []).forEach((row: { medication_id: string; status?: string }) => {
-        const s = row.status || '';
-        if (s.startsWith('taken') || s === 'taken') map[row.medication_id] = true;
+      (data || []).forEach((row: { schedule_id: string; status?: string }) => {
+        if (row.schedule_id) {
+          const s = row.status || '';
+          if (s.startsWith('taken') || s === 'taken') {
+            map[row.schedule_id] = true;
+          }
+        }
       });
-      setTakenTodayByMedId(map);
+      
+      setTakenTodayByScheduleId(map);
     };
     fetchLogs();
-  }, [medications]);
+  }, [medicationSchedules]);
 
-  // Generate schedule items from medications
+  // Generate schedule items from medication_schedules
   useEffect(() => {
-    if (medications.length === 0) {
+    if (medicationSchedules.length === 0) {
       setScheduleItems([]);
       return;
     }
 
     const generateScheduleItems = (): ScheduleItem[] => {
       const items: ScheduleItem[] = [];
-      let itemId = 1;
 
-      medications.forEach((medication) => {
-        const patient = medication.patients;
-        if (!patient) return;
+      medicationSchedules.forEach((schedule) => {
+        const medication = schedule.medications;
+        const patient = schedule.patients;
+        
+        if (!medication || !patient) return;
 
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const dosage = `${medication.strength} ${medication.format}`;
+        const time = schedule.scheduled_time.substring(0, 5); // Extract HH:MM from HH:MM:SS
 
-        // Parse time_of_day to create schedule items
-        if (medication.time_of_day) {
-          const times = medication.time_of_day.split(',').map((t: string) => t.trim()).filter((t: string) => t);
-          
-          times.forEach((timeStr: string) => {
-            let time = '';
-            let type = '';
-
-            // Extract time from format like "morning (06:00:00)"
-            if (timeStr.includes('(') && timeStr.includes(')')) {
-              const timeMatch = timeStr.match(/\(([^)]+)\)/);
-              if (timeMatch) {
-                time = timeMatch[1];
-                type = timeStr.split('(')[0].trim();
-              }
-            } else if (timeStr === 'custom' && medication.custom_time) {
-              time = medication.custom_time;
-              type = 'custom';
-            } else {
-              // Fallback to patient's time preferences
-              switch (timeStr.toLowerCase()) {
-                case 'morning':
-                  time = patient.morning_time || '06:00';
-                  type = 'morning';
-                  break;
-                case 'afternoon':
-                  time = patient.afternoon_time || '12:00';
-                  type = 'afternoon';
-                  break;
-                case 'evening':
-                  time = patient.evening_time || '18:00';
-                  type = 'evening';
-                  break;
-                default:
-                  return;
-              }
-            }
-
-            // Determine status based on current time
-            const now = new Date();
-            const [hours, minutes] = time.split(':').map(Number);
-            const medicationTime = new Date();
-            medicationTime.setHours(hours, minutes, 0, 0);
-            
-            let status: "completed" | "overdue" | "upcoming" | "missed" = "upcoming";
-            const timeDiffMin = (now.getTime() - medicationTime.getTime()) / 60000;
-            const taken = takenTodayByMedId[medication.id] === true;
-            if (timeDiffMin <= 0) {
-              status = taken ? "completed" : "upcoming";
-            } else if (timeDiffMin > 180) {
-              status = taken ? "completed" : "missed";
-            } else if (timeDiffMin > 60) {
-              status = taken ? "completed" : "overdue";
-            } else {
-              status = taken ? "completed" : "upcoming";
-            }
-
-            items.push({
-              id: `${medication.id}-${itemId++}`,
-              time: time,
-              patient: patientName,
-              medication: medication.name,
-              dosage: dosage,
-              status: status,
-              type: type,
-              patientId: medication.patient_id,
-              medicationId: medication.id
-            });
-          });
+        // Determine status based on current time and logs
+        const now = new Date();
+        const [hours, minutes] = time.split(':').map(Number);
+        const scheduledTime = new Date();
+        scheduledTime.setHours(hours, minutes, 0, 0);
+        
+        let status: "completed" | "overdue" | "upcoming" | "missed" = "upcoming";
+        const timeDiffMin = (now.getTime() - scheduledTime.getTime()) / 60000;
+        const taken = takenTodayByScheduleId[schedule.id] === true;
+        
+        if (taken) {
+          status = "completed";
+        } else if (timeDiffMin <= 0) {
+          status = "upcoming";
+        } else if (timeDiffMin > 120) { // More than 2 hours past scheduled time
+          status = "missed";
+        } else if (timeDiffMin > 60) { // 1-2 hours past scheduled time
+          status = "overdue";
+        } else {
+          status = "upcoming";
         }
+
+        items.push({
+          id: `${schedule.id}`,
+          scheduleId: schedule.id,
+          time: time,
+          patient: patientName,
+          medication: medication.name,
+          dosage: dosage,
+          status: status,
+          type: schedule.time_of_day,
+          patientId: schedule.patient_id,
+          medicationId: schedule.medication_id
+        });
       });
 
       // Sort by time
@@ -218,7 +212,7 @@ export default function SchedulePage() {
     };
 
     setScheduleItems(generateScheduleItems());
-  }, [medications]);
+  }, [medicationSchedules, takenTodayByScheduleId]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -265,7 +259,7 @@ export default function SchedulePage() {
     return { completed, upcoming, overdue };
   }, [scheduleItems]);
 
-  if (patientsLoading || medicationsLoading) {
+  if (patientsLoading || schedulesLoading) {
     return (
       <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin', 'provider']}>
         <div className="flex h-screen bg-gray-50">
