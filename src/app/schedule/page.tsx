@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Pill, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
-import { usePatients, Patient } from "@/hooks/use-patients";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -67,25 +66,18 @@ interface MedicationSchedule {
 
 export default function SchedulePage() {
   const userInfo = useUserDisplay();
-  const { patients, loading: patientsLoading } = usePatients();
   const [medicationSchedules, setMedicationSchedules] = useState<MedicationSchedule[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [takenTodayByScheduleId, setTakenTodayByScheduleId] = useState<Record<string, boolean>>({});
 
-  // Fetch medication schedules for the filtered patients
+  // Fetch medication schedules directly (RLS handles role-based filtering)
   useEffect(() => {
     const fetchSchedules = async () => {
-      if (patients.length === 0) {
-        setMedicationSchedules([]);
-        setSchedulesLoading(false);
-        return;
-      }
-
       try {
         setSchedulesLoading(true);
-        const patientIds = patients.map((p: Patient) => p.id);
         
+        console.log('[Schedule Page] Querying medication schedules...');
         const { data, error } = await supabase
           .from('medication_schedules')
           .select(`
@@ -107,12 +99,12 @@ export default function SchedulePage() {
               timezone
             )
           `)
-          .in('patient_id', patientIds)
           .eq('is_active', true)
           .order('scheduled_time', { ascending: true });
 
+        console.log('[Schedule Page] Query result:', { error, dataCount: data?.length });
         if (error) {
-          console.error('Error fetching medication schedules:', error);
+          console.error('[Schedule Page] Error fetching medication schedules:', error);
           setMedicationSchedules([]);
         } else {
           // Normalize Supabase response (joins return arrays) and filter inactive medications
@@ -132,6 +124,7 @@ export default function SchedulePage() {
             (schedule) => 
               schedule.medications && schedule.medications.status === 'active'
           );
+          console.log('[Schedule Page] Active schedules after filtering:', activeSchedules.length);
           setMedicationSchedules(activeSchedules);
         }
       } catch (error) {
@@ -143,7 +136,7 @@ export default function SchedulePage() {
     };
 
     fetchSchedules();
-  }, [patients]);
+  }, []); // Only fetch once on mount
 
   // Pull today's logs to determine completed status by schedule_id
   useEffect(() => {
@@ -293,7 +286,7 @@ export default function SchedulePage() {
     return { completed, upcoming, overdue };
   }, [scheduleItems]);
 
-  if (patientsLoading || schedulesLoading) {
+  if (schedulesLoading) {
     return (
       <ProtectedRoute requiredRoles={['simpiller_admin', 'organization_admin', 'provider']}>
         <div className="flex h-screen bg-gray-50">
@@ -381,10 +374,7 @@ export default function SchedulePage() {
                   <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900">No Schedule Items</h3>
                   <p className="text-gray-600 mt-2">
-                    {patients.length === 0 
-                      ? "No patients found. Add patients to see their medication schedules."
-                      : "No active medications found. Add medications to patients to see their schedules."
-                    }
+                    No medication schedules found for today. Add medications to patients to see their schedules.
                   </p>
                 </div>
               ) : (
