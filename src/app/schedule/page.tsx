@@ -157,28 +157,36 @@ export default function SchedulePage() {
       }
       
       const scheduleIds = medicationSchedules.map(s => s.id);
+      console.log('[Schedule Page] Fetching logs for schedule IDs:', scheduleIds);
+      
       const start = new Date(); 
       start.setHours(0, 0, 0, 0);
       const end = new Date(); 
       end.setHours(23, 59, 59, 999);
       
-      const { data } = await supabase
+      console.log('[Schedule Page] Date range:', { start: start.toISOString(), end: end.toISOString() });
+      
+      const { data, error } = await supabase
         .from('medication_logs')
         .select('schedule_id, status, event_date')
         .in('schedule_id', scheduleIds)
         .gte('event_date', start.toISOString())
         .lt('event_date', end.toISOString());
       
+      console.log('[Schedule Page] Logs query result:', { error, logsCount: data?.length, logs: data });
+      
       const map: Record<string, boolean> = {};
       (data || []).forEach((row: { schedule_id: string; status?: string }) => {
         if (row.schedule_id) {
           const s = row.status || '';
           if (s.startsWith('taken') || s === 'taken') {
+            console.log('[Schedule Page] Marking schedule as taken:', row.schedule_id, 'status:', s);
             map[row.schedule_id] = true;
           }
         }
       });
       
+      console.log('[Schedule Page] Taken today map:', map);
       setTakenTodayByScheduleId(map);
     };
     fetchLogs();
