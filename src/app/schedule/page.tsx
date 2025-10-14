@@ -35,11 +35,11 @@ interface RawMedicationSchedule {
     strength: string;
     format: string;
     status: string;
-  }>;
-  patients?: Array<{
-    first_name: string;
-    last_name: string;
-    timezone?: string;
+    patients: Array<{
+      first_name: string;
+      last_name: string;
+      timezone?: string;
+    }>;
   }>;
 }
 
@@ -91,12 +91,12 @@ export default function SchedulePage() {
               name,
               strength,
               format,
-              status
-            ),
-            patients (
-              first_name,
-              last_name,
-              timezone
+              status,
+              patients (
+                first_name,
+                last_name,
+                timezone
+              )
             )
           `)
           .eq('is_active', true)
@@ -108,16 +108,28 @@ export default function SchedulePage() {
           setMedicationSchedules([]);
         } else {
           // Normalize Supabase response (joins return arrays) and filter inactive medications
-          const normalizedSchedules: MedicationSchedule[] = (data || []).map((schedule: RawMedicationSchedule) => ({
-            id: schedule.id,
-            medication_id: schedule.medication_id,
-            patient_id: schedule.patient_id,
-            scheduled_time: schedule.scheduled_time,
-            time_of_day: schedule.time_of_day,
-            is_active: schedule.is_active,
-            medications: Array.isArray(schedule.medications) ? schedule.medications[0] : schedule.medications,
-            patients: Array.isArray(schedule.patients) ? schedule.patients[0] : schedule.patients
-          }));
+          const normalizedSchedules: MedicationSchedule[] = (data || []).map((schedule: RawMedicationSchedule) => {
+            const medicationData = Array.isArray(schedule.medications) ? schedule.medications[0] : schedule.medications;
+            const patientData = medicationData?.patients ? 
+              (Array.isArray(medicationData.patients) ? medicationData.patients[0] : medicationData.patients) 
+              : undefined;
+            
+            return {
+              id: schedule.id,
+              medication_id: schedule.medication_id,
+              patient_id: schedule.patient_id,
+              scheduled_time: schedule.scheduled_time,
+              time_of_day: schedule.time_of_day,
+              is_active: schedule.is_active,
+              medications: medicationData ? {
+                name: medicationData.name,
+                strength: medicationData.strength,
+                format: medicationData.format,
+                status: medicationData.status
+              } : undefined,
+              patients: patientData
+            };
+          });
           
           // Filter out schedules where medication is inactive
           const activeSchedules = normalizedSchedules.filter(
