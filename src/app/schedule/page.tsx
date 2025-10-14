@@ -26,15 +26,16 @@ interface ScheduleItem {
 interface RawMedicationSchedule {
   id: string;
   medication_id: string;
-  patient_id: string;
   scheduled_time: string;
   time_of_day: string;
   is_active: boolean;
   medications?: Array<{
+    id: string;
     name: string;
     strength: string;
     format: string;
     status: string;
+    patient_id: string;
     patients: Array<{
       first_name: string;
       last_name: string;
@@ -83,15 +84,16 @@ export default function SchedulePage() {
           .select(`
             id,
             medication_id,
-            patient_id,
             scheduled_time,
             time_of_day,
             is_active,
             medications (
+              id,
               name,
               strength,
               format,
               status,
+              patient_id,
               patients (
                 first_name,
                 last_name,
@@ -117,7 +119,7 @@ export default function SchedulePage() {
             return {
               id: schedule.id,
               medication_id: schedule.medication_id,
-              patient_id: schedule.patient_id,
+              patient_id: medicationData?.patient_id || '', // Get patient_id from medications
               scheduled_time: schedule.scheduled_time,
               time_of_day: schedule.time_of_day,
               is_active: schedule.is_active,
