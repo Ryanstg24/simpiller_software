@@ -96,6 +96,10 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
         throw new Error('Failed to fetch compliance data');
       }
 
+      console.log('Compliance Heatmap - Fetched logs:', logs?.length || 0, 'logs');
+      console.log('Compliance Heatmap - Date range:', firstDay.toISOString(), 'to', lastDay.toISOString());
+      console.log('Compliance Heatmap - Sample logs:', logs?.slice(0, 3));
+
       // Group logs by date
       const dailyData: Record<string, { total: number; successful: number }> = {};
 
@@ -109,6 +113,8 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
           dailyData[date].successful++;
         }
       });
+
+      console.log('Compliance Heatmap - Daily data:', dailyData);
 
       // Create array for all days in the month
       const daysInMonth = lastDay.getDate();
@@ -126,6 +132,8 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
           successfulScans: dayData?.successful || 0
         });
       }
+
+      console.log('Compliance Heatmap - Final heatmap data:', heatmapData.slice(0, 5));
 
       return heatmapData;
     },
@@ -203,7 +211,7 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
               <div className="space-y-2">
                 <div>Calendar view showing daily medication adherence rates. Darker colors indicate higher compliance rates.</div>
                 <div className="border-t border-gray-600 pt-2">
-                  <div className="font-medium mb-2">Color Scale:</div>
+                  <div className="font-medium mb-2">Adherence Score Metrics:</div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <div>• Gray: 0% (no scans)</div>
                     <div>• Red: &lt;25%</div>

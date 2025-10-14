@@ -95,6 +95,10 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         throw new Error('Failed to fetch adherence data');
       }
 
+      console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs');
+      console.log('Adherence Trends - Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
+      console.log('Adherence Trends - Sample logs:', logs?.slice(0, 3));
+
       // Group logs by date and calculate adherence rates
       const dailyData: Record<string, { total: number; successful: number }> = {};
 
@@ -108,6 +112,8 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           dailyData[date].successful++;
         }
       });
+
+      console.log('Adherence Trends - Daily data:', dailyData);
 
       // Create array for all days in the 30-day range (including days with no logs)
       const trendData: AdherenceTrendData[] = [];
@@ -126,6 +132,9 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         
         currentDate.setDate(currentDate.getDate() + 1);
       }
+
+      console.log('Adherence Trends - Final trend data:', trendData.slice(0, 5));
+      console.log('Adherence Trends - Total days with data:', trendData.filter(d => d.totalScans > 0).length);
 
       return trendData;
     },
@@ -186,8 +195,21 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           </div>
           <div className="group relative">
             <Info className="h-4 w-4 text-gray-400 cursor-help" />
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-              Shows daily percentage of successful medication scans vs total scheduled scans over the last 30 days
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 w-80">
+              <div className="space-y-2">
+                <div>Shows daily percentage of successful medication scans vs total scheduled scans over the last 30 days</div>
+                <div className="border-t border-gray-600 pt-2">
+                  <div className="font-medium mb-2">Adherence Score Metrics:</div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div>• Gray: 0% (no scans)</div>
+                    <div>• Red: &lt;25%</div>
+                    <div>• Orange: 25-49%</div>
+                    <div>• Yellow: 50-74%</div>
+                    <div>• Light Green: 75-89%</div>
+                    <div>• Dark Green: 90-100%</div>
+                  </div>
+                </div>
+              </div>
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
             </div>
           </div>
