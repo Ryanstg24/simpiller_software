@@ -23,6 +23,28 @@ interface ScheduleItem {
   medicationId: string;
 }
 
+// Raw response from Supabase (joins return arrays)
+interface RawMedicationSchedule {
+  id: string;
+  medication_id: string;
+  patient_id: string;
+  scheduled_time: string;
+  time_of_day: string;
+  is_active: boolean;
+  medications?: Array<{
+    name: string;
+    strength: string;
+    format: string;
+    status: string;
+  }>;
+  patients?: Array<{
+    first_name: string;
+    last_name: string;
+    timezone?: string;
+  }>;
+}
+
+// Normalized interface for use in component
 interface MedicationSchedule {
   id: string;
   medication_id: string;
@@ -93,9 +115,21 @@ export default function SchedulePage() {
           console.error('Error fetching medication schedules:', error);
           setMedicationSchedules([]);
         } else {
+          // Normalize Supabase response (joins return arrays) and filter inactive medications
+          const normalizedSchedules: MedicationSchedule[] = (data || []).map((schedule: RawMedicationSchedule) => ({
+            id: schedule.id,
+            medication_id: schedule.medication_id,
+            patient_id: schedule.patient_id,
+            scheduled_time: schedule.scheduled_time,
+            time_of_day: schedule.time_of_day,
+            is_active: schedule.is_active,
+            medications: Array.isArray(schedule.medications) ? schedule.medications[0] : schedule.medications,
+            patients: Array.isArray(schedule.patients) ? schedule.patients[0] : schedule.patients
+          }));
+          
           // Filter out schedules where medication is inactive
-          const activeSchedules = (data || []).filter(
-            (schedule: MedicationSchedule) => 
+          const activeSchedules = normalizedSchedules.filter(
+            (schedule) => 
               schedule.medications && schedule.medications.status === 'active'
           );
           setMedicationSchedules(activeSchedules);
