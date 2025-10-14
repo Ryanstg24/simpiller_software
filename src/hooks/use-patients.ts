@@ -46,10 +46,16 @@ export interface Patient {
   
   // Time Preferences
   timezone?: string;
+  // Legacy single time fields (kept for backward compatibility)
   morning_time?: string;
   afternoon_time?: string;
   evening_time?: string;
   bedtime?: string;
+  // New multiple time slots (arrays of time strings in HH:MM format)
+  morning_times?: string[];
+  afternoon_times?: string[];
+  evening_times?: string[];
+  bedtime_times?: string[];
   
   // Billing Cycle
   cycle_start_date?: string;

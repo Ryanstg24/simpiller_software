@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, Edit, Save, User, Pill, Calendar, Activity, Clock } from 'lucide-react';
+import { X, Edit, Save, User, Pill, Calendar, Activity, Clock, Plus, Trash2 } from 'lucide-react';
 import { Patient, usePatients } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
@@ -247,6 +247,82 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
     }
   }, [patient?.id, canEditProvider]); // Removed formData.id and invalidatePatients to prevent infinite loops
 
+  // Helper function to get time array for a period, handling migration from single time to array
+  const getTimesArray = (period: 'morning' | 'afternoon' | 'evening' | 'bedtime'): string[] => {
+    const arrayKey = `${period}_times` as keyof Patient;
+    const singleKey = period === 'bedtime' ? 'bedtime' : `${period}_time` as keyof Patient;
+    
+    // Priority: use the array field if it exists and has data
+    const arrayValue = formData[arrayKey] as string[] | undefined;
+    if (arrayValue && Array.isArray(arrayValue) && arrayValue.length > 0) {
+      return arrayValue;
+    }
+    
+    // Fallback: if single time exists, return it as an array
+    const singleValue = formData[singleKey] as string | undefined;
+    if (singleValue) {
+      return [singleValue];
+    }
+    
+    // Default: return a single default time
+    const defaults: Record<string, string> = {
+      morning: '06:00',
+      afternoon: '12:00',
+      evening: '18:00',
+      bedtime: '22:00'
+    };
+    return [defaults[period]];
+  };
+
+  // Helper function to add a new time slot to a period
+  const addTimeSlot = (period: 'morning' | 'afternoon' | 'evening' | 'bedtime') => {
+    const currentTimes = getTimesArray(period);
+    const arrayKey = `${period}_times` as keyof Patient;
+    
+    // Add a new time 1 hour after the last time
+    const lastTime = currentTimes[currentTimes.length - 1];
+    const [hours, minutes] = lastTime.split(':').map(Number);
+    const newHour = (hours + 1) % 24;
+    const newTime = `${String(newHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    
+    setFormData({
+      ...formData,
+      [arrayKey]: [...currentTimes, newTime]
+    });
+  };
+
+  // Helper function to remove a time slot from a period
+  const removeTimeSlot = (period: 'morning' | 'afternoon' | 'evening' | 'bedtime', index: number) => {
+    const currentTimes = getTimesArray(period);
+    
+    // Don't allow removing the last time slot
+    if (currentTimes.length <= 1) {
+      alert('Each period must have at least one time slot.');
+      return;
+    }
+    
+    const arrayKey = `${period}_times` as keyof Patient;
+    const newTimes = currentTimes.filter((_, i) => i !== index);
+    
+    setFormData({
+      ...formData,
+      [arrayKey]: newTimes
+    });
+  };
+
+  // Helper function to update a specific time slot
+  const updateTimeSlot = (period: 'morning' | 'afternoon' | 'evening' | 'bedtime', index: number, newTime: string) => {
+    const currentTimes = getTimesArray(period);
+    const arrayKey = `${period}_times` as keyof Patient;
+    const newTimes = [...currentTimes];
+    newTimes[index] = newTime;
+    
+    setFormData({
+      ...formData,
+      [arrayKey]: newTimes
+    });
+  };
+
   const handleSavePatient = async () => {
     if (!patient) return;
 
@@ -274,6 +350,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         'street1', 'street2', 'city', 'state', 'postal_code', 'country',
         'rtm_status', 'notes',
         'timezone', 'morning_time', 'afternoon_time', 'evening_time', 'bedtime',
+        'morning_times', 'afternoon_times', 'evening_times', 'bedtime_times',
         'is_active', 'patient_id_alt'
       ] as const;
       const adminOnlyFields = [
@@ -765,52 +842,171 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Time Preferences</h3>
                     <p className="text-sm text-gray-600 mb-4">
-                      Define when &quot;morning&quot;, &quot;afternoon&quot;, &quot;evening&quot;, and &quot;bedtime&quot; mean for this patient based on their work schedule.
+                      Define medication times for each period. You can add multiple time slots per period for patients taking multiple medications at different times.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-                        <select
-                          value={formData.timezone || 'America/New_York'}
-                          onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                        >
-                          <option value="America/New_York">Eastern Time (ET)</option>
-                          <option value="America/Chicago">Central Time (CT)</option>
-                          <option value="America/Denver">Mountain Time (MT)</option>
-                          <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                          <option value="America/Anchorage">Alaska Time (AKT)</option>
-                          <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
-                          <option value="America/Phoenix">Arizona Time (MST)</option>
-                        </select>
+                    
+                    {/* Timezone */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                      <select
+                        value={formData.timezone || 'America/New_York'}
+                        onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        <option value="America/New_York">Eastern Time (ET)</option>
+                        <option value="America/Chicago">Central Time (CT)</option>
+                        <option value="America/Denver">Mountain Time (MT)</option>
+                        <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                        <option value="America/Anchorage">Alaska Time (AKT)</option>
+                        <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                        <option value="America/Phoenix">Arizona Time (MST)</option>
+                      </select>
+                    </div>
+
+                    {/* Time Slots for Each Period */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Morning Times */}
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="block text-sm font-medium text-gray-700">Morning Times</label>
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot('morning')}
+                            className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add Time</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {getTimesArray('morning').map((time, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <HybridTimeInput
+                                label=""
+                                value={time}
+                                onChange={(value) => updateTimeSlot('morning', index, value)}
+                              />
+                              {getTimesArray('morning').length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTimeSlot('morning', index)}
+                                  className="p-2 text-red-600 hover:text-red-700"
+                                  title="Remove this time slot"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <HybridTimeInput
-                          label="Morning Time"
-                          value={formData.morning_time || '06:00'}
-                          onChange={(value) => setFormData({ ...formData, morning_time: value })}
-                        />
+
+                      {/* Afternoon Times */}
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="block text-sm font-medium text-gray-700">Afternoon Times</label>
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot('afternoon')}
+                            className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add Time</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {getTimesArray('afternoon').map((time, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <HybridTimeInput
+                                label=""
+                                value={time}
+                                onChange={(value) => updateTimeSlot('afternoon', index, value)}
+                              />
+                              {getTimesArray('afternoon').length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTimeSlot('afternoon', index)}
+                                  className="p-2 text-red-600 hover:text-red-700"
+                                  title="Remove this time slot"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <HybridTimeInput
-                          label="Afternoon Time"
-                          value={formData.afternoon_time || '12:00'}
-                          onChange={(value) => setFormData({ ...formData, afternoon_time: value })}
-                        />
+
+                      {/* Evening Times */}
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="block text-sm font-medium text-gray-700">Evening Times</label>
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot('evening')}
+                            className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add Time</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {getTimesArray('evening').map((time, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <HybridTimeInput
+                                label=""
+                                value={time}
+                                onChange={(value) => updateTimeSlot('evening', index, value)}
+                              />
+                              {getTimesArray('evening').length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTimeSlot('evening', index)}
+                                  className="p-2 text-red-600 hover:text-red-700"
+                                  title="Remove this time slot"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <HybridTimeInput
-                          label="Evening Time"
-                          value={formData.evening_time || '18:00'}
-                          onChange={(value) => setFormData({ ...formData, evening_time: value })}
-                        />
-                      </div>
-                      <div>
-                        <HybridTimeInput
-                          label="Bedtime"
-                          value={formData.bedtime || '22:00'}
-                          onChange={(value) => setFormData({ ...formData, bedtime: value })}
-                        />
+
+                      {/* Bedtime Times */}
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="block text-sm font-medium text-gray-700">Bedtime Times</label>
+                          <button
+                            type="button"
+                            onClick={() => addTimeSlot('bedtime')}
+                            className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add Time</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {getTimesArray('bedtime').map((time, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <HybridTimeInput
+                                label=""
+                                value={time}
+                                onChange={(value) => updateTimeSlot('bedtime', index, value)}
+                              />
+                              {getTimesArray('bedtime').length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTimeSlot('bedtime', index)}
+                                  className="p-2 text-red-600 hover:text-red-700"
+                                  title="Remove this time slot"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -971,37 +1167,89 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Time Preferences</h3>
                     <p className="text-sm text-gray-600 mb-4">
-                      Custom times for medication scheduling based on work schedule.
+                      Medication times for each period. Multiple times indicate different medication schedules within the same period.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    
+                    {/* Timezone */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                      <p className="text-gray-900 font-medium">
+                        {patient.timezone === 'America/New_York' ? 'Eastern Time (ET)' :
+                         patient.timezone === 'America/Chicago' ? 'Central Time (CT)' :
+                         patient.timezone === 'America/Denver' ? 'Mountain Time (MT)' :
+                         patient.timezone === 'America/Los_Angeles' ? 'Pacific Time (PT)' :
+                         patient.timezone === 'America/Anchorage' ? 'Alaska Time (AKT)' :
+                         patient.timezone === 'Pacific/Honolulu' ? 'Hawaii Time (HT)' :
+                         patient.timezone === 'America/Phoenix' ? 'Arizona Time (MST)' :
+                         patient.timezone || 'Eastern Time (ET)'}
+                      </p>
+                    </div>
+
+                    {/* Time Slots */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-                        <p className="text-gray-900 font-medium">
-                          {patient.timezone === 'America/New_York' ? 'Eastern Time (ET)' :
-                           patient.timezone === 'America/Chicago' ? 'Central Time (CT)' :
-                           patient.timezone === 'America/Denver' ? 'Mountain Time (MT)' :
-                           patient.timezone === 'America/Los_Angeles' ? 'Pacific Time (PT)' :
-                           patient.timezone === 'America/Anchorage' ? 'Alaska Time (AKT)' :
-                           patient.timezone === 'Pacific/Honolulu' ? 'Hawaii Time (HT)' :
-                           patient.timezone === 'America/Phoenix' ? 'Arizona Time (MST)' :
-                           patient.timezone || 'Eastern Time (ET)'}
-                        </p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Morning</label>
+                        <div className="space-y-1">
+                          {(() => {
+                            const morningTimes = patient.morning_times && Array.isArray(patient.morning_times) && patient.morning_times.length > 0
+                              ? patient.morning_times
+                              : patient.morning_time ? [patient.morning_time] : ['06:00'];
+                            return morningTimes.map((time, index) => (
+                              <p key={index} className="text-gray-900 font-medium">
+                                {time}
+                                {morningTimes.length > 1 && <span className="text-xs text-gray-500 ml-2">(#{index + 1})</span>}
+                              </p>
+                            ));
+                          })()}
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Morning</label>
-                        <p className="text-gray-900 font-medium">{patient.morning_time || '06:00'}</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Afternoon</label>
+                        <div className="space-y-1">
+                          {(() => {
+                            const afternoonTimes = patient.afternoon_times && Array.isArray(patient.afternoon_times) && patient.afternoon_times.length > 0
+                              ? patient.afternoon_times
+                              : patient.afternoon_time ? [patient.afternoon_time] : ['12:00'];
+                            return afternoonTimes.map((time, index) => (
+                              <p key={index} className="text-gray-900 font-medium">
+                                {time}
+                                {afternoonTimes.length > 1 && <span className="text-xs text-gray-500 ml-2">(#{index + 1})</span>}
+                              </p>
+                            ));
+                          })()}
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Afternoon</label>
-                        <p className="text-gray-900 font-medium">{patient.afternoon_time || '12:00'}</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Evening</label>
+                        <div className="space-y-1">
+                          {(() => {
+                            const eveningTimes = patient.evening_times && Array.isArray(patient.evening_times) && patient.evening_times.length > 0
+                              ? patient.evening_times
+                              : patient.evening_time ? [patient.evening_time] : ['18:00'];
+                            return eveningTimes.map((time, index) => (
+                              <p key={index} className="text-gray-900 font-medium">
+                                {time}
+                                {eveningTimes.length > 1 && <span className="text-xs text-gray-500 ml-2">(#{index + 1})</span>}
+                              </p>
+                            ));
+                          })()}
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Evening</label>
-                        <p className="text-gray-900 font-medium">{patient.evening_time || '18:00'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bedtime</label>
-                        <p className="text-gray-900 font-medium">{patient.bedtime || '22:00'}</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bedtime</label>
+                        <div className="space-y-1">
+                          {(() => {
+                            const bedtimeTimes = patient.bedtime_times && Array.isArray(patient.bedtime_times) && patient.bedtime_times.length > 0
+                              ? patient.bedtime_times
+                              : patient.bedtime ? [patient.bedtime] : ['22:00'];
+                            return bedtimeTimes.map((time, index) => (
+                              <p key={index} className="text-gray-900 font-medium">
+                                {time}
+                                {bedtimeTimes.length > 1 && <span className="text-xs text-gray-500 ml-2">(#{index + 1})</span>}
+                              </p>
+                            ));
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>

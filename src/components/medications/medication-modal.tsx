@@ -63,12 +63,17 @@ export function MedicationModal({
   const [formData, setFormData] = useState<Partial<Medication>>({});
   const [selectedPatient, setSelectedPatient] = useState<string>(selectedPatientId || '');
 
-  // Time preferences for the patient
-  const [timePreferences, setTimePreferences] = useState({
-    morning: '06:00',
-    afternoon: '12:00',
-    evening: '18:00',
-    bedtime: '22:00'
+  // Time preferences for the patient - now supports multiple times per period
+  const [timePreferences, setTimePreferences] = useState<{
+    morning: string[];
+    afternoon: string[];
+    evening: string[];
+    bedtime: string[];
+  }>({
+    morning: ['06:00'],
+    afternoon: ['12:00'],
+    evening: ['18:00'],
+    bedtime: ['22:00']
   });
 
   useEffect(() => {
@@ -90,11 +95,43 @@ export function MedicationModal({
       
       // Use patient's time preferences if available, otherwise use defaults
       const fallbackPatient = patients.find((p: Patient) => p.id === medication.patient_id);
+      
+      // Helper to get times array, with fallback to single time or default
+      const getTimesArray = (
+        arrayField: string[] | undefined,
+        singleField: string | undefined,
+        defaultTime: string
+      ): string[] => {
+        if (arrayField && Array.isArray(arrayField) && arrayField.length > 0) {
+          return arrayField;
+        }
+        if (singleField) {
+          return [singleField];
+        }
+        return [defaultTime];
+      };
+      
       setTimePreferences({
-        morning: (medication.patients?.morning_time || fallbackPatient?.morning_time) || '06:00',
-        afternoon: (medication.patients?.afternoon_time || fallbackPatient?.afternoon_time) || '12:00',
-        evening: (medication.patients?.evening_time || fallbackPatient?.evening_time) || '18:00',
-        bedtime: (medication.patients?.bedtime || fallbackPatient?.bedtime) || '22:00'
+        morning: getTimesArray(
+          medication.patients?.morning_times || fallbackPatient?.morning_times,
+          medication.patients?.morning_time || fallbackPatient?.morning_time,
+          '06:00'
+        ),
+        afternoon: getTimesArray(
+          medication.patients?.afternoon_times || fallbackPatient?.afternoon_times,
+          medication.patients?.afternoon_time || fallbackPatient?.afternoon_time,
+          '12:00'
+        ),
+        evening: getTimesArray(
+          medication.patients?.evening_times || fallbackPatient?.evening_times,
+          medication.patients?.evening_time || fallbackPatient?.evening_time,
+          '18:00'
+        ),
+        bedtime: getTimesArray(
+          medication.patients?.bedtime_times || fallbackPatient?.bedtime_times,
+          medication.patients?.bedtime || fallbackPatient?.bedtime,
+          '22:00'
+        )
       });
     } else if (mode === 'add') {
       // Reset form for adding new medication
@@ -119,11 +156,26 @@ export function MedicationModal({
         // Set time preferences for the selected patient
         const patient = patients.find((p: Patient) => p.id === selectedPatientId);
         if (patient) {
+          // Helper to get times array, with fallback to single time or default
+          const getTimesArray = (
+            arrayField: string[] | undefined,
+            singleField: string | undefined,
+            defaultTime: string
+          ): string[] => {
+            if (arrayField && Array.isArray(arrayField) && arrayField.length > 0) {
+              return arrayField;
+            }
+            if (singleField) {
+              return [singleField];
+            }
+            return [defaultTime];
+          };
+          
           setTimePreferences({
-            morning: patient.morning_time || '06:00',
-            afternoon: patient.afternoon_time || '12:00',
-            evening: patient.evening_time || '18:00',
-            bedtime: patient.bedtime || '22:00'
+            morning: getTimesArray(patient.morning_times, patient.morning_time, '06:00'),
+            afternoon: getTimesArray(patient.afternoon_times, patient.afternoon_time, '12:00'),
+            evening: getTimesArray(patient.evening_times, patient.evening_time, '18:00'),
+            bedtime: getTimesArray(patient.bedtime_times, patient.bedtime, '22:00')
           });
         }
       }
@@ -135,11 +187,26 @@ export function MedicationModal({
     if (selectedPatient && mode === 'add') {
       const patient = patients.find((p: Patient) => p.id === selectedPatient);
       if (patient) {
+        // Helper to get times array, with fallback to single time or default
+        const getTimesArray = (
+          arrayField: string[] | undefined,
+          singleField: string | undefined,
+          defaultTime: string
+        ): string[] => {
+          if (arrayField && Array.isArray(arrayField) && arrayField.length > 0) {
+            return arrayField;
+          }
+          if (singleField) {
+            return [singleField];
+          }
+          return [defaultTime];
+        };
+        
         setTimePreferences({
-          morning: patient.morning_time || '06:00',
-          afternoon: patient.afternoon_time || '12:00',
-          evening: patient.evening_time || '18:00',
-          bedtime: patient.bedtime || '22:00'
+          morning: getTimesArray(patient.morning_times, patient.morning_time, '06:00'),
+          afternoon: getTimesArray(patient.afternoon_times, patient.afternoon_time, '12:00'),
+          evening: getTimesArray(patient.evening_times, patient.evening_time, '18:00'),
+          bedtime: getTimesArray(patient.bedtime_times, patient.bedtime, '22:00')
         });
       }
     }
@@ -410,71 +477,106 @@ export function MedicationModal({
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Time(s) of Day</label>
-                    <div className="space-y-2">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={(() => {
-                            const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
-                            const isChecked = currentTimes.some(t => {
-                              const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
-                              return timePart === 'morning';
-                            });
-                            return isChecked;
-                          })()}
-                          onChange={(e) => handleTimeSelection('morning', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Morning ({timePreferences.morning})</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={(() => {
-                            const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
-                            const isChecked = currentTimes.some(t => {
-                              const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
-                              return timePart === 'afternoon';
-                            });
-                            return isChecked;
-                          })()}
-                          onChange={(e) => handleTimeSelection('afternoon', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Afternoon ({timePreferences.afternoon})</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={(() => {
-                            const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
-                            const isChecked = currentTimes.some(t => {
-                              const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
-                              return timePart === 'evening';
-                            });
-                            return isChecked;
-                          })()}
-                          onChange={(e) => handleTimeSelection('evening', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Evening ({timePreferences.evening})</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={(() => {
-                            const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
-                            const isChecked = currentTimes.some(t => {
-                              const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
-                              return timePart === 'bedtime';
-                            });
-                            return isChecked;
-                          })()}
-                          onChange={(e) => handleTimeSelection('bedtime', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Bedtime ({timePreferences.bedtime})</span>
-                      </label>
+                    <div className="space-y-4">
+                      {/* Morning Times */}
+                      <div className="border border-gray-200 rounded-md p-3">
+                        <div className="font-medium text-sm text-gray-700 mb-2">Morning</div>
+                        {timePreferences.morning.map((time, index) => (
+                          <label key={index} className="flex items-center mb-1">
+                            <input
+                              type="checkbox"
+                              checked={(() => {
+                                const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
+                                return currentTimes.some(t => {
+                                  const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
+                                  return timePart === `morning_${index}` || (index === 0 && timePart === 'morning');
+                                });
+                              })()}
+                              onChange={(e) => handleTimeSelection(`morning_${index}`, e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {time}
+                              {timePreferences.morning.length > 1 && <span className="text-xs text-gray-500 ml-1">(#{index + 1})</span>}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Afternoon Times */}
+                      <div className="border border-gray-200 rounded-md p-3">
+                        <div className="font-medium text-sm text-gray-700 mb-2">Afternoon</div>
+                        {timePreferences.afternoon.map((time, index) => (
+                          <label key={index} className="flex items-center mb-1">
+                            <input
+                              type="checkbox"
+                              checked={(() => {
+                                const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
+                                return currentTimes.some(t => {
+                                  const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
+                                  return timePart === `afternoon_${index}` || (index === 0 && timePart === 'afternoon');
+                                });
+                              })()}
+                              onChange={(e) => handleTimeSelection(`afternoon_${index}`, e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {time}
+                              {timePreferences.afternoon.length > 1 && <span className="text-xs text-gray-500 ml-1">(#{index + 1})</span>}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Evening Times */}
+                      <div className="border border-gray-200 rounded-md p-3">
+                        <div className="font-medium text-sm text-gray-700 mb-2">Evening</div>
+                        {timePreferences.evening.map((time, index) => (
+                          <label key={index} className="flex items-center mb-1">
+                            <input
+                              type="checkbox"
+                              checked={(() => {
+                                const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
+                                return currentTimes.some(t => {
+                                  const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
+                                  return timePart === `evening_${index}` || (index === 0 && timePart === 'evening');
+                                });
+                              })()}
+                              onChange={(e) => handleTimeSelection(`evening_${index}`, e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {time}
+                              {timePreferences.evening.length > 1 && <span className="text-xs text-gray-500 ml-1">(#{index + 1})</span>}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Bedtime Times */}
+                      <div className="border border-gray-200 rounded-md p-3">
+                        <div className="font-medium text-sm text-gray-700 mb-2">Bedtime</div>
+                        {timePreferences.bedtime.map((time, index) => (
+                          <label key={index} className="flex items-center mb-1">
+                            <input
+                              type="checkbox"
+                              checked={(() => {
+                                const currentTimes = formData.time_of_day?.split(',').filter(t => t.trim()) || [];
+                                return currentTimes.some(t => {
+                                  const timePart = t.includes('(') ? t.split('(')[0].trim() : t.trim();
+                                  return timePart === `bedtime_${index}` || (index === 0 && timePart === 'bedtime');
+                                });
+                              })()}
+                              onChange={(e) => handleTimeSelection(`bedtime_${index}`, e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {time}
+                              {timePreferences.bedtime.length > 1 && <span className="text-xs text-gray-500 ml-1">(#{index + 1})</span>}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     
                     {/* Validation Error */}
@@ -520,13 +622,23 @@ export function MedicationModal({
                           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
                             <p className="text-sm text-green-700">
                               ✅ Selected: {selectedTimes.map(time => {
-                                switch (time) {
-                                  case 'morning': return `Morning (${timePreferences.morning})`;
-                                  case 'afternoon': return `Afternoon (${timePreferences.afternoon})`;
-                                  case 'evening': return `Evening (${timePreferences.evening})`;
-                                  case 'bedtime': return `Bedtime (${timePreferences.bedtime})`;
-                                  default: return time;
-                                }
+                                // Extract period and index from time string like "morning_0"
+                                const [period, indexStr] = time.includes('_') ? time.split('_') : [time, '0'];
+                                const index = parseInt(indexStr || '0');
+                                
+                                // Get the actual time value from preferences
+                                const timeValue = (() => {
+                                  switch (period) {
+                                    case 'morning': return timePreferences.morning[index] || timePreferences.morning[0];
+                                    case 'afternoon': return timePreferences.afternoon[index] || timePreferences.afternoon[0];
+                                    case 'evening': return timePreferences.evening[index] || timePreferences.evening[0];
+                                    case 'bedtime': return timePreferences.bedtime[index] || timePreferences.bedtime[0];
+                                    default: return time;
+                                  }
+                                })();
+                                
+                                const periodName = period.charAt(0).toUpperCase() + period.slice(1);
+                                return `${periodName} (${timeValue})`;
                               }).join(', ')}
                             </p>
                           </div>

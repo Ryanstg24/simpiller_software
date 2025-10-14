@@ -34,6 +34,10 @@ export async function POST() {
           afternoon_time,
           evening_time,
           bedtime,
+          morning_times,
+          afternoon_times,
+          evening_times,
+          bedtime_times,
           timezone
         )
       `)
@@ -71,6 +75,10 @@ export async function POST() {
           afternoon_time?: string;
           evening_time?: string;
           bedtime?: string;
+          morning_times?: string[];
+          afternoon_times?: string[];
+          evening_times?: string[];
+          bedtime_times?: string[];
           timezone?: string;
         };
 
@@ -125,7 +133,10 @@ export async function POST() {
               alert_advance_minutes: 15
             };
 
-            // Handle both formats: "morning (06:00:00)" and just "morning"
+            // Handle multiple formats:
+            // 1. "morning (06:00:00)" - explicit time in parentheses
+            // 2. "morning" - use first time from array or fallback to single field
+            // 3. "morning_0", "morning_1", etc. - use specific index from array
             if (timeStr.includes('(') && timeStr.includes(')')) {
               // Extract time from format like "morning (06:00:00)"
               const timeMatch = timeStr.match(/\(([^)]+)\)/);
@@ -133,19 +144,42 @@ export async function POST() {
                 time = timeMatch[1];
               }
             } else {
-              // Use patient's time preferences for simple time names
-              switch (timeStr.toLowerCase().trim()) {
+              // Check if it has an index like "morning_0"
+              const [periodName, indexStr] = timeStr.toLowerCase().trim().split('_');
+              const index = indexStr ? parseInt(indexStr) : 0;
+              
+              // Helper to get time from array or fallback to single field
+              const getTimeFromPreferences = (
+                arrayField: string[] | undefined,
+                singleField: string | undefined,
+                defaultTime: string,
+                index: number
+              ): string => {
+                if (arrayField && Array.isArray(arrayField) && arrayField.length > index) {
+                  return arrayField[index];
+                }
+                if (index === 0 && singleField) {
+                  return singleField;
+                }
+                if (arrayField && Array.isArray(arrayField) && arrayField.length > 0) {
+                  return arrayField[0];
+                }
+                return defaultTime;
+              };
+              
+              // Use patient's time preferences for time period names
+              switch (periodName) {
                 case 'morning':
-                  time = patient.morning_time || '06:00';
+                  time = getTimeFromPreferences(patient.morning_times, patient.morning_time, '06:00', index);
                   break;
                 case 'afternoon':
-                  time = patient.afternoon_time || '12:00';
+                  time = getTimeFromPreferences(patient.afternoon_times, patient.afternoon_time, '12:00', index);
                   break;
                 case 'evening':
-                  time = patient.evening_time || '18:00';
+                  time = getTimeFromPreferences(patient.evening_times, patient.evening_time, '18:00', index);
                   break;
                 case 'bedtime':
-                  time = patient.bedtime || '22:00';
+                  time = getTimeFromPreferences(patient.bedtime_times, patient.bedtime, '22:00', index);
                   break;
                 default:
                   console.log('[Populate] Unknown time string:', timeStr);

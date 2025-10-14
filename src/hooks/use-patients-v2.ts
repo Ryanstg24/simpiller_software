@@ -29,11 +29,17 @@ export interface Patient {
   updated_at: string;
   adherence_score?: number;
   rtm_status?: string;
+  // Legacy single time fields (kept for backward compatibility)
   morning_time?: string;
   afternoon_time?: string;
   evening_time?: string;
   bedtime?: string;
   timezone?: string;
+  // New multiple time slots (arrays of time strings in HH:MM format)
+  morning_times?: string[];
+  afternoon_times?: string[];
+  evening_times?: string[];
+  bedtime_times?: string[];
   
   // Joined data
   facilities?: {

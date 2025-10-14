@@ -213,11 +213,15 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
           // Medical Status
           rtm_status: formData.rtm_status || null,
           
-          // Time Preferences
+          // Time Preferences (save as both single values and arrays for compatibility)
           morning_time: formData.morning_time || null,
           afternoon_time: formData.afternoon_time || null,
           evening_time: formData.evening_time || null,
           bedtime: formData.bedtime || null,
+          morning_times: formData.morning_time ? [formData.morning_time] : [],
+          afternoon_times: formData.afternoon_time ? [formData.afternoon_time] : [],
+          evening_times: formData.evening_time ? [formData.evening_time] : [],
+          bedtime_times: formData.bedtime ? [formData.bedtime] : [],
           timezone: formData.timezone || null,
           
           // Billing Cycle (automatically set to NOW() by database default)
@@ -660,7 +664,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess }: AddPatientModalP
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-gray-600 mb-4">
-                  Define when &quot;morning&quot;, &quot;afternoon&quot;, &quot;evening&quot;, and &quot;bedtime&quot; mean for this patient based on their work schedule and timezone.
+                  Define initial medication times for each period. You can add more times for each period later when editing the patient.
                 </p>
                 
                 <div>
