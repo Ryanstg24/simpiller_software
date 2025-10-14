@@ -168,12 +168,22 @@ export default function SchedulePage() {
       
       const { data, error } = await supabase
         .from('medication_logs')
-        .select('schedule_id, status, event_date')
+        .select('schedule_id, status, event_date, medication_id')
         .in('schedule_id', scheduleIds)
         .gte('event_date', start.toISOString())
         .lt('event_date', end.toISOString());
       
       console.log('[Schedule Page] Logs query result:', { error, logsCount: data?.length, logs: data });
+      
+      // Also check if there are ANY logs today (for debugging)
+      const { data: allLogsToday } = await supabase
+        .from('medication_logs')
+        .select('id, schedule_id, medication_id, status, event_date')
+        .gte('event_date', start.toISOString())
+        .lt('event_date', end.toISOString())
+        .limit(20);
+      
+      console.log('[Schedule Page] ALL logs today (sample):', allLogsToday);
       
       const map: Record<string, boolean> = {};
       (data || []).forEach((row: { schedule_id: string; status?: string }) => {
