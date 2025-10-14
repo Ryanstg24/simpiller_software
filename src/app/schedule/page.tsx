@@ -26,8 +26,7 @@ interface ScheduleItem {
 interface RawMedicationSchedule {
   id: string;
   medication_id: string;
-  scheduled_time: string;
-  time_of_day: string;
+  time_of_day: string; // This field stores the actual scheduled time in HH:MM:SS format
   is_active: boolean;
   medications?: Array<{
     id: string;
@@ -49,8 +48,7 @@ interface MedicationSchedule {
   id: string;
   medication_id: string;
   patient_id: string;
-  scheduled_time: string;
-  time_of_day: string;
+  scheduled_time: string; // We'll use time_of_day as scheduled_time for consistency
   is_active: boolean;
   medications?: {
     name: string;
@@ -84,7 +82,6 @@ export default function SchedulePage() {
           .select(`
             id,
             medication_id,
-            scheduled_time,
             time_of_day,
             is_active,
             medications (
@@ -102,7 +99,7 @@ export default function SchedulePage() {
             )
           `)
           .eq('is_active', true)
-          .order('scheduled_time', { ascending: true });
+          .order('time_of_day', { ascending: true });
 
         console.log('[Schedule Page] Query result:', { error, dataCount: data?.length });
         if (error) {
@@ -120,8 +117,7 @@ export default function SchedulePage() {
               id: schedule.id,
               medication_id: schedule.medication_id,
               patient_id: medicationData?.patient_id || '', // Get patient_id from medications
-              scheduled_time: schedule.scheduled_time,
-              time_of_day: schedule.time_of_day,
+              scheduled_time: schedule.time_of_day, // time_of_day is the actual scheduled time
               is_active: schedule.is_active,
               medications: medicationData ? {
                 name: medicationData.name,
@@ -208,6 +204,19 @@ export default function SchedulePage() {
         const dosage = `${medication.strength} ${medication.format}`;
         const time = schedule.scheduled_time.substring(0, 5); // Extract HH:MM from HH:MM:SS
 
+        // Determine period type from time
+        const hour = parseInt(time.split(':')[0]);
+        let type = 'morning';
+        if (hour >= 5 && hour < 12) {
+          type = 'morning';
+        } else if (hour >= 12 && hour < 17) {
+          type = 'afternoon';
+        } else if (hour >= 17 && hour < 22) {
+          type = 'evening';
+        } else {
+          type = 'bedtime';
+        }
+
         // Determine status based on current time and logs
         const now = new Date();
         const [hours, minutes] = time.split(':').map(Number);
@@ -238,7 +247,7 @@ export default function SchedulePage() {
           medication: medication.name,
           dosage: dosage,
           status: status,
-          type: schedule.time_of_day,
+          type: type,
           patientId: schedule.patient_id,
           medicationId: schedule.medication_id
         });
