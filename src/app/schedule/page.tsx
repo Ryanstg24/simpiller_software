@@ -185,18 +185,46 @@ export default function SchedulePage() {
       
       console.log('[Schedule Page] ALL logs today (sample):', allLogsToday);
       
+      // Build a map of schedule_id → taken status
       const map: Record<string, boolean> = {};
+      
+      // First, handle logs with schedule_id (preferred method)
       (data || []).forEach((row: { schedule_id: string; status?: string }) => {
         if (row.schedule_id) {
           const s = row.status || '';
           if (s.startsWith('taken') || s === 'taken') {
-            console.log('[Schedule Page] Marking schedule as taken:', row.schedule_id, 'status:', s);
+            console.log('[Schedule Page] Marking schedule as taken (by schedule_id):', row.schedule_id, 'status:', s);
             map[row.schedule_id] = true;
           }
         }
       });
       
-      console.log('[Schedule Page] Taken today map:', map);
+      // Fallback: For logs without schedule_id, match by medication_id
+      // This handles old logs that don't have schedule_id tracked
+      if (allLogsToday && allLogsToday.length > 0) {
+        console.log('[Schedule Page] Attempting fallback matching by medication_id...');
+        
+        // Build a map of medication_id → taken status from all logs
+        const medicationIdMap: Record<string, boolean> = {};
+        allLogsToday.forEach((log: { medication_id: string; status?: string; schedule_id: string | null }) => {
+          if (log.medication_id && !log.schedule_id) { // Only for logs without schedule_id
+            const s = log.status || '';
+            if (s.startsWith('taken') || s === 'taken') {
+              medicationIdMap[log.medication_id] = true;
+            }
+          }
+        });
+        
+        // Now match schedules to medications
+        medicationSchedules.forEach(schedule => {
+          if (medicationIdMap[schedule.medication_id] && !map[schedule.id]) {
+            console.log('[Schedule Page] Marking schedule as taken (by medication_id fallback):', schedule.id, 'medication:', schedule.medication_id);
+            map[schedule.id] = true;
+          }
+        });
+      }
+      
+      console.log('[Schedule Page] Final taken today map:', map, 'Total taken:', Object.keys(map).length);
       setTakenTodayByScheduleId(map);
     };
     fetchLogs();
