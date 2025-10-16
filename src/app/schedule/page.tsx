@@ -8,7 +8,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuthV2 } from "@/contexts/auth-context-v2";
 import { useOrganizations } from "@/hooks/use-organizations";
 
 interface ScheduleItem {
@@ -70,7 +70,7 @@ interface MedicationSchedule {
 
 export default function SchedulePage() {
   const userInfo = useUserDisplay();
-  const { isSimpillerAdmin } = useAuth();
+  const { isSimpillerAdmin } = useAuthV2();
   const { organizations } = useOrganizations();
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [medicationSchedules, setMedicationSchedules] = useState<MedicationSchedule[]>([]);
