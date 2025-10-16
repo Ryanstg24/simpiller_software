@@ -8,6 +8,8 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/auth-context";
+import { useOrganizations } from "@/hooks/use-organizations";
 
 interface ScheduleItem {
   id: string;
@@ -36,9 +38,11 @@ interface RawMedicationSchedule {
     status: string;
     patient_id: string;
     patients: Array<{
+      id: string;
       first_name: string;
       last_name: string;
       timezone?: string;
+      organization_id?: string;
     }>;
   }>;
 }
@@ -50,6 +54,7 @@ interface MedicationSchedule {
   patient_id: string;
   scheduled_time: string; // We'll use time_of_day as scheduled_time for consistency
   is_active: boolean;
+  organization_id?: string;
   medications?: {
     name: string;
     strength: string;
@@ -65,6 +70,9 @@ interface MedicationSchedule {
 
 export default function SchedulePage() {
   const userInfo = useUserDisplay();
+  const { isSimpillerAdmin } = useAuth();
+  const { organizations } = useOrganizations();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [medicationSchedules, setMedicationSchedules] = useState<MedicationSchedule[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
@@ -92,9 +100,11 @@ export default function SchedulePage() {
               status,
               patient_id,
               patients (
+                id,
                 first_name,
                 last_name,
-                timezone
+                timezone,
+                organization_id
               )
             )
           `)
@@ -119,6 +129,7 @@ export default function SchedulePage() {
               patient_id: medicationData?.patient_id || '', // Get patient_id from medications
               scheduled_time: schedule.time_of_day, // time_of_day is the actual scheduled time
               is_active: schedule.is_active,
+              organization_id: patientData?.organization_id,
               medications: medicationData ? {
                 name: medicationData.name,
                 strength: medicationData.strength,
@@ -130,10 +141,19 @@ export default function SchedulePage() {
           });
           
           // Filter out schedules where medication is inactive
-          const activeSchedules = normalizedSchedules.filter(
+          let activeSchedules = normalizedSchedules.filter(
             (schedule) => 
               schedule.medications && schedule.medications.status === 'active'
           );
+          
+          // Apply organization filter for Simpiller Admins
+          if (isSimpillerAdmin && selectedOrganizationId) {
+            activeSchedules = activeSchedules.filter(
+              (schedule) => schedule.organization_id === selectedOrganizationId
+            );
+            console.log('[Schedule Page] Filtered by organization:', selectedOrganizationId);
+          }
+          
           console.log('[Schedule Page] Active schedules after filtering:', activeSchedules.length);
           setMedicationSchedules(activeSchedules);
         }
@@ -146,7 +166,7 @@ export default function SchedulePage() {
     };
 
     fetchSchedules();
-  }, []); // Only fetch once on mount
+  }, [isSimpillerAdmin, selectedOrganizationId]); // Refetch when organization filter changes
 
   // Pull today's logs to determine completed status by schedule_id
   useEffect(() => {
@@ -351,8 +371,8 @@ export default function SchedulePage() {
   const summaryStats = useMemo(() => {
     const completed = scheduleItems.filter(item => item.status === 'completed').length;
     const upcoming = scheduleItems.filter(item => item.status === 'upcoming').length;
-    const overdue = scheduleItems.filter(item => item.status === 'overdue').length;
-    return { completed, upcoming, overdue };
+    const missed = scheduleItems.filter(item => item.status === 'missed').length;
+    return { completed, upcoming, missed };
   }, [scheduleItems]);
 
   if (schedulesLoading) {
@@ -396,6 +416,28 @@ export default function SchedulePage() {
                 <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
                 <p className="text-gray-800">View medication schedules and upcoming doses</p>
               </div>
+              
+              {/* Organization Filter for Simpiller Admins */}
+              {isSimpillerAdmin && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="org-filter" className="text-sm font-medium text-gray-700">
+                    Organization:
+                  </label>
+                  <select
+                    id="org-filter"
+                    value={selectedOrganizationId || ''}
+                    onChange={(e) => setSelectedOrganizationId(e.target.value || null)}
+                    className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Organizations</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Today's Summary */}
@@ -427,13 +469,12 @@ export default function SchedulePage() {
                   <div className="flex items-center">
                     <XCircle className="h-8 w-8 text-red-500 mr-3" />
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Overdue</p>
-                      <p className="text-2xl font-bold text-gray-900">{summaryStats.overdue}</p>
+                      <p className="text-sm font-medium text-gray-600">Missed</p>
+                      <p className="text-2xl font-bold text-gray-900">{summaryStats.missed}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              {/* Alerts card removed as requested */}
             </div>
 
             {/* Schedule Timeline */}
