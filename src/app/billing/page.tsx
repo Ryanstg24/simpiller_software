@@ -453,6 +453,146 @@ function BillingPageContent() {
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
   };
 
+  const exportPatientBillingSummary = async (patientData: BillingData, cycleType: 'current' | 'previous') => {
+    try {
+      console.log('Generating patient billing summary PDF...');
+      const doc = new jsPDF();
+      
+      // Add Simpiller logo (using text for now, can be replaced with actual image)
+      doc.setFontSize(20);
+      doc.setTextColor(51, 139, 202); // Blue color
+      doc.text('simpiller', 20, 20);
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.setTextColor(51, 139, 202);
+      doc.text('Billing Summary', 150, 20);
+      
+      // Patient Information
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Patient:', 20, 35);
+      doc.setFont('helvetica', 'normal');
+      doc.text(patientData.patient_name, 50, 35);
+      
+      // Fetch additional patient details for the summary
+      const effectiveOrgId = isSimpillerAdmin ? selectedOrganizationId : userOrganizationId;
+      const { data: patientDetails } = await supabase
+        .from('patients')
+        .select('date_of_birth, cycle_start_date')
+        .eq('id', patientData.patient_id)
+        .single();
+      
+      if (patientDetails?.date_of_birth) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Birth Date:', 20, 42);
+        doc.setFont('helvetica', 'normal');
+        doc.text(new Date(patientDetails.date_of_birth).toLocaleDateString(), 50, 42);
+      }
+      
+      // Calculate cycle dates
+      let cycleStart: Date;
+      let cycleEnd: Date;
+      if (patientDetails?.cycle_start_date) {
+        const cycle = cycleType === 'current' 
+          ? computeCurrentCycle(patientDetails.cycle_start_date)
+          : computePreviousCycle(patientDetails.cycle_start_date);
+        cycleStart = cycle.cycleStart;
+        cycleEnd = cycle.cycleEnd;
+      } else {
+        cycleStart = new Date();
+        cycleEnd = new Date();
+      }
+      
+      // Setup Codes
+      doc.setFont('helvetica', 'bold');
+      doc.text('Setup:', 20, 55);
+      doc.setFont('helvetica', 'normal');
+      const setupCodes = [];
+      if (patientData.cpt_98975) setupCodes.push('98975');
+      if (patientData.cpt_98976_77) setupCodes.push('98976/98977');
+      if (patientData.cpt_98980) setupCodes.push('98980');
+      if (patientData.cpt_98981 > 0) setupCodes.push(`98981 (${patientData.cpt_98981} increments)`);
+      doc.text(setupCodes.length > 0 ? setupCodes.join(', ') : 'N/A', 50, 55);
+      
+      // Cycle Information
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cycle #:', 20, 68);
+      doc.setFont('helvetica', 'normal');
+      doc.text(cycleType === 'current' ? 'Current' : 'Previous', 50, 68);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Interval Date Range:', 20, 75);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${cycleStart.toLocaleDateString()} - ${cycleEnd.toLocaleDateString()}`, 50, 75);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Total Billable Time:', 20, 82);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${patientData.provider_time_minutes} minutes`, 50, 82);
+      
+      // Provider Activity Log
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PROVIDER ACTIVITY LOG', 20, 95);
+      
+      // Fetch provider time logs for this patient's cycle
+      const { data: timeLogs } = await supabase
+        .from('provider_time_logs')
+        .select(`
+          activity_type,
+          duration_minutes,
+          start_time,
+          notes,
+          users!provider_id (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('patient_id', patientData.patient_id)
+        .gte('start_time', cycleStart.toISOString())
+        .lt('start_time', cycleEnd.toISOString())
+        .order('start_time', { ascending: false });
+      
+      if (timeLogs && timeLogs.length > 0) {
+        const logData = timeLogs.map((log: any) => {
+          const date = new Date(log.start_time).toLocaleDateString();
+          const activityType = log.activity_type === 'patient_communication' ? 'Interactive Communication' : 'Medication Review';
+          const duration = `${log.duration_minutes} minutes`;
+          const notes = log.notes || '';
+          return [date, activityType, duration, notes];
+        });
+        
+        autoTable(doc, {
+          head: [['Date', 'Activity Type', 'Duration', 'Notes']],
+          body: logData,
+          startY: 100,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [51, 139, 202] as [number, number, number] },
+          alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 45 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 90 }
+          }
+        });
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('No provider activity logged for this cycle.', 20, 105);
+      }
+      
+      const fileName = `billing-summary-${patientData.patient_name.replace(/\s+/g, '-')}-${cycleType}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      console.log('Patient billing summary PDF generated successfully!');
+    } catch (error) {
+      console.error('Error generating patient billing summary:', error);
+      alert('Failed to generate patient billing summary. Please check the console for details.');
+    }
+  };
+
   const exportToPDF = (data: BillingData[], fileName: string) => {
     try {
       console.log('Starting PDF export...');
@@ -869,7 +1009,16 @@ function BillingPageContent() {
                 {filteredData.map((patient) => (
                   <tr key={patient.patient_id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {patient.patient_name}
+                      <div className="flex items-center gap-2">
+                        <span>{patient.patient_name}</span>
+                        <button
+                          onClick={() => exportPatientBillingSummary(patient, 'current')}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Download Patient Billing Summary"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {patient.provider_name}
@@ -956,7 +1105,16 @@ function BillingPageContent() {
                   {filteredPreviousData.map((patient) => (
                     <tr key={patient.patient_id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {patient.patient_name}
+                        <div className="flex items-center gap-2">
+                          <span>{patient.patient_name}</span>
+                          <button
+                            onClick={() => exportPatientBillingSummary(patient, 'previous')}
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            title="Download Patient Billing Summary"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {patient.provider_name}
