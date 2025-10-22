@@ -12,7 +12,6 @@ import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-// @ts-expect-error - jspdf-autotable types may not be fully compatible
 import autoTable from 'jspdf-autotable';
 
 interface BillingData {
