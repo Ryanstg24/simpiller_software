@@ -55,7 +55,7 @@ export function Sidebar({ currentPage = '/' }: SidebarProps) {
     const role = item.requiredRole;
     if (!role) return true;
     if (role === 'simpiller_admin') return isSimpillerAdmin;
-    if (role === 'organization_admin') return isOrganizationAdmin || isBilling; // Billing users can see org admin items
+    if (role === 'organization_admin') return isSimpillerAdmin || isOrganizationAdmin || isBilling; // Simpiller admins and billing users can see org admin items
     if (role === 'provider') return isSimpillerAdmin || isOrganizationAdmin || isProvider;
     return true;
   });

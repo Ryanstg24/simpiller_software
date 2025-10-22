@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { useUserDisplay } from '@/hooks/use-user-display';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { supabase } from '@/lib/supabase';
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ProtectedRoute } from "@/components/auth/protected-route";
-import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter } from 'lucide-react';
+import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity, Clock, Filter, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -53,7 +54,9 @@ interface BillingSummary {
 }
 
 function BillingPageContent() {
-  const { userOrganizationId, isOrganizationAdmin, isBilling } = useAuthV2();
+  const { userOrganizationId, isOrganizationAdmin, isBilling, isSimpillerAdmin } = useAuthV2();
+  const { organizations } = useOrganizations();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +96,10 @@ function BillingPageContent() {
   };
 
   const fetchBillingData = useCallback(async () => {
-    if (!userOrganizationId) return;
+    // Determine which organization to use
+    const effectiveOrgId = isSimpillerAdmin ? selectedOrganizationId : userOrganizationId;
+    
+    if (!effectiveOrgId) return;
 
     try {
       setLoading(true);
@@ -113,7 +119,7 @@ function BillingPageContent() {
             last_name
           )
         `)
-        .eq('organization_id', userOrganizationId)
+        .eq('organization_id', effectiveOrgId)
         .eq('is_active', true);
 
       if (patientsError) {
@@ -269,19 +275,56 @@ function BillingPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [userOrganizationId, dateRange, billingMode]);
+  }, [userOrganizationId, selectedOrganizationId, isSimpillerAdmin, dateRange, billingMode]);
 
   useEffect(() => {
     fetchBillingData();
   }, [fetchBillingData]);
 
   // Check access after all hooks
-  if (!isOrganizationAdmin && !isBilling) {
+  if (!isOrganizationAdmin && !isBilling && !isSimpillerAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
           <p className="text-gray-600">You don&apos;t have permission to access billing information.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Simpiller Admins must select an organization
+  if (isSimpillerAdmin && !selectedOrganizationId) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-black">Organization Billing</h1>
+            <p className="mt-2 text-black">Track and export billing data for CPT codes</p>
+          </div>
+
+          {/* Organization Filter for Simpiller Admins */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center mb-4">
+              <Building2 className="h-5 w-5 text-blue-600 mr-2" />
+              <h2 className="text-lg font-medium text-black">Select Organization</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Please select an organization to view their billing data.
+            </p>
+            <select
+              value={selectedOrganizationId}
+              onChange={(e) => setSelectedOrganizationId(e.target.value)}
+              className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            >
+              <option value="">Select an organization...</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     );
@@ -431,6 +474,35 @@ function BillingPageContent() {
           <h1 className="text-3xl font-bold text-black">Organization Billing</h1>
           <p className="mt-2 text-black">Track and export billing data for CPT codes</p>
         </div>
+
+        {/* Organization Filter for Simpiller Admins */}
+        {isSimpillerAdmin && (
+          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <Building2 className="h-5 w-5 text-blue-600 mr-2" />
+              <h2 className="text-lg font-medium text-black">Organization Filter</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <select
+                value={selectedOrganizationId}
+                onChange={(e) => setSelectedOrganizationId(e.target.value)}
+                className="flex-1 max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              >
+                <option value="">Select an organization...</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+              {selectedOrganizationId && (
+                <span className="text-sm text-gray-600">
+                  Viewing billing for: <strong>{organizations.find(o => o.id === selectedOrganizationId)?.name}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Billing Mode Toggle */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
