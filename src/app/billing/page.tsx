@@ -12,7 +12,7 @@ import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-// @ts-ignore - jspdf-autotable types
+// @ts-expect-error - jspdf-autotable types may not be fully compatible
 import autoTable from 'jspdf-autotable';
 
 interface BillingData {
@@ -45,7 +45,6 @@ function BillingPageContent() {
   const [billingData, setBillingData] = useState<BillingData[]>([]);
   const [previousBillingData, setPreviousBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
-  const [previousSummary, setPreviousSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingMode, setBillingMode] = useState<'per-patient' | 'date-range'>('per-patient');
   const [dateRange, setDateRange] = useState<{
@@ -96,7 +95,7 @@ function BillingPageContent() {
   };
 
   // Helper function to process billing data for a specific cycle
-  const processBillingDataForCycle = async (
+  const processBillingDataForCycle = useCallback(async (
     patients: Array<{
       id: string;
       first_name: string;
@@ -231,7 +230,7 @@ function BillingPageContent() {
     }
 
     return processedData;
-  };
+  }, [billingMode, dateRange]);
 
   const fetchBillingData = useCallback(async () => {
     // Determine which organization to use
@@ -284,21 +283,9 @@ function BillingPageContent() {
       if (billingMode === 'per-patient') {
         const previousCycleData = await processBillingDataForCycle(patients || [], 'previous');
         setPreviousBillingData(previousCycleData);
-
-        // Calculate summary for previous cycle
-        const previousSummary: BillingSummary = {
-          total_patients: previousCycleData.length,
-          eligible_98975: previousCycleData.filter(p => p.cpt_98975).length,
-          eligible_98976_77: previousCycleData.filter(p => p.cpt_98976_77).length,
-          eligible_98980: previousCycleData.filter(p => p.cpt_98980).length,
-          total_98981_increments: previousCycleData.reduce((sum, p) => sum + p.cpt_98981, 0),
-          total_revenue_potential: 0,
-        };
-        setPreviousSummary(previousSummary);
       } else {
         // Clear previous cycle data in date-range mode
         setPreviousBillingData([]);
-        setPreviousSummary(null);
       }
 
     } catch (error) {
@@ -306,7 +293,7 @@ function BillingPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [userOrganizationId, selectedOrganizationId, isSimpillerAdmin, dateRange, billingMode]);
+  }, [userOrganizationId, selectedOrganizationId, isSimpillerAdmin, dateRange, billingMode, processBillingDataForCycle]);
 
   useEffect(() => {
     fetchBillingData();
