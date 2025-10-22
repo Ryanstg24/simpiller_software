@@ -485,7 +485,7 @@ function BillingPageContent() {
       doc.setFont('helvetica', 'bold');
       doc.text('Patient:', 20, 35);
       doc.setFont('helvetica', 'normal');
-      doc.text(patientData.patient_name, 50, 35);
+      doc.text(patientData.patient_name, 70, 35);
       
       // Fetch additional patient details for the summary
       const { data: patientDetails } = await supabase
@@ -498,7 +498,7 @@ function BillingPageContent() {
         doc.setFont('helvetica', 'bold');
         doc.text('Birth Date:', 20, 42);
         doc.setFont('helvetica', 'normal');
-        doc.text(new Date(patientDetails.date_of_birth).toLocaleDateString(), 50, 42);
+        doc.text(new Date(patientDetails.date_of_birth).toLocaleDateString(), 70, 42);
       }
       
       // Calculate cycle dates
@@ -524,23 +524,23 @@ function BillingPageContent() {
       if (patientData.cpt_98976_77) setupCodes.push('98976/98977');
       if (patientData.cpt_98980) setupCodes.push('98980');
       if (patientData.cpt_98981 > 0) setupCodes.push(`98981 (${patientData.cpt_98981} increments)`);
-      doc.text(setupCodes.length > 0 ? setupCodes.join(', ') : 'N/A', 50, 55);
+      doc.text(setupCodes.length > 0 ? setupCodes.join(', ') : 'N/A', 70, 55);
       
       // Cycle Information
       doc.setFont('helvetica', 'bold');
       doc.text('Cycle #:', 20, 68);
       doc.setFont('helvetica', 'normal');
-      doc.text(cycleType === 'current' ? 'Current' : 'Previous', 50, 68);
+      doc.text(cycleType === 'current' ? 'Current' : 'Previous', 70, 68);
       
       doc.setFont('helvetica', 'bold');
       doc.text('Interval Date Range:', 20, 75);
       doc.setFont('helvetica', 'normal');
-      doc.text(`${cycleStart.toLocaleDateString()} - ${cycleEnd.toLocaleDateString()}`, 50, 75);
+      doc.text(`${cycleStart.toLocaleDateString()} - ${cycleEnd.toLocaleDateString()}`, 70, 75);
       
       doc.setFont('helvetica', 'bold');
       doc.text('Total Billable Time:', 20, 82);
       doc.setFont('helvetica', 'normal');
-      doc.text(`${patientData.provider_time_minutes} minutes`, 50, 82);
+      doc.text(`${patientData.provider_time_minutes} minutes`, 70, 82);
       
       // Provider Activity Log
       doc.setFont('helvetica', 'bold');
@@ -548,7 +548,8 @@ function BillingPageContent() {
       doc.text('PROVIDER ACTIVITY LOG', 20, 95);
       
       // Fetch provider time logs for this patient's cycle
-      const { data: timeLogs } = await supabase
+      console.log(`Fetching time logs for patient ${patientData.patient_id} from ${cycleStart.toISOString()} to ${cycleEnd.toISOString()}`);
+      const { data: timeLogs, error: timeLogsError } = await supabase
         .from('provider_time_logs')
         .select(`
           activity_type,
@@ -564,6 +565,11 @@ function BillingPageContent() {
         .gte('start_time', cycleStart.toISOString())
         .lt('start_time', cycleEnd.toISOString())
         .order('start_time', { ascending: false });
+      
+      if (timeLogsError) {
+        console.error('Error fetching time logs:', timeLogsError);
+      }
+      console.log(`Found ${timeLogs?.length || 0} time logs for patient ${patientData.patient_id}`);
       
       if (timeLogs && timeLogs.length > 0) {
         const logData = timeLogs.map((log: { 
