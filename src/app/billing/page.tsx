@@ -58,7 +58,9 @@ function BillingPageContent() {
   const { organizations } = useOrganizations();
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
   const [billingData, setBillingData] = useState<BillingData[]>([]);
+  const [previousBillingData, setPreviousBillingData] = useState<BillingData[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [previousSummary, setPreviousSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingMode, setBillingMode] = useState<'per-patient' | 'date-range'>('per-patient');
   const [dateRange, setDateRange] = useState<{
@@ -95,75 +97,71 @@ function BillingPageContent() {
     return { cycleStart, cycleEnd };
   };
 
-  const fetchBillingData = useCallback(async () => {
-    // Determine which organization to use
-    const effectiveOrgId = isSimpillerAdmin ? selectedOrganizationId : userOrganizationId;
-    
-    if (!effectiveOrgId) return;
+  // Helper to compute previous 30-day cycle for a patient
+  const computePreviousCycle = (startISO: string) => {
+    const start = new Date(startISO);
+    const now = new Date();
+    const cycleMs = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = now.getTime() - start.getTime();
+    const cyclesPassed = Math.floor(elapsed / cycleMs);
+    // Go back one cycle
+    const cycleStart = new Date(start.getTime() + (cyclesPassed - 1) * cycleMs);
+    const cycleEnd = new Date(cycleStart.getTime() + cycleMs);
+    return { cycleStart, cycleEnd };
+  };
 
-    try {
-      setLoading(true);
+  // Helper function to process billing data for a specific cycle
+  const processBillingDataForCycle = async (
+    patients: Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      created_at: string;
+      cycle_start_date?: string;
+      users?: Record<string, string> | Record<string, string>[];
+    }>,
+    cycleType: 'current' | 'previous'
+  ): Promise<BillingData[]> => {
+    const processedData: BillingData[] = [];
 
-      // Fetch patients for the organization
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          adherence_score,
-          created_at,
-          cycle_start_date,
-          users!assigned_provider_id (
-            first_name,
-            last_name
-          )
-        `)
-        .eq('organization_id', effectiveOrgId)
-        .eq('is_active', true);
+    for (const patient of patients || []) {
+      // Determine date range based on billing mode
+      let cycleStart: Date;
+      let cycleEnd: Date;
 
-      if (patientsError) {
-        console.error('Error fetching patients:', patientsError);
-        return;
-      }
-
-      // Process billing data per patient based on mode
-      const processedData: BillingData[] = [];
-
-      for (const patient of patients || []) {
-        // Determine date range based on billing mode
-        let cycleStart: Date;
-        let cycleEnd: Date;
-
-        if (billingMode === 'per-patient' && patient.cycle_start_date) {
-          // Use patient's individual cycle
-          const cycle = computeCurrentCycle(patient.cycle_start_date);
+      if (billingMode === 'per-patient' && patient.cycle_start_date) {
+        // Use patient's individual cycle (current or previous)
+        const cycle = cycleType === 'current' 
+          ? computeCurrentCycle(patient.cycle_start_date)
+          : computePreviousCycle(patient.cycle_start_date);
+        cycleStart = cycle.cycleStart;
+        cycleEnd = cycle.cycleEnd;
+      } else if (billingMode === 'per-patient' && !patient.cycle_start_date) {
+        // Fallback: use earliest medication
+        const { data: med } = await supabase
+          .from('medications')
+          .select('created_at')
+          .eq('patient_id', patient.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+        
+        if (med?.created_at) {
+          const cycle = cycleType === 'current'
+            ? computeCurrentCycle(med.created_at)
+            : computePreviousCycle(med.created_at);
           cycleStart = cycle.cycleStart;
           cycleEnd = cycle.cycleEnd;
-        } else if (billingMode === 'per-patient' && !patient.cycle_start_date) {
-          // Fallback: use earliest medication
-          const { data: med } = await supabase
-            .from('medications')
-            .select('created_at')
-            .eq('patient_id', patient.id)
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .single();
-          
-          if (med?.created_at) {
-            const cycle = computeCurrentCycle(med.created_at);
-            cycleStart = cycle.cycleStart;
-            cycleEnd = cycle.cycleEnd;
-          } else {
-            // Skip patient if no cycle anchor
-            continue;
-          }
         } else {
-          // Use manual date range
-          cycleStart = new Date(dateRange.start);
-          cycleEnd = new Date(dateRange.end);
-          cycleEnd.setHours(23, 59, 59, 999);
+          // Skip patient if no cycle anchor
+          continue;
         }
+      } else {
+        // Use manual date range (previous cycle not applicable for date-range mode)
+        cycleStart = new Date(dateRange.start);
+        cycleEnd = new Date(dateRange.end);
+        cycleEnd.setHours(23, 59, 59, 999);
+      }
 
         // Fetch medication logs for this patient's cycle
         const { data: medicationLogs } = await supabase
@@ -241,34 +239,91 @@ function BillingPageContent() {
           providerName = 'Unassigned';
         }
 
-        processedData.push({
-          patient_id: patient.id,
-          patient_name: `${patient.first_name} ${patient.last_name}`,
-          provider_name: providerName,
-          cpt_98975,
-          cpt_98976_77,
-          cpt_98980,
-          cpt_98981: Math.max(0, cpt_98981),
-          adherence_days: adherenceDays,
-          provider_time_minutes: totalProviderTime,
-          patient_communication_minutes: patientCommunicationMinutes,
-          adherence_review_minutes: adherenceReviewMinutes,
-        });
+      processedData.push({
+        patient_id: patient.id,
+        patient_name: `${patient.first_name} ${patient.last_name}`,
+        provider_name: providerName,
+        cpt_98975,
+        cpt_98976_77,
+        cpt_98980,
+        cpt_98981: Math.max(0, cpt_98981),
+        adherence_days: adherenceDays,
+        provider_time_minutes: totalProviderTime,
+        patient_communication_minutes: patientCommunicationMinutes,
+        adherence_review_minutes: adherenceReviewMinutes,
+      });
+    }
+
+    return processedData;
+  };
+
+  const fetchBillingData = useCallback(async () => {
+    // Determine which organization to use
+    const effectiveOrgId = isSimpillerAdmin ? selectedOrganizationId : userOrganizationId;
+    
+    if (!effectiveOrgId) return;
+
+    try {
+      setLoading(true);
+
+      // Fetch patients for the organization
+      const { data: patients, error: patientsError } = await supabase
+        .from('patients')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          adherence_score,
+          created_at,
+          cycle_start_date,
+          users!assigned_provider_id (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('organization_id', effectiveOrgId)
+        .eq('is_active', true);
+
+      if (patientsError) {
+        console.error('Error fetching patients:', patientsError);
+        return;
       }
 
-      setBillingData(processedData);
+      // Process current cycle data
+      const currentCycleData = await processBillingDataForCycle(patients || [], 'current');
+      setBillingData(currentCycleData);
 
-      // Calculate summary
-      const summary: BillingSummary = {
-        total_patients: processedData.length,
-        eligible_98975: processedData.filter(p => p.cpt_98975).length,
-        eligible_98976_77: processedData.filter(p => p.cpt_98976_77).length,
-        eligible_98980: processedData.filter(p => p.cpt_98980).length,
-        total_98981_increments: processedData.reduce((sum, p) => sum + p.cpt_98981, 0),
+      // Calculate summary for current cycle
+      const currentSummary: BillingSummary = {
+        total_patients: currentCycleData.length,
+        eligible_98975: currentCycleData.filter(p => p.cpt_98975).length,
+        eligible_98976_77: currentCycleData.filter(p => p.cpt_98976_77).length,
+        eligible_98980: currentCycleData.filter(p => p.cpt_98980).length,
+        total_98981_increments: currentCycleData.reduce((sum, p) => sum + p.cpt_98981, 0),
         total_revenue_potential: 0, // Will calculate based on CPT rates
       };
+      setSummary(currentSummary);
 
-      setSummary(summary);
+      // Process previous cycle data (only for per-patient mode)
+      if (billingMode === 'per-patient') {
+        const previousCycleData = await processBillingDataForCycle(patients || [], 'previous');
+        setPreviousBillingData(previousCycleData);
+
+        // Calculate summary for previous cycle
+        const previousSummary: BillingSummary = {
+          total_patients: previousCycleData.length,
+          eligible_98975: previousCycleData.filter(p => p.cpt_98975).length,
+          eligible_98976_77: previousCycleData.filter(p => p.cpt_98976_77).length,
+          eligible_98980: previousCycleData.filter(p => p.cpt_98980).length,
+          total_98981_increments: previousCycleData.reduce((sum, p) => sum + p.cpt_98981, 0),
+          total_revenue_potential: 0,
+        };
+        setPreviousSummary(previousSummary);
+      } else {
+        // Clear previous cycle data in date-range mode
+        setPreviousBillingData([]);
+        setPreviousSummary(null);
+      }
 
     } catch (error) {
       console.error('Error fetching billing data:', error);
@@ -344,9 +399,26 @@ function BillingPageContent() {
     return true;
   });
 
-  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
-    const dataToExport = filteredData;
-    const fileName = `billing-report-${dateRange.start}-to-${dateRange.end}`;
+  // Filter previous cycle data based on current filters
+  const filteredPreviousData = previousBillingData.filter(patient => {
+    if (filters.showOnlyEligible) {
+      return patient.cpt_98975 || patient.cpt_98976_77 || patient.cpt_98980 || patient.cpt_98981 > 0;
+    }
+    
+    if (filters.cpt_98975 && !patient.cpt_98975) return false;
+    if (filters.cpt_98976_77 && !patient.cpt_98976_77) return false;
+    if (filters.cpt_98980 && !patient.cpt_98980) return false;
+    if (filters.cpt_98981 && patient.cpt_98981 === 0) return false;
+    
+    return true;
+  });
+
+  const handleExport = (format: 'csv' | 'excel' | 'pdf', cycleType: 'current' | 'previous' = 'current') => {
+    const dataToExport = cycleType === 'current' ? filteredData : filteredPreviousData;
+    const cycleSuffix = cycleType === 'current' ? 'current-cycle' : 'previous-cycle';
+    const fileName = billingMode === 'per-patient' 
+      ? `billing-report-${cycleSuffix}-${new Date().toISOString().split('T')[0]}`
+      : `billing-report-${dateRange.start}-to-${dateRange.end}`;
 
     if (format === 'csv') {
       exportToCSV(dataToExport, fileName);
@@ -737,27 +809,57 @@ function BillingPageContent() {
         {/* Export Controls */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h2 className="text-lg font-medium text-black mb-4">Export Data</h2>
-          <div className="flex space-x-4">
-            <Button onClick={() => handleExport('csv')} variant="outline">
-              <FileText className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-            <Button onClick={() => handleExport('excel')} variant="outline">
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Export Excel
-            </Button>
-            <Button onClick={() => handleExport('pdf')} variant="outline">
-              <File className="h-4 w-4 mr-2" />
-              Export PDF
-            </Button>
+          
+          {/* Current Cycle Export Buttons */}
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              {billingMode === 'per-patient' ? 'Current Billing Cycle' : 'Current Data'}
+            </h3>
+            <div className="flex space-x-4">
+              <Button onClick={() => handleExport('csv', 'current')} variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={() => handleExport('excel', 'current')} variant="outline">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+              <Button onClick={() => handleExport('pdf', 'current')} variant="outline">
+                <File className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+            </div>
           </div>
+
+          {/* Previous Cycle Export Buttons (Only shown in per-patient mode) */}
+          {billingMode === 'per-patient' && previousBillingData.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Previous Billing Cycle</h3>
+              <div className="flex space-x-4">
+                <Button onClick={() => handleExport('csv', 'previous')} variant="outline">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button onClick={() => handleExport('excel', 'previous')} variant="outline">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+                <Button onClick={() => handleExport('pdf', 'previous')} variant="outline">
+                  <File className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Billing Data Table */}
-        <div className="bg-white rounded-lg shadow-sm border">
+        {/* Current Cycle Billing Data Table */}
+        <div className="bg-white rounded-lg shadow-sm border mb-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-medium text-black">Patient Billing Data</h2>
+              <h2 className="text-lg font-medium text-black">
+                {billingMode === 'per-patient' ? 'Current Patient Billing Cycle Data' : 'Patient Billing Data'}
+              </h2>
               <span className="text-sm text-black">
                 Showing {filteredData.length} of {billingData.length} patients
               </span>
@@ -838,6 +940,94 @@ function BillingPageContent() {
             </table>
           </div>
         </div>
+
+        {/* Previous Cycle Billing Data Table (Only shown in per-patient mode) */}
+        {billingMode === 'per-patient' && previousBillingData.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-medium text-black">Previous Patient Billing Cycle Data</h2>
+                <span className="text-sm text-black">
+                  Showing {filteredPreviousData.length} of {previousBillingData.length} patients
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Patient
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Provider
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Adherence Days
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Provider Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      98975
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      98976/77
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      98980
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      98981
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredPreviousData.map((patient) => (
+                    <tr key={patient.patient_id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {patient.patient_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {patient.provider_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {patient.adherence_days}/16
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {patient.provider_time_minutes} min
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          patient.cpt_98975 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {patient.cpt_98975 ? 'Eligible' : 'Not Eligible'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          patient.cpt_98976_77 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {patient.cpt_98976_77 ? 'Eligible' : 'Not Eligible'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          patient.cpt_98980 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {patient.cpt_98980 ? 'Eligible' : 'Not Eligible'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {patient.cpt_98981} increments
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
