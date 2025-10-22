@@ -12,23 +12,7 @@ import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-// Type definition for jsPDF autoTable extension
-interface AutoTableOptions {
-  head: string[][];
-  body: string[][];
-  startY: number;
-  styles: {
-    fontSize: number;
-  };
-  headStyles: {
-    fillColor: number[];
-  };
-  alternateRowStyles: {
-    fillColor: number[];
-  };
-}
+import autoTable from 'jspdf-autotable';
 
 interface BillingData {
   patient_id: string;
@@ -215,19 +199,10 @@ function BillingPageContent() {
         const cpt_98980 = patientCommunicationMinutes >= 20 && adherenceReviewMinutes >= 20;
         const cpt_98981 = Math.floor(adherenceReviewMinutes / 20) - (cpt_98980 ? 1 : 0);
 
-        // Get provider name from first time log or assigned provider
+        // Get provider name from patient's assigned provider
         let providerName = 'Unassigned';
         try {
-          if (timeLogs && timeLogs.length > 0) {
-            const firstLog = timeLogs[0] as Record<string, unknown>;
-            if (firstLog.users) {
-              const users = firstLog.users as Record<string, string> | Record<string, string>[];
-              const userInfo = Array.isArray(users) ? users[0] : users;
-              if (userInfo && userInfo.first_name && userInfo.last_name) {
-                providerName = `${userInfo.first_name} ${userInfo.last_name}`;
-              }
-            }
-          } else if (patient.users) {
+          if (patient.users) {
             const users = patient.users as Record<string, string> | Record<string, string>[];
             const userInfo = Array.isArray(users) ? users[0] : users;
             if (userInfo && userInfo.first_name && userInfo.last_name) {
@@ -498,8 +473,7 @@ function BillingPageContent() {
     doc.setFontSize(16);
     doc.text('Billing Report', 14, 22);
     doc.setFontSize(10);
-    doc.text(`Period: ${dateRange.start} to ${dateRange.end}`, 14, 30);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 36);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
 
     // Prepare table data
     const tableData = data.map(patient => [
@@ -513,11 +487,11 @@ function BillingPageContent() {
       patient.cpt_98981.toString()
     ]);
 
-    // Add table
-    (doc as jsPDF & { autoTable: (options: AutoTableOptions) => void }).autoTable({
+    // Add table using autoTable
+    autoTable(doc, {
       head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
       body: tableData,
-      startY: 45,
+      startY: 40,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [66, 139, 202] },
       alternateRowStyles: { fillColor: [245, 245, 245] }
