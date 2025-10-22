@@ -12,6 +12,7 @@ import { Calendar, FileText, FileSpreadsheet, File, Users, CheckCircle, Activity
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+// @ts-ignore - jspdf-autotable types
 import autoTable from 'jspdf-autotable';
 
 interface BillingData {
@@ -102,7 +103,7 @@ function BillingPageContent() {
       last_name: string;
       created_at: string;
       cycle_start_date?: string;
-      users?: Record<string, string> | Record<string, string>[];
+      assigned_provider?: Record<string, string> | Record<string, string>[];
     }>,
     cycleType: 'current' | 'previous'
   ): Promise<BillingData[]> => {
@@ -202,11 +203,11 @@ function BillingPageContent() {
         // Get provider name from patient's assigned provider
         let providerName = 'Unassigned';
         try {
-          if (patient.users) {
-            const users = patient.users as Record<string, string> | Record<string, string>[];
-            const userInfo = Array.isArray(users) ? users[0] : users;
-            if (userInfo && userInfo.first_name && userInfo.last_name) {
-              providerName = `${userInfo.first_name} ${userInfo.last_name}`;
+          if (patient.assigned_provider) {
+            const provider = patient.assigned_provider as Record<string, string> | Record<string, string>[];
+            const providerInfo = Array.isArray(provider) ? provider[0] : provider;
+            if (providerInfo && providerInfo.first_name && providerInfo.last_name) {
+              providerName = `${providerInfo.first_name} ${providerInfo.last_name}`;
             }
           }
         } catch {
@@ -251,7 +252,7 @@ function BillingPageContent() {
           adherence_score,
           created_at,
           cycle_start_date,
-          users!assigned_provider_id (
+          assigned_provider:users!assigned_provider_id (
             first_name,
             last_name
           )
@@ -467,37 +468,46 @@ function BillingPageContent() {
   };
 
   const exportToPDF = (data: BillingData[], fileName: string) => {
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(16);
-    doc.text('Billing Report', 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+    try {
+      console.log('Starting PDF export...');
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text('Billing Report', 14, 22);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
 
-    // Prepare table data
-    const tableData = data.map(patient => [
-      patient.patient_name,
-      patient.provider_name,
-      patient.adherence_days.toString(),
-      patient.provider_time_minutes.toString(),
-      patient.cpt_98975 ? 'Yes' : 'No',
-      patient.cpt_98976_77 ? 'Yes' : 'No',
-      patient.cpt_98980 ? 'Yes' : 'No',
-      patient.cpt_98981.toString()
-    ]);
+      // Prepare table data
+      const tableData = data.map(patient => [
+        patient.patient_name,
+        patient.provider_name,
+        patient.adherence_days.toString(),
+        patient.provider_time_minutes.toString(),
+        patient.cpt_98975 ? 'Yes' : 'No',
+        patient.cpt_98976_77 ? 'Yes' : 'No',
+        patient.cpt_98980 ? 'Yes' : 'No',
+        patient.cpt_98981.toString()
+      ]);
 
-    // Add table using autoTable
-    autoTable(doc, {
-      head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
-      body: tableData,
-      startY: 40,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [66, 139, 202] },
-      alternateRowStyles: { fillColor: [245, 245, 245] }
-    });
+      console.log('Generating table...');
+      // Add table using autoTable
+      autoTable(doc, {
+        head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 139, 202] as [number, number, number] },
+        alternateRowStyles: { fillColor: [245, 245, 245] as [number, number, number] }
+      });
 
-    doc.save(`${fileName}.pdf`);
+      console.log('Saving PDF...');
+      doc.save(`${fileName}.pdf`);
+      console.log('PDF saved successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please check the console for details.');
+    }
   };
 
 
