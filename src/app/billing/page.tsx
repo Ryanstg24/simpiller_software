@@ -229,7 +229,7 @@ function BillingPageContent() {
     }
 
     return processedData;
-  }, [billingMode, dateRange]);
+  }, [billingMode]);
 
   const fetchBillingData = useCallback(async () => {
     // Determine which organization to use
@@ -458,10 +458,21 @@ function BillingPageContent() {
       console.log('Generating patient billing summary PDF...');
       const doc = new jsPDF();
       
-      // Add Simpiller logo (using text for now, can be replaced with actual image)
-      doc.setFontSize(20);
-      doc.setTextColor(51, 139, 202); // Blue color
-      doc.text('simpiller', 20, 20);
+      // Add Simpiller logo
+      try {
+        const logoImg = new Image();
+        logoImg.src = '/simpiller_logo25.png';
+        await new Promise((resolve, reject) => {
+          logoImg.onload = resolve;
+          logoImg.onerror = reject;
+        });
+        doc.addImage(logoImg, 'PNG', 20, 10, 30, 15);
+      } catch (error) {
+        console.warn('Logo could not be loaded, using text fallback:', error);
+        doc.setFontSize(20);
+        doc.setTextColor(51, 139, 202);
+        doc.text('simpiller', 20, 20);
+      }
       
       // Add title
       doc.setFontSize(16);
@@ -477,7 +488,6 @@ function BillingPageContent() {
       doc.text(patientData.patient_name, 50, 35);
       
       // Fetch additional patient details for the summary
-      const effectiveOrgId = isSimpillerAdmin ? selectedOrganizationId : userOrganizationId;
       const { data: patientDetails } = await supabase
         .from('patients')
         .select('date_of_birth, cycle_start_date')
@@ -556,7 +566,12 @@ function BillingPageContent() {
         .order('start_time', { ascending: false });
       
       if (timeLogs && timeLogs.length > 0) {
-        const logData = timeLogs.map((log: any) => {
+        const logData = timeLogs.map((log: { 
+          start_time: string; 
+          activity_type: string; 
+          duration_minutes: number; 
+          notes?: string | null;
+        }) => {
           const date = new Date(log.start_time).toLocaleDateString();
           const activityType = log.activity_type === 'patient_communication' ? 'Interactive Communication' : 'Medication Review';
           const duration = `${log.duration_minutes} minutes`;
