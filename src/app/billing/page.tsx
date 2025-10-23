@@ -197,9 +197,10 @@ function BillingPageContent() {
         
         // Check if patient has EVER been eligible in any previous cycle
         // We'll check all cycles from patient creation to the END of this current cycle
+        // We ALWAYS check this, regardless of current cycle's adherence
         let hasBeenEligibleBefore = false;
         
-        if (meetsThreshold && patient.created_at) {
+        if (patient.created_at) {
           const patientCreatedDate = new Date(patient.created_at);
           
           // Get all medication logs from patient creation to END of current cycle (not including future)
