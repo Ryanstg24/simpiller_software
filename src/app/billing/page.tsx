@@ -555,7 +555,7 @@ function BillingPageContent() {
           activity_type,
           duration_minutes,
           start_time,
-          notes,
+          description,
           users!provider_id (
             first_name,
             last_name
@@ -576,13 +576,13 @@ function BillingPageContent() {
           start_time: string; 
           activity_type: string; 
           duration_minutes: number; 
-          notes?: string | null;
+          description?: string | null;
         }) => {
           const date = new Date(log.start_time).toLocaleDateString();
           const activityType = log.activity_type === 'patient_communication' ? 'Interactive Communication' : 'Medication Review';
           const duration = `${log.duration_minutes} minutes`;
-          const notes = log.notes || '';
-          return [date, activityType, duration, notes];
+          const description = log.description || '';
+          return [date, activityType, duration, description];
         });
         
         autoTable(doc, {
