@@ -19,6 +19,7 @@ interface BillingData {
   patient_name: string;
   provider_name: string;
   cpt_98975: boolean;
+  cpt_98975_status: 'eligible' | 'not_eligible' | 'previously_claimed';
   cpt_98976_77: boolean;
   cpt_98980: boolean;
   cpt_98981: number; // Number of 20-minute increments
@@ -247,6 +248,16 @@ function BillingPageContent() {
         // Patient is eligible for 98975 if they meet threshold NOW and have NEVER met it before
         const cpt_98975 = meetsThreshold && !hasBeenEligibleBefore;
         
+        // Determine status for display purposes
+        let cpt_98975_status: 'eligible' | 'not_eligible' | 'previously_claimed';
+        if (cpt_98975) {
+          cpt_98975_status = 'eligible';
+        } else if (hasBeenEligibleBefore) {
+          cpt_98975_status = 'previously_claimed';
+        } else {
+          cpt_98975_status = 'not_eligible';
+        }
+        
         // For 98976/77, we need medication class data (to be implemented)
         const cpt_98976_77 = false; // Will be implemented when medication classes are added
         
@@ -273,6 +284,7 @@ function BillingPageContent() {
         patient_name: `${patient.first_name} ${patient.last_name}`,
         provider_name: providerName,
         cpt_98975,
+        cpt_98975_status,
         cpt_98976_77,
         cpt_98980,
         cpt_98981: Math.max(0, cpt_98981),
@@ -454,7 +466,7 @@ function BillingPageContent() {
       'Provider Time (min)',
       'Patient Communication (min)',
       'Adherence Review (min)',
-      'CPT 98975 Eligible',
+      'CPT 98975 Status',
       'CPT 98976/77 Eligible',
       'CPT 98980 Eligible',
       'CPT 98981 Increments'
@@ -469,7 +481,7 @@ function BillingPageContent() {
         patient.provider_time_minutes,
         patient.patient_communication_minutes,
         patient.adherence_review_minutes,
-        patient.cpt_98975 ? 'Yes' : 'No',
+        patient.cpt_98975_status === 'eligible' ? 'Eligible' : patient.cpt_98975_status === 'previously_claimed' ? 'Previously Claimed' : 'Not Eligible',
         patient.cpt_98976_77 ? 'Yes' : 'No',
         patient.cpt_98980 ? 'Yes' : 'No',
         patient.cpt_98981
@@ -496,7 +508,7 @@ function BillingPageContent() {
         'Provider Time (min)': patient.provider_time_minutes,
         'Patient Communication (min)': patient.patient_communication_minutes,
         'Adherence Review (min)': patient.adherence_review_minutes,
-        'CPT 98975 Eligible': patient.cpt_98975 ? 'Yes' : 'No',
+        'CPT 98975 Status': patient.cpt_98975_status === 'eligible' ? 'Eligible' : patient.cpt_98975_status === 'previously_claimed' ? 'Previously Claimed' : 'Not Eligible',
         'CPT 98976/77 Eligible': patient.cpt_98976_77 ? 'Yes' : 'No',
         'CPT 98980 Eligible': patient.cpt_98980 ? 'Yes' : 'No',
         'CPT 98981 Increments': patient.cpt_98981
@@ -686,7 +698,7 @@ function BillingPageContent() {
         patient.provider_name,
         patient.adherence_days.toString(),
         patient.provider_time_minutes.toString(),
-        patient.cpt_98975 ? 'Yes' : 'No',
+        patient.cpt_98975_status === 'eligible' ? 'Eligible' : patient.cpt_98975_status === 'previously_claimed' ? 'Previously Claimed' : 'Not Eligible',
         patient.cpt_98976_77 ? 'Yes' : 'No',
         patient.cpt_98980 ? 'Yes' : 'No',
         patient.cpt_98981.toString()
@@ -695,7 +707,7 @@ function BillingPageContent() {
       console.log('Generating table...');
       // Add table using autoTable
       autoTable(doc, {
-        head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975', '98976/77', '98980', '98981']],
+        head: [['Patient', 'Provider', 'Adherence Days', 'Provider Time (min)', '98975 Status', '98976/77', '98980', '98981']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 8 },
@@ -1107,9 +1119,17 @@ function BillingPageContent() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        patient.cpt_98975 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        patient.cpt_98975_status === 'eligible' 
+                          ? 'bg-green-100 text-green-800' 
+                          : patient.cpt_98975_status === 'previously_claimed'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {patient.cpt_98975 ? 'Eligible' : 'Not Eligible'}
+                        {patient.cpt_98975_status === 'eligible' 
+                          ? 'Eligible' 
+                          : patient.cpt_98975_status === 'previously_claimed'
+                          ? 'Previously Claimed'
+                          : 'Not Eligible'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1203,9 +1223,17 @@ function BillingPageContent() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          patient.cpt_98975 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          patient.cpt_98975_status === 'eligible' 
+                            ? 'bg-green-100 text-green-800' 
+                            : patient.cpt_98975_status === 'previously_claimed'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {patient.cpt_98975 ? 'Eligible' : 'Not Eligible'}
+                          {patient.cpt_98975_status === 'eligible' 
+                            ? 'Eligible' 
+                            : patient.cpt_98975_status === 'previously_claimed'
+                            ? 'Previously Claimed'
+                            : 'Not Eligible'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
