@@ -203,29 +203,23 @@ function BillingPageContent() {
         if (patient.created_at) {
           const patientCreatedDate = new Date(patient.created_at);
           
-          // Get all medication logs from patient creation to END of current cycle (not including future)
+          // Get all medication logs from patient creation to START of current cycle (not including current cycle)
           const { data: allHistoricalLogs } = await supabase
             .from('medication_logs')
             .select('event_date, status')
             .eq('patient_id', patient.id)
             .gte('event_date', patientCreatedDate.toISOString())
-            .lt('event_date', cycleEnd.toISOString());
+            .lt('event_date', cycleStart.toISOString());  // Only get logs BEFORE this cycle starts
           
-          // Calculate all historical cycles and check if any had 16+ days
+          // Calculate how many cycles occurred BEFORE the cycle we're currently processing
           const cycleMs = 30 * 24 * 60 * 60 * 1000;
-          const now = new Date();
-          const elapsed = now.getTime() - patientCreatedDate.getTime();
-          const totalCyclesPassed = Math.floor(elapsed / cycleMs);
+          const elapsedBeforeCycle = cycleStart.getTime() - patientCreatedDate.getTime();
+          const cyclesBeforeCurrent = Math.floor(elapsedBeforeCycle / cycleMs);
           
-          // Check each previous cycle (not including the current one)
-          for (let i = 0; i < totalCyclesPassed; i++) {
+          // Check each cycle that occurred BEFORE the current one we're processing
+          for (let i = 0; i < cyclesBeforeCurrent; i++) {
             const historicalCycleStart = new Date(patientCreatedDate.getTime() + i * cycleMs);
             const historicalCycleEnd = new Date(historicalCycleStart.getTime() + cycleMs);
-            
-            // Skip if this is the current cycle we're already processing
-            if (historicalCycleStart.getTime() === cycleStart.getTime()) {
-              continue;
-            }
             
             // Count adherence days for this historical cycle
             const historicalAdherenceDays = new Set(
