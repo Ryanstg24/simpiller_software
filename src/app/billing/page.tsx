@@ -189,8 +189,63 @@ function BillingPageContent() {
         const totalProviderTime = patientCommunicationMinutes + adherenceReviewMinutes;
 
         // CPT Code Eligibility Logic
-        const isOnboarded = new Date(patient.created_at) <= cycleStart;
-        const cpt_98975 = isOnboarded && adherenceDays >= 16;
+        
+        // CPT 98975: One-time eligibility when patient first achieves 16/30 days adherence
+        // Check if this cycle meets the threshold
+        const meetsThreshold = adherenceDays >= 16;
+        
+        // Check if patient has EVER been eligible in any previous cycle
+        // We'll check all cycles from patient creation to the END of this current cycle
+        let hasBeenEligibleBefore = false;
+        
+        if (meetsThreshold && patient.created_at) {
+          const patientCreatedDate = new Date(patient.created_at);
+          
+          // Get all medication logs from patient creation to END of current cycle (not including future)
+          const { data: allHistoricalLogs } = await supabase
+            .from('medication_logs')
+            .select('event_date, status')
+            .eq('patient_id', patient.id)
+            .gte('event_date', patientCreatedDate.toISOString())
+            .lt('event_date', cycleEnd.toISOString());
+          
+          // Calculate all historical cycles and check if any had 16+ days
+          const cycleMs = 30 * 24 * 60 * 60 * 1000;
+          const now = new Date();
+          const elapsed = now.getTime() - patientCreatedDate.getTime();
+          const totalCyclesPassed = Math.floor(elapsed / cycleMs);
+          
+          // Check each previous cycle (not including the current one)
+          for (let i = 0; i < totalCyclesPassed; i++) {
+            const historicalCycleStart = new Date(patientCreatedDate.getTime() + i * cycleMs);
+            const historicalCycleEnd = new Date(historicalCycleStart.getTime() + cycleMs);
+            
+            // Skip if this is the current cycle we're already processing
+            if (historicalCycleStart.getTime() === cycleStart.getTime()) {
+              continue;
+            }
+            
+            // Count adherence days for this historical cycle
+            const historicalAdherenceDays = new Set(
+              (allHistoricalLogs || [])
+                .filter(log => {
+                  const logDate = new Date(log.event_date);
+                  return log.status === 'taken' && 
+                         logDate >= historicalCycleStart && 
+                         logDate < historicalCycleEnd;
+                })
+                .map(log => new Date(log.event_date).toDateString())
+            ).size;
+            
+            if (historicalAdherenceDays >= 16) {
+              hasBeenEligibleBefore = true;
+              break;
+            }
+          }
+        }
+        
+        // Patient is eligible for 98975 if they meet threshold NOW and have NEVER met it before
+        const cpt_98975 = meetsThreshold && !hasBeenEligibleBefore;
         
         // For 98976/77, we need medication class data (to be implemented)
         const cpt_98976_77 = false; // Will be implemented when medication classes are added
