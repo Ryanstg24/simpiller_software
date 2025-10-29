@@ -268,12 +268,11 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     logs.forEach(log => {
       const date = new Date(log.event_date);
       
-      // Use the scheduled time from medication_schedules if available
+      // Always use the scheduled time - medications are scanned from their time preference
       let groupKey: string;
       
       if (log.medication_schedules?.time_of_day) {
         // Use the actual scheduled time from the schedule
-        // Combine the date from event_date with the scheduled time
         const scheduledTime = log.medication_schedules.time_of_day;
         const [hours, minutes, seconds = '00'] = scheduledTime.split(':');
         
@@ -288,21 +287,51 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         groupKey = scheduledDate.toISOString();
       } else {
-        // Fallback to 15-minute interval grouping for logs without schedule info
-        const minutes = date.getMinutes();
-        const roundedMinutes = Math.floor(minutes / 15) * 15;
+        // If schedule info is missing, infer the scheduled time based on the actual scan time
+        // This ensures all medications from the same scan session are grouped together
+        // We'll round to the nearest hour and then look for common time preferences
+        const scanHour = date.getHours();
         
-        const intervalTime = new Date(
+        // Infer scheduled time based on typical time preferences
+        let inferredHour = scanHour;
+        let inferredMinutes = 0;
+        
+        // Morning (6-11): likely 8:00 or 9:00
+        if (scanHour >= 6 && scanHour < 12) {
+          inferredHour = scanHour >= 9 ? 9 : 8;
+        }
+        // Afternoon (12-16): likely 14:00
+        else if (scanHour >= 12 && scanHour < 17) {
+          inferredHour = 14;
+        }
+        // Evening (17-21): likely 18:00
+        else if (scanHour >= 17 && scanHour < 22) {
+          inferredHour = 18;
+        }
+        // Bedtime (22-23, 0-5): likely 22:00
+        else {
+          inferredHour = 22;
+        }
+        
+        const inferredDate = new Date(
           date.getFullYear(),
           date.getMonth(),
           date.getDate(),
-          date.getHours(),
-          roundedMinutes,
+          inferredHour,
+          inferredMinutes,
           0,
           0
         );
         
-        groupKey = intervalTime.toISOString();
+        groupKey = inferredDate.toISOString();
+        
+        console.warn('[Adherence] Missing schedule_id for log:', {
+          logId: log.id,
+          medicationId: log.medication_id,
+          scanTime: date.toISOString(),
+          inferredScheduledTime: inferredDate.toISOString(),
+          note: 'Using inferred scheduled time based on scan time'
+        });
       }
       
       if (!grouped.has(groupKey)) {
