@@ -229,7 +229,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [patient.id]);
+  }, [patient.id, patient.first_name, patient.last_name]);
 
   useEffect(() => {
     if (patient) {
@@ -294,7 +294,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         // Infer scheduled time based on typical time preferences
         let inferredHour = scanHour;
-        let inferredMinutes = 0;
+        const inferredMinutes = 0;
         
         // Morning (6-11): likely 8:00 or 9:00
         if (scanHour >= 6 && scanHour < 12) {
