@@ -98,6 +98,16 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
       console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs');
       console.log('Adherence Trends - Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
       console.log('Adherence Trends - Sample logs:', logs?.slice(0, 3));
+      
+      // Debug: Check date distribution of logs
+      const logsByDate = logs?.reduce((acc, log) => {
+        const date = new Date(log.event_date).toISOString().split('T')[0];
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+      console.log('Adherence Trends - Logs by date:', logsByDate);
+      console.log('Adherence Trends - Unique dates with logs:', Object.keys(logsByDate).length);
+      console.log('Adherence Trends - Latest log date:', logs && logs.length > 0 ? new Date(logs[logs.length - 1].event_date).toISOString().split('T')[0] : 'No logs');
 
       // Group logs by date and calculate adherence rates
       const dailyData: Record<string, { total: number; successful: number }> = {};
