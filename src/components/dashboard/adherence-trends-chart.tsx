@@ -27,7 +27,7 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
     isLoading,
     error
   } = useQuery({
-    queryKey: ['adherence-trends', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
+    queryKey: ['adherence-trends-v2', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<AdherenceTrendData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -91,6 +91,8 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           .limit(10000); // Increase limit to handle large datasets (default is 1000)
       }
 
+      console.log('[Adherence Trends] About to execute query with limit 10000');
+      
       const { data: logs, error: logsError, count } = await logsQuery;
 
       if (logsError) {
@@ -99,6 +101,10 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
       }
 
       console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs', count ? `(Total in DB: ${count})` : '');
+      
+      if (logs && logs.length >= 1000) {
+        console.warn('⚠️ WARNING: Fetched exactly 1000+ logs - may be hitting a limit!');
+      }
       console.log('Adherence Trends - Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
       console.log('Adherence Trends - Sample logs:', logs?.slice(0, 3));
       
