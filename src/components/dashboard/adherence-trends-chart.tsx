@@ -49,10 +49,11 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             event_date,
             status,
             patients!inner(id, organization_id)
-          `)
+          `, { count: 'exact' })
           .gte('event_date', thirtyDaysAgo.toISOString())
           .lte('event_date', today.toISOString())
-          .order('event_date', { ascending: true });
+          .order('event_date', { ascending: true })
+          .limit(10000); // Increase limit to handle large datasets (default is 1000)
 
         // Apply organization filter if selected
         if (selectedOrganizationId) {
@@ -67,11 +68,12 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             event_date,
             status,
             patients!inner(id, organization_id)
-          `)
+          `, { count: 'exact' })
           .gte('event_date', thirtyDaysAgo.toISOString())
           .lte('event_date', today.toISOString())
           .eq('patients.organization_id', userOrganizationId)
-          .order('event_date', { ascending: true });
+          .order('event_date', { ascending: true })
+          .limit(10000); // Increase limit to handle large datasets (default is 1000)
 
       } else {
         // Provider sees only their assigned patients' logs
@@ -81,21 +83,22 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             event_date,
             status,
             patients!inner(id, assigned_provider_id)
-          `)
+          `, { count: 'exact' })
           .gte('event_date', thirtyDaysAgo.toISOString())
           .lte('event_date', today.toISOString())
           .eq('patients.assigned_provider_id', user.id)
-          .order('event_date', { ascending: true });
+          .order('event_date', { ascending: true })
+          .limit(10000); // Increase limit to handle large datasets (default is 1000)
       }
 
-      const { data: logs, error: logsError } = await logsQuery;
+      const { data: logs, error: logsError, count } = await logsQuery;
 
       if (logsError) {
         console.error('Error fetching medication logs:', logsError);
         throw new Error('Failed to fetch adherence data');
       }
 
-      console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs');
+      console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs', count ? `(Total in DB: ${count})` : '');
       console.log('Adherence Trends - Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
       console.log('Adherence Trends - Sample logs:', logs?.slice(0, 3));
       
