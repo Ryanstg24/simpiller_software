@@ -27,7 +27,7 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
     isLoading,
     error
   } = useQuery({
-    queryKey: ['compliance-heatmap', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId, currentMonth.toISOString()],
+    queryKey: ['compliance-heatmap-v2', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId, currentMonth.toISOString()],
     queryFn: async (): Promise<DayData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -39,82 +39,50 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
 
-      // Build medication logs query based on user role
-      let logsQuery;
+      // Use RPC function for aggregated data (same as Adherence Trends)
+      const rpcParams: {
+        start_date: string;
+        end_date: string;
+        org_id?: string;
+        provider_id?: string;
+      } = {
+        start_date: firstDay.toISOString().split('T')[0],
+        end_date: lastDay.toISOString().split('T')[0],
+      };
 
+      // Add role-based filtering (same logic as Adherence Trends)
       if (isSimpillerAdmin) {
-        // Simpiller Admin sees all medication logs or filtered by organization
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, organization_id)
-          `)
-          .gte('event_date', firstDay.toISOString())
-          .lte('event_date', lastDay.toISOString())
-          .order('event_date', { ascending: true });
-
-        // Apply organization filter if selected
         if (selectedOrganizationId) {
-          logsQuery = logsQuery.eq('patients.organization_id', selectedOrganizationId);
+          rpcParams.org_id = selectedOrganizationId;
         }
-
       } else if (userOrganizationId) {
-        // Organization Admin sees their organization's logs
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, organization_id)
-          `)
-          .gte('event_date', firstDay.toISOString())
-          .lte('event_date', lastDay.toISOString())
-          .eq('patients.organization_id', userOrganizationId)
-          .order('event_date', { ascending: true });
-
+        rpcParams.org_id = userOrganizationId;
       } else {
-        // Provider sees only their assigned patients' logs
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, assigned_provider_id)
-          `)
-          .gte('event_date', firstDay.toISOString())
-          .lte('event_date', lastDay.toISOString())
-          .eq('patients.assigned_provider_id', user.id)
-          .order('event_date', { ascending: true });
+        rpcParams.provider_id = user.id;
       }
 
-      const { data: logs, error: logsError } = await logsQuery;
+      const { data: aggregatedData, error: rpcError } = await supabase
+        .rpc('get_daily_adherence_stats', {
+          start_date: rpcParams.start_date,
+          end_date: rpcParams.end_date,
+          org_id: rpcParams.org_id || null,
+          provider_id: rpcParams.provider_id || null
+        });
 
-      if (logsError) {
-        console.error('Error fetching medication logs:', logsError);
+      if (rpcError) {
+        console.error('Error fetching compliance heatmap data via RPC:', rpcError);
         throw new Error('Failed to fetch compliance data');
       }
 
-      console.log('Compliance Heatmap - Fetched logs:', logs?.length || 0, 'logs');
-      console.log('Compliance Heatmap - Date range:', firstDay.toISOString(), 'to', lastDay.toISOString());
-      console.log('Compliance Heatmap - Sample logs:', logs?.slice(0, 3));
-
-      // Group logs by date
+      // Process RPC data into daily stats
       const dailyData: Record<string, { total: number; successful: number }> = {};
-
-      logs?.forEach(log => {
-        const date = new Date(log.event_date).toISOString().split('T')[0];
-        if (!dailyData[date]) {
-          dailyData[date] = { total: 0, successful: 0 };
-        }
-        dailyData[date].total++;
-        if (log.status === 'taken') {
-          dailyData[date].successful++;
-        }
+      
+      aggregatedData?.forEach((day: { log_date: string; total_logs: number; successful_logs: number }) => {
+        dailyData[day.log_date] = {
+          total: day.total_logs,
+          successful: day.successful_logs
+        };
       });
-
-      console.log('Compliance Heatmap - Daily data:', dailyData);
 
       // Create array for all days in the month
       const daysInMonth = lastDay.getDate();
@@ -132,8 +100,6 @@ export function ComplianceHeatmap({ className = '', selectedOrganizationId }: Co
           successfulScans: dayData?.successful || 0
         });
       }
-
-      console.log('Compliance Heatmap - Final heatmap data:', heatmapData.slice(0, 5));
 
       return heatmapData;
     },
