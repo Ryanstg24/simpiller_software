@@ -43,7 +43,7 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
 
       // Use RPC function to get aggregated daily adherence data
       // This avoids the 1000-row limit by aggregating in the database
-      let rpcParams: {
+      const rpcParams: {
         start_date: string;
         end_date: string;
         org_id?: string;
