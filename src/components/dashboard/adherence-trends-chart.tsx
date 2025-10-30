@@ -38,9 +38,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      console.log('[Adherence Trends] Fetching aggregated data using RPC function');
-      console.log('[Adherence Trends] Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
-
       // Use RPC function to get aggregated daily adherence data
       // This avoids the 1000-row limit by aggregating in the database
       const rpcParams: {
@@ -68,14 +65,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         rpcParams.provider_id = user.id;
       }
 
-      console.log('[Adherence Trends] Calling RPC with params:', {
-        ...rpcParams,
-        isSimpillerAdmin,
-        userOrganizationId,
-        selectedOrganizationId,
-        userId: user.id
-      });
-
       // Call RPC with explicit parameter names (Supabase prefers snake_case)
       const { data: aggregatedData, error: rpcError } = await supabase
         .rpc('get_daily_adherence_stats', {
@@ -84,18 +73,11 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           org_id: rpcParams.org_id || null,
           provider_id: rpcParams.provider_id || null
         });
-      
-      console.log('[Adherence Trends] RPC response:', { 
-        data: aggregatedData, 
-        error: rpcError,
-        rowCount: aggregatedData?.length || 0 
-      });
 
       if (rpcError) {
         console.error('Error fetching adherence data via RPC:', rpcError);
         
         // Fallback to manual aggregation if RPC function doesn't exist yet
-        console.log('[Adherence Trends] RPC function not found, using manual aggregation fallback');
         
         // Build medication logs query based on user role
         let logsQuery;
@@ -136,8 +118,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           throw new Error('Failed to fetch adherence data');
         }
 
-        console.log('[Adherence Trends] Fallback: Fetched', logs?.length || 0, 'individual logs');
-
         // Manual aggregation
         const dailyAggregation: Record<string, { total: number; successful: number }> = {};
         
@@ -159,8 +139,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           successful_logs: stats.successful
         }));
 
-        console.log('[Adherence Trends] Fallback: Aggregated to', fallbackData.length, 'daily records');
-
         // Use fallback data
         const dailyData: Record<string, { total: number; successful: number }> = {};
         fallbackData.forEach(day => {
@@ -169,8 +147,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
             successful: day.successful_logs
           };
         });
-
-        console.log('Adherence Trends - Daily data (fallback):', dailyData);
 
         // Create trend data array
         const trendData: AdherenceTrendData[] = [];
@@ -193,8 +169,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         return trendData;
       }
 
-      console.log('[Adherence Trends] RPC returned', aggregatedData?.length || 0, 'daily records');
-
       // Process RPC data into daily stats
       const dailyData: Record<string, { total: number; successful: number }> = {};
       
@@ -204,9 +178,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
           successful: day.successful_logs
         };
       });
-
-      console.log('Adherence Trends - Daily data:', dailyData);
-      console.log('Adherence Trends - Unique dates with data:', Object.keys(dailyData).length);
 
       // Create array for all days in the 30-day range (including days with no logs)
       const trendData: AdherenceTrendData[] = [];
@@ -225,9 +196,6 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         
         currentDate.setDate(currentDate.getDate() + 1);
       }
-
-      console.log('Adherence Trends - Final trend data:', trendData.slice(0, 5));
-      console.log('Adherence Trends - Total days with data:', trendData.filter(d => d.totalScans > 0).length);
 
       return trendData;
     },
@@ -345,6 +313,10 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}
+              labelStyle={{
+                color: '#000000',
+                fontWeight: '500'
               }}
               labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
                 weekday: 'short', 
