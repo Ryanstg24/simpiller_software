@@ -26,7 +26,7 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
     isLoading,
     error
   } = useQuery({
-    queryKey: ['cycle-progress', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
+    queryKey: ['cycle-progress-v2', user?.id, isSimpillerAdmin, userOrganizationId, selectedOrganizationId],
     queryFn: async (): Promise<CycleProgressData[]> => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -75,8 +75,7 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
         '8-14 days': 0,
         '15-21 days': 0,
         '22-28 days': 0,
-        '29+ days': 0,
-        'Completed': 0
+        '29+ days': 0
       };
 
       patients?.forEach(patient => {
@@ -90,19 +89,23 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
         if (daysSinceStart < 0) {
           // Cycle hasn't started yet
           return;
-        } else if (daysSinceStart <= 7) {
+        }
+
+        // Use modulo to automatically loop cycles (30-day cycles)
+        // Day 0-29 = first cycle, Day 30-59 = second cycle, etc.
+        const currentCycleDay = daysSinceStart % 30;
+
+        if (currentCycleDay <= 7) {
           cycleProgress['0-7 days']++;
-        } else if (daysSinceStart <= 14) {
+        } else if (currentCycleDay <= 14) {
           cycleProgress['8-14 days']++;
-        } else if (daysSinceStart <= 21) {
+        } else if (currentCycleDay <= 21) {
           cycleProgress['15-21 days']++;
-        } else if (daysSinceStart <= 28) {
+        } else if (currentCycleDay <= 28) {
           cycleProgress['22-28 days']++;
-        } else if (daysSinceStart <= 30) {
-          cycleProgress['29+ days']++;
         } else {
-          // Cycle completed (over 30 days)
-          cycleProgress['Completed']++;
+          // Days 29-30 of cycle
+          cycleProgress['29+ days']++;
         }
       });
 
@@ -132,11 +135,6 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
           range: '29+ days',
           count: cycleProgress['29+ days'],
           color: '#22c55e' // green
-        },
-        {
-          range: 'Completed',
-          count: cycleProgress['Completed'],
-          color: '#10b981' // emerald
         }
       ];
     },
@@ -147,8 +145,11 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
   });
 
   const totalPatients = progressData.reduce((sum, item) => sum + item.count, 0);
-  const completedCycles = progressData.find(item => item.range === 'Completed')?.count || 0;
-  const completionRate = totalPatients > 0 ? Math.round((completedCycles / totalPatients) * 100) : 0;
+  
+  // Calculate patients nearing cycle end (22-28 and 29+ days)
+  const nearingEnd = (progressData.find(item => item.range === '22-28 days')?.count || 0) +
+                     (progressData.find(item => item.range === '29+ days')?.count || 0);
+  const nearingEndRate = totalPatients > 0 ? Math.round((nearingEnd / totalPatients) * 100) : 0;
 
   if (isLoading) {
     return (
@@ -194,14 +195,14 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
           <div className="group relative">
             <Info className="h-4 w-4 text-gray-400 cursor-help" />
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-              Shows distribution of patients by their current cycle progress (days remaining in their 30-day cycle)
+              Shows distribution of patients by their current position in their 30-day cycle (cycles automatically restart)
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
             </div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900">{completionRate}%</div>
-          <div className="text-sm text-gray-600">Completion Rate</div>
+          <div className="text-2xl font-bold text-gray-900">{nearingEndRate}%</div>
+          <div className="text-sm text-gray-600">Nearing Cycle End</div>
         </div>
       </div>
 
@@ -248,19 +249,20 @@ export function CycleProgressChart({ className = '', selectedOrganizationId }: C
         <div className="text-center">
           <div className="flex items-center justify-center mb-2">
             <Clock className="h-4 w-4 text-blue-600 mr-1" />
-            <span className="text-sm font-medium text-gray-900">In Progress</span>
+            <span className="text-sm font-medium text-gray-900">Early Stage</span>
           </div>
           <div className="text-lg font-bold text-blue-600">
-            {totalPatients - completedCycles}
+            {(progressData.find(item => item.range === '0-7 days')?.count || 0) +
+             (progressData.find(item => item.range === '8-14 days')?.count || 0)}
           </div>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center mb-2">
             <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
-            <span className="text-sm font-medium text-gray-900">Completed</span>
+            <span className="text-sm font-medium text-gray-900">Nearing End</span>
           </div>
           <div className="text-lg font-bold text-green-600">
-            {completedCycles}
+            {nearingEnd}
           </div>
         </div>
         <div className="text-center">
