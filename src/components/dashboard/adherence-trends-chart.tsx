@@ -54,12 +54,17 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
       };
 
       // Add role-based filtering
-      if (isSimpillerAdmin && selectedOrganizationId) {
-        rpcParams.org_id = selectedOrganizationId;
+      if (isSimpillerAdmin) {
+        // Simpiller Admin: filter by selected org (or null to see all)
+        if (selectedOrganizationId) {
+          rpcParams.org_id = selectedOrganizationId;
+        }
+        // If no org selected, leave both filters null to see all data
       } else if (userOrganizationId) {
+        // Organization Admin: always filter by their org
         rpcParams.org_id = userOrganizationId;
       } else {
-        // Provider - filter by assigned patients
+        // Provider: filter by their assigned patients
         rpcParams.provider_id = user.id;
       }
 
