@@ -71,10 +71,20 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         userId: user.id
       });
 
+      // Call RPC with explicit parameter names (Supabase prefers snake_case)
       const { data: aggregatedData, error: rpcError } = await supabase
-        .rpc('get_daily_adherence_stats', rpcParams);
+        .rpc('get_daily_adherence_stats', {
+          start_date: rpcParams.start_date,
+          end_date: rpcParams.end_date,
+          org_id: rpcParams.org_id || null,
+          provider_id: rpcParams.provider_id || null
+        });
       
-      console.log('[Adherence Trends] RPC response:', { data: aggregatedData, error: rpcError });
+      console.log('[Adherence Trends] RPC response:', { 
+        data: aggregatedData, 
+        error: rpcError,
+        rowCount: aggregatedData?.length || 0 
+      });
 
       if (rpcError) {
         console.error('Error fetching adherence data via RPC:', rpcError);
