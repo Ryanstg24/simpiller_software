@@ -38,101 +38,150 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Build medication logs query based on user role (same logic as other charts)
-      let logsQuery;
+      console.log('[Adherence Trends] Fetching aggregated data using RPC function');
+      console.log('[Adherence Trends] Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
 
-      if (isSimpillerAdmin) {
-        // Simpiller Admin sees all medication logs or filtered by organization
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, organization_id)
-          `, { count: 'exact' })
-          .gte('event_date', thirtyDaysAgo.toISOString())
-          .lte('event_date', today.toISOString())
-          .order('event_date', { ascending: true })
-          .limit(10000); // Increase limit to handle large datasets (default is 1000)
+      // Use RPC function to get aggregated daily adherence data
+      // This avoids the 1000-row limit by aggregating in the database
+      let rpcParams: {
+        start_date: string;
+        end_date: string;
+        org_id?: string;
+        provider_id?: string;
+      } = {
+        start_date: thirtyDaysAgo.toISOString().split('T')[0],
+        end_date: today.toISOString().split('T')[0],
+      };
 
-        // Apply organization filter if selected
-        if (selectedOrganizationId) {
-          logsQuery = logsQuery.eq('patients.organization_id', selectedOrganizationId);
-        }
-
+      // Add role-based filtering
+      if (isSimpillerAdmin && selectedOrganizationId) {
+        rpcParams.org_id = selectedOrganizationId;
       } else if (userOrganizationId) {
-        // Organization Admin sees their organization's logs
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, organization_id)
-          `, { count: 'exact' })
-          .gte('event_date', thirtyDaysAgo.toISOString())
-          .lte('event_date', today.toISOString())
-          .eq('patients.organization_id', userOrganizationId)
-          .order('event_date', { ascending: true })
-          .limit(10000); // Increase limit to handle large datasets (default is 1000)
-
+        rpcParams.org_id = userOrganizationId;
       } else {
-        // Provider sees only their assigned patients' logs
-        logsQuery = supabase
-          .from('medication_logs')
-          .select(`
-            event_date,
-            status,
-            patients!inner(id, assigned_provider_id)
-          `, { count: 'exact' })
-          .gte('event_date', thirtyDaysAgo.toISOString())
-          .lte('event_date', today.toISOString())
-          .eq('patients.assigned_provider_id', user.id)
-          .order('event_date', { ascending: true })
-          .limit(10000); // Increase limit to handle large datasets (default is 1000)
+        // Provider - filter by assigned patients
+        rpcParams.provider_id = user.id;
       }
 
-      console.log('[Adherence Trends] About to execute query with limit 10000');
-      
-      const { data: logs, error: logsError, count } = await logsQuery;
+      const { data: aggregatedData, error: rpcError } = await supabase
+        .rpc('get_daily_adherence_stats', rpcParams);
 
-      if (logsError) {
-        console.error('Error fetching medication logs:', logsError);
-        throw new Error('Failed to fetch adherence data');
+      if (rpcError) {
+        console.error('Error fetching adherence data via RPC:', rpcError);
+        
+        // Fallback to manual aggregation if RPC function doesn't exist yet
+        console.log('[Adherence Trends] RPC function not found, using manual aggregation fallback');
+        
+        // Build medication logs query based on user role
+        let logsQuery;
+
+        if (isSimpillerAdmin) {
+          logsQuery = supabase
+            .from('medication_logs')
+            .select('event_date, status, patients!inner(id, organization_id)')
+            .gte('event_date', thirtyDaysAgo.toISOString())
+            .lte('event_date', today.toISOString())
+            .order('event_date', { ascending: true });
+
+          if (selectedOrganizationId) {
+            logsQuery = logsQuery.eq('patients.organization_id', selectedOrganizationId);
+          }
+        } else if (userOrganizationId) {
+          logsQuery = supabase
+            .from('medication_logs')
+            .select('event_date, status, patients!inner(id, organization_id)')
+            .gte('event_date', thirtyDaysAgo.toISOString())
+            .lte('event_date', today.toISOString())
+            .eq('patients.organization_id', userOrganizationId)
+            .order('event_date', { ascending: true });
+        } else {
+          logsQuery = supabase
+            .from('medication_logs')
+            .select('event_date, status, patients!inner(id, assigned_provider_id)')
+            .gte('event_date', thirtyDaysAgo.toISOString())
+            .lte('event_date', today.toISOString())
+            .eq('patients.assigned_provider_id', user.id)
+            .order('event_date', { ascending: true });
+        }
+
+        const { data: logs, error: logsError } = await logsQuery;
+
+        if (logsError) {
+          console.error('Error fetching medication logs:', logsError);
+          throw new Error('Failed to fetch adherence data');
+        }
+
+        console.log('[Adherence Trends] Fallback: Fetched', logs?.length || 0, 'individual logs');
+
+        // Manual aggregation
+        const dailyAggregation: Record<string, { total: number; successful: number }> = {};
+        
+        logs?.forEach(log => {
+          const date = new Date(log.event_date).toISOString().split('T')[0];
+          if (!dailyAggregation[date]) {
+            dailyAggregation[date] = { total: 0, successful: 0 };
+          }
+          dailyAggregation[date].total++;
+          if (log.status === 'taken') {
+            dailyAggregation[date].successful++;
+          }
+        });
+
+        // Convert to RPC format
+        const fallbackData = Object.entries(dailyAggregation).map(([date, stats]) => ({
+          log_date: date,
+          total_logs: stats.total,
+          successful_logs: stats.successful
+        }));
+
+        console.log('[Adherence Trends] Fallback: Aggregated to', fallbackData.length, 'daily records');
+
+        // Use fallback data
+        const dailyData: Record<string, { total: number; successful: number }> = {};
+        fallbackData.forEach(day => {
+          dailyData[day.log_date] = {
+            total: day.total_logs,
+            successful: day.successful_logs
+          };
+        });
+
+        console.log('Adherence Trends - Daily data (fallback):', dailyData);
+
+        // Create trend data array
+        const trendData: AdherenceTrendData[] = [];
+        const currentDate = new Date(thirtyDaysAgo);
+        
+        while (currentDate <= today) {
+          const dateString = currentDate.toISOString().split('T')[0];
+          const dayData = dailyData[dateString];
+          
+          trendData.push({
+            date: dateString,
+            adherenceRate: dayData ? Math.round((dayData.successful / dayData.total) * 100) : 0,
+            totalScans: dayData?.total || 0,
+            successfulScans: dayData?.successful || 0
+          });
+          
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        return trendData;
       }
 
-      console.log('Adherence Trends - Fetched logs:', logs?.length || 0, 'logs', count ? `(Total in DB: ${count})` : '');
-      
-      if (logs && logs.length >= 1000) {
-        console.warn('⚠️ WARNING: Fetched exactly 1000+ logs - may be hitting a limit!');
-      }
-      console.log('Adherence Trends - Date range:', thirtyDaysAgo.toISOString(), 'to', today.toISOString());
-      console.log('Adherence Trends - Sample logs:', logs?.slice(0, 3));
-      
-      // Debug: Check date distribution of logs
-      const logsByDate = logs?.reduce((acc, log) => {
-        const date = new Date(log.event_date).toISOString().split('T')[0];
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
-      console.log('Adherence Trends - Logs by date:', logsByDate);
-      console.log('Adherence Trends - Unique dates with logs:', Object.keys(logsByDate).length);
-      console.log('Adherence Trends - Latest log date:', logs && logs.length > 0 ? new Date(logs[logs.length - 1].event_date).toISOString().split('T')[0] : 'No logs');
+      console.log('[Adherence Trends] RPC returned', aggregatedData?.length || 0, 'daily records');
 
-      // Group logs by date and calculate adherence rates
+      // Process RPC data into daily stats
       const dailyData: Record<string, { total: number; successful: number }> = {};
-
-      logs?.forEach(log => {
-        const date = new Date(log.event_date).toISOString().split('T')[0];
-        if (!dailyData[date]) {
-          dailyData[date] = { total: 0, successful: 0 };
-        }
-        dailyData[date].total++;
-        if (log.status === 'taken') {
-          dailyData[date].successful++;
-        }
+      
+      aggregatedData?.forEach((day: { log_date: string; total_logs: number; successful_logs: number }) => {
+        dailyData[day.log_date] = {
+          total: day.total_logs,
+          successful: day.successful_logs
+        };
       });
 
       console.log('Adherence Trends - Daily data:', dailyData);
+      console.log('Adherence Trends - Unique dates with data:', Object.keys(dailyData).length);
 
       // Create array for all days in the 30-day range (including days with no logs)
       const trendData: AdherenceTrendData[] = [];
