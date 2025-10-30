@@ -63,8 +63,18 @@ export function AdherenceTrendsChart({ className = '', selectedOrganizationId }:
         rpcParams.provider_id = user.id;
       }
 
+      console.log('[Adherence Trends] Calling RPC with params:', {
+        ...rpcParams,
+        isSimpillerAdmin,
+        userOrganizationId,
+        selectedOrganizationId,
+        userId: user.id
+      });
+
       const { data: aggregatedData, error: rpcError } = await supabase
         .rpc('get_daily_adherence_stats', rpcParams);
+      
+      console.log('[Adherence Trends] RPC response:', { data: aggregatedData, error: rpcError });
 
       if (rpcError) {
         console.error('Error fetching adherence data via RPC:', rpcError);
