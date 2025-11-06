@@ -176,14 +176,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               );
               
               // Attach schedule details to logs by matching schedule_id
-              logsData.forEach((log: { schedule_id?: string; medication_schedules?: { time_of_day: string } }) => {
+              logsData.forEach((log: { id: string; medication_id: string; schedule_id?: string; medication_schedules?: { time_of_day: string } }) => {
                 if (log.schedule_id && schedulesMap.has(log.schedule_id)) {
                   log.medication_schedules = schedulesMap.get(log.schedule_id);
                 } else if (log.schedule_id) {
                   console.warn('[Adherence] Log has schedule_id but schedule not found:', {
-                    logId: (log as any).id,
+                    logId: log.id,
                     scheduleId: log.schedule_id,
-                    medicationId: (log as any).medication_id
+                    medicationId: log.medication_id
                   });
                 }
               });
