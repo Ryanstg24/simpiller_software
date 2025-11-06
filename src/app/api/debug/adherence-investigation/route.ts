@@ -5,6 +5,42 @@ import { supabase } from '@/lib/supabase';
  * Debug endpoint to investigate adherence log grouping issues
  * This helps identify why medications are being grouped into wrong time slots
  */
+
+interface MedicationSchedule {
+  id: string;
+  medication_id: string;
+  time_of_day: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+interface MedicationInfo {
+  id: string;
+  name: string;
+  time_of_day: string;
+}
+
+interface MedicationLog {
+  id: string;
+  medication_id: string;
+  schedule_id?: string | null;
+  event_date: string;
+  status: string;
+  medications?: MedicationInfo | MedicationInfo[];
+}
+
+interface MedicationLogWithSchedule extends MedicationLog {
+  medication_schedules?: {
+    id: string;
+    time_of_day: string;
+    is_active: boolean;
+  } | Array<{
+    id: string;
+    time_of_day: string;
+    is_active: boolean;
+  }>;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -134,7 +170,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Check for medications with multiple schedules
-    const schedulesByMedication = new Map<string, any[]>();
+    const schedulesByMedication = new Map<string, MedicationSchedule[]>();
     (allSchedules || []).forEach(schedule => {
       if (!schedulesByMedication.has(schedule.medication_id)) {
         schedulesByMedication.set(schedule.medication_id, []);
@@ -155,7 +191,7 @@ export async function GET(request: NextRequest) {
 
     // Check for logs where the joined schedule doesn't match the schedule_id
     if (logsWithSchedules) {
-      logsWithSchedules.forEach((log: any) => {
+      logsWithSchedules.forEach((log: MedicationLogWithSchedule) => {
         if (log.schedule_id && log.medication_schedules) {
           const joinedSchedule = Array.isArray(log.medication_schedules) 
             ? log.medication_schedules[0] 
@@ -175,10 +211,10 @@ export async function GET(request: NextRequest) {
       patientId,
       date: date || 'all',
       analysis,
-      logs: logs?.map(log => ({
+      logs: logs?.map((log: MedicationLog) => ({
         id: log.id,
         medication_id: log.medication_id,
-        medication_name: (log.medications as any)?.name,
+        medication_name: Array.isArray(log.medications) ? log.medications[0]?.name : log.medications?.name,
         schedule_id: log.schedule_id,
         event_date: log.event_date,
         status: log.status
@@ -196,10 +232,10 @@ export async function GET(request: NextRequest) {
         time_of_day: s.time_of_day,
         is_active: s.is_active
       })),
-      logsWithSchedules: logsWithSchedules?.slice(0, 10).map((log: any) => ({
+      logsWithSchedules: logsWithSchedules?.slice(0, 10).map((log: MedicationLogWithSchedule) => ({
         id: log.id,
         medication_id: log.medication_id,
-        medication_name: (log.medications as any)?.name,
+        medication_name: Array.isArray(log.medications) ? log.medications[0]?.name : log.medications?.name,
         schedule_id: log.schedule_id,
         joined_schedule_id: Array.isArray(log.medication_schedules) 
           ? log.medication_schedules[0]?.id 
