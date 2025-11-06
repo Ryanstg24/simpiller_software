@@ -109,15 +109,11 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
       try {
         console.log('[Adherence] Fetching logs for patient:', patient.id, 'Name:', patient.first_name, patient.last_name);
         
-        // Fetch logs with schedule information to get scheduled time
+        // Fetch logs WITHOUT the schedule join to avoid incorrect joins
+        // We'll fetch schedules separately by schedule_id to ensure correctness
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
-          .select(`
-            *,
-            medication_schedules (
-              time_of_day
-            )
-          `)
+          .select('*')
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
           .limit(100);
@@ -156,6 +152,45 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           logsData.forEach((log: { medication_id: string; medications?: { name: string; strength: string; format: string } }) => {
             log.medications = medicationsMap.get(log.medication_id);
           });
+
+          // Fetch schedules separately by schedule_id to ensure we get the correct schedule
+          // This is critical: we need to match by schedule_id, not medication_id
+          const scheduleIds = [...new Set(logsData.map((log: { schedule_id?: string }) => log.schedule_id).filter(Boolean))];
+          
+          if (scheduleIds.length > 0) {
+            console.log('[Adherence] Fetching schedules for', scheduleIds.length, 'unique schedule IDs');
+            
+            const { data: schedulesData, error: schedulesError } = await supabase
+              .from('medication_schedules')
+              .select('id, time_of_day')
+              .in('id', scheduleIds);
+            
+            if (schedulesError) {
+              console.error('[Adherence] Error fetching schedules:', schedulesError);
+            } else {
+              console.log('[Adherence] Schedules fetched:', schedulesData?.length);
+              
+              // Map schedules to a lookup object by schedule_id
+              const schedulesMap = new Map(
+                schedulesData?.map((sched: { id: string; time_of_day: string }) => [sched.id, { time_of_day: sched.time_of_day }]) || []
+              );
+              
+              // Attach schedule details to logs by matching schedule_id
+              logsData.forEach((log: { schedule_id?: string; medication_schedules?: { time_of_day: string } }) => {
+                if (log.schedule_id && schedulesMap.has(log.schedule_id)) {
+                  log.medication_schedules = schedulesMap.get(log.schedule_id);
+                } else if (log.schedule_id) {
+                  console.warn('[Adherence] Log has schedule_id but schedule not found:', {
+                    logId: (log as any).id,
+                    scheduleId: log.schedule_id,
+                    medicationId: (log as any).medication_id
+                  });
+                }
+              });
+            }
+          } else {
+            console.log('[Adherence] No schedule_ids found in logs - all logs may be missing schedule_id');
+          }
         }
         
         console.log('[Adherence] Query completed. Error:', logsError, 'Data count:', logsData?.length || 0);
