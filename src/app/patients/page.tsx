@@ -25,6 +25,7 @@ interface PatientAlert {
 
 interface PatientCycleProgress {
   communicationMinutes: number;
+  communicationInstances: number; // Number of patient communication entries
   adherenceMinutes: number;
   adherenceDays: number; // distinct days with taken logs in cycle
   cycleStart: string | null;
@@ -282,7 +283,8 @@ export default function PatientsPage() {
 
                 if (medErr || !med) {
                   return [patient.id, { 
-                    communicationMinutes: 0, 
+                    communicationMinutes: 0,
+                    communicationInstances: 0,
                     adherenceMinutes: 0, 
                     adherenceDays: 0, 
                     cycleStart: null, 
@@ -302,6 +304,7 @@ export default function PatientsPage() {
 
               // Fetch provider_time_logs within the cycle window
               let communicationMinutes = 0;
+              let communicationInstances = 0;
               let adherenceMinutes = 0;
               let adherenceDays = 0;
               
@@ -317,6 +320,7 @@ export default function PatientsPage() {
                   console.log(`[Progress] Error fetching time logs:`, logsErr);
                   // If there's an error, keep values at 0
                   communicationMinutes = 0;
+                  communicationInstances = 0;
                   adherenceMinutes = 0;
                 } else if (logs && logs.length > 0) {
                   console.log(`[Progress] Found ${logs.length} time logs in cycle`);
@@ -324,6 +328,7 @@ export default function PatientsPage() {
                     console.log(`[Progress] Log: ${log.activity_type} - ${log.duration_minutes} minutes at ${log.start_time}`);
                     if (log.activity_type === 'patient_communication') {
                       communicationMinutes += Number(log.duration_minutes || 0);
+                      communicationInstances += 1; // Count instances
                     }
                     if (log.activity_type === 'adherence_review') {
                       adherenceMinutes += Number(log.duration_minutes || 0);
@@ -333,12 +338,14 @@ export default function PatientsPage() {
                   console.log(`[Progress] No time logs found for patient ${patient.first_name} ${patient.last_name} - setting to 0`);
                   // Explicitly set to 0 when no logs found
                   communicationMinutes = 0;
+                  communicationInstances = 0;
                   adherenceMinutes = 0;
                 }
               } catch (e) {
                 console.log(`[Progress] Exception fetching time logs:`, e);
                 // If there's an exception, keep values at 0
                 communicationMinutes = 0;
+                communicationInstances = 0;
                 adherenceMinutes = 0;
               }
 
@@ -521,6 +528,7 @@ export default function PatientsPage() {
 
               const result = {
                 communicationMinutes,
+                communicationInstances,
                 adherenceMinutes,
                 adherenceDays,
                 cycleStart: cycleStart.toISOString(),
@@ -535,7 +543,8 @@ export default function PatientsPage() {
               return [patient.id, result];
             } catch (error) {
               return [patient.id, { 
-                communicationMinutes: 0, 
+                communicationMinutes: 0,
+                communicationInstances: 0,
                 adherenceMinutes: 0, 
                 adherenceDays: 0, 
                 cycleStart: null, 
@@ -565,19 +574,24 @@ export default function PatientsPage() {
 
   const renderProgressBars = (patientId: string) => {
     const progress = progressByPatientId[patientId];
-    const comm = Math.min(progress?.communicationMinutes || 0, 20);
+    const hasCommunication = (progress?.communicationInstances || 0) >= 1;
     const adher = Math.min(progress?.adherenceMinutes || 0, 80);
-    const commPct = Math.round((comm / 20) * 100);
     const adherPct = Math.round((adher / 80) * 100);
 
     return (
       <div className="flex items-center gap-4 w-full">
-        {/* Patient Communication tiny bar (hover label) */}
+        {/* Patient Communication checkmark (Option 1: Binary Display) */}
         <div className="flex items-center gap-2 min-w-[160px]">
-          <div className="w-40 h-1.5 bg-gray-200 rounded" title="Patient Communication">
-            <div className="h-1.5 bg-blue-600 rounded" style={{ width: `${commPct}%` }} />
+          <div className="flex items-center gap-1.5" title="Patient Communication: At least 1 instance required per cycle">
+            {hasCommunication ? (
+              <span className="text-green-600 text-sm font-semibold">✓</span>
+            ) : (
+              <span className="text-red-600 text-sm font-semibold">✗</span>
+            )}
+            <span className="text-xs text-gray-600 whitespace-nowrap">
+              Patient Communication {hasCommunication ? `(${progress?.communicationInstances || 0})` : '(0)'}
+            </span>
           </div>
-          <span className="text-xs text-gray-600 whitespace-nowrap">{progress?.communicationMinutes || 0}/20</span>
         </div>
 
         {/* Adherence Review tiny bar with ticks (hover label) */}

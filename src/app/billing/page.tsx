@@ -26,6 +26,7 @@ interface BillingData {
   adherence_days: number;
   provider_time_minutes: number;
   patient_communication_minutes: number;
+  patient_communication_instances: number; // Number of patient communication entries
   adherence_review_minutes: number;
 }
 
@@ -183,6 +184,10 @@ function BillingPageContent() {
           .filter(log => log.activity_type === 'patient_communication')
           .reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
 
+        // Count instances of patient communication (requirement is >= 1 instance, not minutes)
+        const patientCommunicationInstances = (timeLogs || [])
+          .filter(log => log.activity_type === 'patient_communication').length;
+
         const adherenceReviewMinutes = (timeLogs || [])
           .filter(log => log.activity_type === 'adherence_review')
           .reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
@@ -256,7 +261,8 @@ function BillingPageContent() {
         // For 98976/77, we need medication class data (to be implemented)
         const cpt_98976_77 = false; // Will be implemented when medication classes are added
         
-        const cpt_98980 = patientCommunicationMinutes >= 20 && adherenceReviewMinutes >= 20;
+        // CPT 98980: Requires >= 1 instance of Patient Communication AND >= 20 minutes of Adherence Review
+        const cpt_98980 = patientCommunicationInstances >= 1 && adherenceReviewMinutes >= 20;
         const cpt_98981 = Math.floor(adherenceReviewMinutes / 20) - (cpt_98980 ? 1 : 0);
 
         // Get provider name from patient's assigned provider
@@ -286,6 +292,7 @@ function BillingPageContent() {
         adherence_days: adherenceDays,
         provider_time_minutes: totalProviderTime,
         patient_communication_minutes: patientCommunicationMinutes,
+        patient_communication_instances: patientCommunicationInstances,
         adherence_review_minutes: adherenceReviewMinutes,
       });
     }
@@ -460,6 +467,7 @@ function BillingPageContent() {
       'Adherence Days',
       'Provider Time (min)',
       'Patient Communication (min)',
+      'Patient Communication Instances',
       'Adherence Review (min)',
       'CPT 98975 Status',
       'CPT 98976/77 Eligible',
@@ -475,6 +483,7 @@ function BillingPageContent() {
         patient.adherence_days,
         patient.provider_time_minutes,
         patient.patient_communication_minutes,
+        patient.patient_communication_instances,
         patient.adherence_review_minutes,
         patient.cpt_98975_status === 'eligible' ? 'Eligible' : patient.cpt_98975_status === 'previously_claimed' ? 'Previously Claimed' : 'Not Eligible',
         patient.cpt_98976_77 ? 'Yes' : 'No',
@@ -502,6 +511,7 @@ function BillingPageContent() {
         'Adherence Days': patient.adherence_days,
         'Provider Time (min)': patient.provider_time_minutes,
         'Patient Communication (min)': patient.patient_communication_minutes,
+        'Patient Communication Instances': patient.patient_communication_instances,
         'Adherence Review (min)': patient.adherence_review_minutes,
         'CPT 98975 Status': patient.cpt_98975_status === 'eligible' ? 'Eligible' : patient.cpt_98975_status === 'previously_claimed' ? 'Previously Claimed' : 'Not Eligible',
         'CPT 98976/77 Eligible': patient.cpt_98976_77 ? 'Yes' : 'No',
