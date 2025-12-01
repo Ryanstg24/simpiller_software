@@ -109,6 +109,7 @@ export class MedicationAdder {
   ): Promise<ExistingMedication | null> {
     try {
       // First, try to match by NDC if available (most reliable)
+      // Check active medications first
       if (ndc && ndc.trim()) {
         const { data: ndcMatch, error: ndcError } = await supabaseAdmin
           .from('medications')
@@ -119,12 +120,27 @@ export class MedicationAdder {
           .limit(1);
 
         if (!ndcError && ndcMatch && ndcMatch.length > 0) {
-          console.log(`[Medication Adder] Found existing medication by NDC: ${ndc}`);
+          console.log(`[Medication Adder] Found existing active medication by NDC: ${ndc}`);
           return ndcMatch[0];
+        }
+
+        // If no active medication found, check for inactive ones (to prevent duplicates)
+        const { data: ndcMatchInactive, error: ndcErrorInactive } = await supabaseAdmin
+          .from('medications')
+          .select('id, name, status')
+          .eq('patient_id', patientId)
+          .eq('ndc', ndc)
+          .neq('status', 'active')
+          .limit(1);
+
+        if (!ndcErrorInactive && ndcMatchInactive && ndcMatchInactive.length > 0) {
+          console.log(`[Medication Adder] Found existing inactive medication by NDC: ${ndc} - will reactivate`);
+          return ndcMatchInactive[0];
         }
       }
 
       // Second, try exact name match
+      // Check active medications first
       const { data: exactMatch, error: exactError } = await supabaseAdmin
         .from('medications')
         .select('id, name, status')
@@ -134,12 +150,27 @@ export class MedicationAdder {
         .limit(1);
 
       if (!exactError && exactMatch && exactMatch.length > 0) {
-        console.log(`[Medication Adder] Found existing medication by exact name: ${medicationName}`);
+        console.log(`[Medication Adder] Found existing active medication by exact name: ${medicationName}`);
         return exactMatch[0];
+      }
+
+      // If no active medication found, check for inactive ones (to prevent duplicates)
+      const { data: exactMatchInactive, error: exactErrorInactive } = await supabaseAdmin
+        .from('medications')
+        .select('id, name, status')
+        .eq('patient_id', patientId)
+        .ilike('name', medicationName)
+        .neq('status', 'active')
+        .limit(1);
+
+      if (!exactErrorInactive && exactMatchInactive && exactMatchInactive.length > 0) {
+        console.log(`[Medication Adder] Found existing inactive medication by exact name: ${medicationName} - will reactivate`);
+        return exactMatchInactive[0];
       }
 
       // Third, try similar name match (for minor variations)
       // This catches things like "Lisinopril 10mg" vs "Lisinopril"
+      // Check active medications first
       const { data: similarMatch, error: similarError } = await supabaseAdmin
         .from('medications')
         .select('id, name, status')
@@ -155,8 +186,28 @@ export class MedicationAdder {
         
         // Only accept if one name contains the other or they're very similar
         if (existingName.includes(searchName) || searchName.includes(existingName)) {
-          console.log(`[Medication Adder] Found existing medication by similar name: ${similarMatch[0].name}`);
+          console.log(`[Medication Adder] Found existing active medication by similar name: ${similarMatch[0].name}`);
           return similarMatch[0];
+        }
+      }
+
+      // If no active medication found, check for inactive ones (to prevent duplicates)
+      const { data: similarMatchInactive, error: similarErrorInactive } = await supabaseAdmin
+        .from('medications')
+        .select('id, name, status')
+        .eq('patient_id', patientId)
+        .ilike('name', `%${medicationName}%`)
+        .neq('status', 'active')
+        .limit(1);
+
+      if (!similarErrorInactive && similarMatchInactive && similarMatchInactive.length > 0) {
+        const existingName = similarMatchInactive[0].name.toLowerCase();
+        const searchName = medicationName.toLowerCase();
+        
+        // Only accept if one name contains the other or they're very similar
+        if (existingName.includes(searchName) || searchName.includes(existingName)) {
+          console.log(`[Medication Adder] Found existing inactive medication by similar name: ${similarMatchInactive[0].name} - will reactivate`);
+          return similarMatchInactive[0];
         }
       }
 
@@ -219,6 +270,20 @@ export class MedicationAdder {
     try {
       const medicationInfo = medicationData.medicationInfo;
       
+      // First, check if the medication is inactive - if so, we'll reactivate it
+      const { data: existingMed, error: fetchError } = await supabaseAdmin
+        .from('medications')
+        .select('id, name, status')
+        .eq('id', medicationId)
+        .single();
+
+      if (fetchError) {
+        console.error('[Medication Adder] Error fetching medication for update:', fetchError);
+        throw fetchError;
+      }
+
+      const wasInactive = existingMed && existingMed.status !== 'active';
+      
       const updateData = {
         strength: medicationInfo.strength || '',
         dosage: medicationInfo.dosage || '',
@@ -227,6 +292,8 @@ export class MedicationAdder {
         refills: medicationInfo.refills || '0',
         prescriber: medicationInfo.prescriber || '',
         ndc: medicationInfo.ndc || '',
+        // Reactivate if it was inactive (prevents duplicates from pharmacy updates)
+        status: 'active',
         updated_at: new Date().toISOString(),
         // Update raw import data
         raw_import_data: JSON.stringify({
@@ -247,10 +314,16 @@ export class MedicationAdder {
         throw error;
       }
 
+      const actionMessage = wasInactive 
+        ? `Reactivated and updated existing medication: ${medicationInfo.name}`
+        : `Updated existing medication: ${medicationInfo.name}`;
+
+      console.log(`[Medication Adder] ${actionMessage}`);
+
       return {
         success: true,
         medicationId: medicationId,
-        message: `Updated existing medication: ${medicationInfo.name}`
+        message: actionMessage
       };
     } catch (error) {
       console.error('[Medication Adder] Error in updateExistingMedication:', error);
