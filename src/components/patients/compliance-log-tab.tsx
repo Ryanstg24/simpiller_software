@@ -112,12 +112,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         // Fetch logs WITHOUT the schedule join to avoid incorrect joins
         // We'll fetch schedules separately by schedule_id to ensure correctness
+        // Increased limit from 100 to 1000 to ensure we capture all historical logs
+        // (Some patients may have more than 100 logs, causing older logs to be excluded)
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
           .select('*')
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
-          .limit(100);
+          .limit(1000);
         
         console.log('[Adherence] Raw query without join - Count:', logsData?.length);
         
