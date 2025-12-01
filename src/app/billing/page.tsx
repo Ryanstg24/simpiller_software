@@ -607,7 +607,9 @@ function BillingPageContent() {
       doc.setFont('helvetica', 'bold');
       doc.text('Interval Date Range:', 20, 75);
       doc.setFont('helvetica', 'normal');
-      doc.text(`${cycleStart.toLocaleDateString()} - ${cycleEnd.toLocaleDateString()}`, 70, 75);
+      // cycleEnd is exclusive (not included), so display the last included day
+      const lastIncludedDay = new Date(cycleEnd.getTime() - 24 * 60 * 60 * 1000);
+      doc.text(`${cycleStart.toLocaleDateString()} - ${lastIncludedDay.toLocaleDateString()}`, 70, 75);
       
       doc.setFont('helvetica', 'bold');
       doc.text('Total Billable Time:', 20, 82);
