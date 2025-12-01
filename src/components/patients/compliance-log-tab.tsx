@@ -83,6 +83,7 @@ interface GroupedLog {
   takenCount: number;
   totalCount: number;
   timingStatus?: 'on-time' | 'late'; // Whether medications were taken on time or late
+  hasScheduleInfo: boolean; // Whether we have actual schedule info (not inferred)
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
@@ -298,16 +299,18 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
 
   // Group logs by scheduled time from medication_schedules (not 15-minute intervals)
   const groupLogsByTime = (logs: MedicationLogData[]): GroupedLog[] => {
-    const grouped = new Map<string, MedicationLogData[]>();
+    const grouped = new Map<string, { logs: MedicationLogData[]; hasScheduleInfo: boolean }>();
     
     logs.forEach(log => {
       const date = new Date(log.event_date);
       
       // Always use the scheduled time - medications are scanned from their time preference
       let groupKey: string;
+      let hasScheduleInfo = false;
       
       if (log.medication_schedules?.time_of_day) {
         // Use the actual scheduled time from the schedule
+        hasScheduleInfo = true;
         const scheduledTime = log.medication_schedules.time_of_day;
         const [hours, minutes, seconds = '00'] = scheduledTime.split(':');
         
@@ -322,61 +325,52 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         groupKey = scheduledDate.toISOString();
       } else {
-        // If schedule info is missing, infer the scheduled time based on the actual scan time
-        // This ensures all medications from the same scan session are grouped together
-        // We'll round to the nearest hour and then look for common time preferences
+        // If schedule info is missing, we cannot determine the scheduled time
+        // Use the actual scan time for grouping (without inferring a scheduled time)
+        // This prevents incorrectly showing medications at times the patient doesn't have scheduled
+        // Group by the actual scan time rounded to the nearest hour to keep scan sessions together
+        hasScheduleInfo = false;
         const scanHour = date.getHours();
+        const scanMinute = date.getMinutes();
         
-        // Infer scheduled time based on typical time preferences
-        let inferredHour = scanHour;
-        const inferredMinutes = 0;
+        // Round to nearest hour for grouping purposes
+        const roundedHour = scanMinute >= 30 ? scanHour + 1 : scanHour;
+        const finalHour = roundedHour >= 24 ? 0 : roundedHour;
         
-        // Morning (6-11): likely 8:00 or 9:00
-        if (scanHour >= 6 && scanHour < 12) {
-          inferredHour = scanHour >= 9 ? 9 : 8;
-        }
-        // Afternoon (12-16): likely 14:00
-        else if (scanHour >= 12 && scanHour < 17) {
-          inferredHour = 14;
-        }
-        // Evening (17-21): likely 18:00
-        else if (scanHour >= 17 && scanHour < 22) {
-          inferredHour = 18;
-        }
-        // Bedtime (22-23, 0-5): likely 22:00
-        else {
-          inferredHour = 22;
-        }
-        
-        const inferredDate = new Date(
+        const scanTimeGroup = new Date(
           date.getFullYear(),
           date.getMonth(),
           date.getDate(),
-          inferredHour,
-          inferredMinutes,
+          finalHour,
+          0,
           0,
           0
         );
         
-        groupKey = inferredDate.toISOString();
+        groupKey = scanTimeGroup.toISOString();
         
-        console.warn('[Adherence] Missing schedule_id for log:', {
+        console.warn('[Adherence] Missing schedule_id for log - using scan time for grouping:', {
           logId: log.id,
           medicationId: log.medication_id,
           scanTime: date.toISOString(),
-          inferredScheduledTime: inferredDate.toISOString(),
-          note: 'Using inferred scheduled time based on scan time'
+          groupedAt: scanTimeGroup.toISOString(),
+          note: 'Schedule info missing - cannot determine if medication was on time or late'
         });
       }
       
       if (!grouped.has(groupKey)) {
-        grouped.set(groupKey, []);
+        grouped.set(groupKey, { logs: [], hasScheduleInfo });
       }
-      grouped.get(groupKey)!.push(log);
+      const group = grouped.get(groupKey)!;
+      group.logs.push(log);
+      // If any log in the group has schedule info, mark the group as having schedule info
+      if (hasScheduleInfo) {
+        group.hasScheduleInfo = true;
+      }
     });
     
     // Convert to array and calculate status for each group
-    return Array.from(grouped.entries()).map(([scheduledTime, groupLogs]) => {
+    return Array.from(grouped.entries()).map(([scheduledTime, { logs: groupLogs, hasScheduleInfo }]) => {
       const takenCount = groupLogs.filter(log => log.status === 'taken').length;
       const totalCount = groupLogs.length;
       
@@ -387,22 +381,26 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         // If any medication in the pack was taken, consider the whole pack as taken
         status = 'taken';
         
-        // Calculate if it was taken on time or late
-        // Find the earliest scan time among taken medications
-        const takenLogs = groupLogs.filter(log => log.status === 'taken');
-        const earliestScanTime = Math.min(...takenLogs.map(log => new Date(log.event_date).getTime()));
-        const scheduledTimeMs = new Date(scheduledTime).getTime();
-        const timeDifferenceMinutes = (earliestScanTime - scheduledTimeMs) / (1000 * 60);
-        
-        // On time: within 60 minutes of scheduled time
-        // Late: after 60 minutes but within 120 minutes (2-hour window)
-        if (timeDifferenceMinutes <= 60) {
-          timingStatus = 'on-time';
-        } else if (timeDifferenceMinutes <= 120) {
-          timingStatus = 'late';
-        } else {
-          timingStatus = 'late'; // Very late, but still counted as taken
+        // Only calculate timing status if we have schedule info
+        if (hasScheduleInfo) {
+          // Calculate if it was taken on time or late
+          // Find the earliest scan time among taken medications
+          const takenLogs = groupLogs.filter(log => log.status === 'taken');
+          const earliestScanTime = Math.min(...takenLogs.map(log => new Date(log.event_date).getTime()));
+          const scheduledTimeMs = new Date(scheduledTime).getTime();
+          const timeDifferenceMinutes = (earliestScanTime - scheduledTimeMs) / (1000 * 60);
+          
+          // On time: within 60 minutes of scheduled time
+          // Late: after 60 minutes but within 120 minutes (2-hour window)
+          if (timeDifferenceMinutes <= 60) {
+            timingStatus = 'on-time';
+          } else if (timeDifferenceMinutes <= 120) {
+            timingStatus = 'late';
+          } else {
+            timingStatus = 'late'; // Very late, but still counted as taken
+          }
         }
+        // If no schedule info, timingStatus remains undefined
       } else {
         status = 'missed';
       }
@@ -415,7 +413,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         status,
         takenCount,
         totalCount,
-        timingStatus
+        timingStatus,
+        hasScheduleInfo
       };
     }).sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime());
   };
@@ -652,10 +651,15 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                       </span>
                       <div className="text-left">
                         <div className="font-medium text-gray-900">
-                          {formatDate(group.scheduledTime)}
+                          {group.hasScheduleInfo 
+                            ? formatDate(group.scheduledTime)
+                            : `Scanned at ${formatDate(group.scheduledTime)}`}
                         </div>
                         <div className="text-sm text-gray-600">
                           {group.totalCount} medication{group.totalCount > 1 ? 's' : ''}
+                          {!group.hasScheduleInfo && (
+                            <span className="ml-2 text-yellow-600 text-xs">(Schedule info missing)</span>
+                          )}
                         </div>
                       </div>
                     </div>
