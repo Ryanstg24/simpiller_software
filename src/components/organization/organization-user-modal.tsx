@@ -294,6 +294,52 @@ export function OrganizationUserModal({
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!user?.id) return;
+    
+    // Confirm before resetting
+    const confirmed = window.confirm(
+      `Are you sure you want to reset the password for ${user.first_name} ${user.last_name}?\n\n` +
+      `A new temporary password will be generated and the user will be required to change it on their next login.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/api/admin/reset-user-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error resetting password:', result.error);
+        alert(`Failed to reset password: ${result.error}`);
+        setLoading(false);
+        return;
+      }
+
+      // Show the new temporary password
+      setGeneratedPassword(result.temporaryPassword);
+      setShowPassword(true);
+      setSuccess(true);
+      setLoading(false);
+      
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password. Please try again.');
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -685,15 +731,27 @@ export function OrganizationUserModal({
                             <p className="text-sm font-medium text-gray-700">Password Status</p>
                             <p className="text-xs text-gray-500">Check password status and reset options</p>
                           </div>
-                          <Button 
-                            onClick={handleShowTempPassword}
-                            className="bg-orange-600 hover:bg-orange-700 text-white"
-                          >
-                            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Password Info
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              onClick={handleShowTempPassword}
+                              className="bg-orange-600 hover:bg-orange-700 text-white"
+                            >
+                              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Password Info
+                            </Button>
+                            <Button 
+                              onClick={handleResetPassword}
+                              disabled={loading}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                              </svg>
+                              Reset Password
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
