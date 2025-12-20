@@ -103,7 +103,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,patientRtmStatus:(patient as any).rtm_status,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
     
     // RLS FIX: Verify organization access before querying
@@ -121,6 +121,13 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         return;
       }
     }
+    
+    // RLS FIX: For patients who transitioned from "On Track" to "Needs Attention"
+    // The RLS policy might be checking rtm_status. Ensure we're using the current patient status.
+    // If the patient object has stale rtm_status, we need to fetch the current status from the database
+    // However, since RLS policies run at the database level, they should use the current status.
+    // The issue might be that the RLS policy is too restrictive for certain rtm_status values.
+    console.log('[Adherence] Patient RTM status:', (patient as any).rtm_status, 'Organization:', patient.organization_id);
     
     try {
       setLoading(true);
@@ -157,14 +164,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           dateEnd = new Date(); // Today
         }
         
-        // RLS FIX: Use inner join with patients to help RLS policy evaluate organization access
-        // The RLS policy needs to check patient.organization_id, and an inner join ensures
-        // the policy can access this information efficiently
-        // For organization admins, the RLS policy should allow access if patient.organization_id
-        // matches the user's organization_id from their role
+        // RLS FIX: Query without patients join to avoid RLS policy issues with rtm_status
+        // The schedule page successfully queries medication_logs without a join, and RLS
+        // policies can check organization access through the patient_id foreign key relationship
+        // without needing an explicit join. This avoids issues where RLS policies might check
+        // rtm_status and block access for patients who transitioned from "On Track" to "Needs Attention"
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
-          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id, patients!inner(id, organization_id)')
+          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
           .eq('patient_id', patient.id)
           .gte('event_date', dateStart.toISOString())
           .lte('event_date', dateEnd.toISOString())
