@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 
 // Use service-role client for RLS-safe operations
 const supabaseAdmin = createClient(
@@ -21,6 +19,7 @@ export async function GET(request: NextRequest) {
     const patientId = searchParams.get('patientId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const userId = searchParams.get('userId'); // Pass user ID from frontend
     
     if (!patientId) {
       return NextResponse.json(
@@ -29,22 +28,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user is authenticated and has access
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'userId parameter is required' },
+        { status: 400 }
       );
     }
 
     // Get user roles to verify organization access
-    const { data: userRoles } = await supabase
+    const { data: userRoles } = await supabaseAdmin
       .from('user_roles')
       .select('name, organization_id')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     const isSimpillerAdmin = userRoles?.some(role => role.name === 'simpiller_admin');
     const orgAdminRole = userRoles?.find(role => role.name === 'organization_admin');

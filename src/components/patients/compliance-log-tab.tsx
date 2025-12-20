@@ -198,7 +198,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         if (isOrganizationAdmin && !isSimpillerAdmin) {
           console.log('[Adherence] Using API endpoint for organization admin to bypass RLS...');
           try {
-            const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}`;
+            const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}&userId=${user?.id || ''}`;
             const apiResponse = await fetch(apiUrl);
             if (apiResponse.ok) {
               const apiData = await apiResponse.json();
