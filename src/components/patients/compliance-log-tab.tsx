@@ -145,7 +145,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         // The RLS policy on medication_logs can check organization access through
         // the patient_id foreign key relationship without needing an explicit join
         // Select only needed columns instead of * for better performance
-        let query = supabase
+        const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
           .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
           .eq('patient_id', patient.id)
@@ -153,8 +153,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           .lte('event_date', dateEnd.toISOString())
           .order('event_date', { ascending: false })
           .limit(1000);
-        
-        const { data: logsData, error: logsError } = await query;
         
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:134',message:'After medication_logs query',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorDetails:logsError?.details,logsCount:logsData?.length||0,sampleLog:logsData?.[0]?{id:logsData[0].id,patient_id:logsData[0].patient_id}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
