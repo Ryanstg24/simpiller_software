@@ -5,7 +5,6 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuthV2 } from "@/contexts/auth-context-v2";
@@ -188,12 +187,12 @@ export default function OrganizationUsersPage() {
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
+                <input
                   type="text"
                   placeholder="Search users by name, email, or role..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                  className="pl-10 pr-4 py-2 w-full bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
                 />
               </div>
             </div>
