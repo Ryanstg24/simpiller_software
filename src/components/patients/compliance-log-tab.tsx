@@ -103,7 +103,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,patientRtmStatus:(patient as any).rtm_status,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,patientRtmStatus:patient.rtm_status,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
     
     // RLS FIX: Verify organization access before querying
@@ -127,7 +127,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     // If the patient object has stale rtm_status, we need to fetch the current status from the database
     // However, since RLS policies run at the database level, they should use the current status.
     // The issue might be that the RLS policy is too restrictive for certain rtm_status values.
-    console.log('[Adherence] Patient RTM status:', (patient as any).rtm_status, 'Organization:', patient.organization_id);
+    console.log('[Adherence] Patient RTM status:', patient.rtm_status, 'Organization:', patient.organization_id);
     
     try {
       setLoading(true);
@@ -215,7 +215,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           console.log('[Adherence] Medications fetched:', medicationsData?.length);
           
           // Map medications to a lookup object
-          const medicationsMap = new Map(
+          const medicationsMap = new Map<string, { id: string; name: string; strength: string; format: string }>(
             medicationsData?.map((med: { id: string; name: string; strength: string; format: string }) => [med.id, med]) || []
           );
           
@@ -245,7 +245,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               console.log('[Adherence] Schedules fetched:', schedulesData?.length);
               
               // Map schedules to a lookup object by schedule_id
-              const schedulesMap = new Map(
+              const schedulesMap = new Map<string, { time_of_day: string }>(
                 schedulesData?.map((sched: { id: string; time_of_day: string }) => [sched.id, { time_of_day: sched.time_of_day }]) || []
               );
               
@@ -422,7 +422,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [patient.id, patient.first_name, patient.last_name, selectedMonth, user?.id, isSimpillerAdmin, isOrganizationAdmin, userOrganizationId]);
+  }, [patient, selectedMonth, user?.id, isSimpillerAdmin, isOrganizationAdmin, userOrganizationId]);
 
   useEffect(() => {
     if (patient) {
