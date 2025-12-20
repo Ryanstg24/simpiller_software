@@ -1,0 +1,190 @@
+1 – on CRON event, check SFTP folder for new files
+2 – if new files are found, move them to local staging, then move remote files to archives
+3 – drop SFTP connection
+4 – process local files in staging area one at a time...
+
+
+
+$line=0;
+while (($aryRow = fgetcsv($handle, 4096, "~")) !== FALSE) {
+
+
+    // echo(chr(13).chr(10).'<br/>-- Processing Line '.$line.'<br/>'.chr(13).chr(10));
+
+    // 00  A PATIENT NAME
+    // 01  B PATIENT_ID
+    // 02  C PATIENT_FACILITY
+    // 03  D UNIT
+    // 04  E LOCATION
+    // 05  F ROOM
+    // 06  G BED
+    // 07  H NDC
+    // 08  I ADMINISTRATION DATE
+    // 09  J ADMINISTRATION TIME
+    // 10  K QUANTITY
+    // 11  L DOCTOR NAME
+    // 12  M RX NUMBER
+    // 13  N WARNING LABELS
+    // 14  O INSTRUCTIONS
+    // 15  P DRUG NAME
+    // 16  Q DRUG GENERIC NAME
+    // 17  R BAG TYPE
+    // 18  S TECH
+    // 19  T RPH
+    // 20  U BRAND NAME
+    // 21  V DRUG DESCRIPTION
+    // 22  W DRUG DOSAGE FORM
+    // 23  X CUSTOM 1
+    // 24  Y CUSTOM 2
+    // 25  Z CUSTOM 3
+    // 26 AA INVOICE NUMBER
+    // 27 AB FILL NUMBER
+    // 28 AC PATIENT FACILITY NUMBER
+    // 29 AD PRN
+
+    $RAW_NAME = $aryRow[0];
+    if (intval('0'.$aryPatients[$RAW_NAME])<1 && intval('0'.$aryFail[$RAW_NAME])<1) {
+
+        $aryTEMP = explode(",",$RAW_NAME);
+        $_PATIENT_LNAME = disarm($aryTEMP[0]);
+        $_PATIENT_FNAME = disarm($aryTEMP[1]);
+
+        $PATIENT_ID=0;
+        $sql = "select PATIENTS.PATIENT_ID, PATIENTS.PATIENT_DOB, ";
+        $sql .= "cast(AES_DECRYPT(PATIENTS._PATIENT_FNAME,UNHEX(SHA1('".$AES_KEY."'))) as char) as _PATIENT_FNAME, ";
+        $sql .= "cast(AES_DECRYPT(PATIENTS._PATIENT_LNAME,UNHEX(SHA1('".$AES_KEY."'))) as char) as _PATIENT_LNAME ";
+        $sql .= "from PATIENTS ";
+        $sql .= "where cast(AES_DECRYPT(PATIENTS._PATIENT_FNAME,UNHEX(SHA1('".$AES_KEY."'))) as char) like '%".$_PATIENT_FNAME."%' ";
+        $sql .= "and cast(AES_DECRYPT(PATIENTS._PATIENT_LNAME,UNHEX(SHA1('".$AES_KEY."'))) as char) like '%".$_PATIENT_LNAME."%' ";
+
+        foreach ($conn->query($sql) as $row) {
+            $PATIENT_ID = $row['PATIENT_ID'];
+            $PATIENT_DOB = $row['PATIENT_DOB'];
+            $_PATIENT_FNAME = makeNice($row['_PATIENT_FNAME']);
+            $_PATIENT_LNAME = makeNice($row['_PATIENT_LNAME']);
+        }
+
+        if ($PATIENT_ID>0) {
+            if ($DBG>0) { echo('- STORING Patient <b>#'.$PATIENT_ID.'</b> ['.$RAW_NAME.']</br/>'.chr(13).chr(10)); }
+            if ($DBG>0) { echo('- Last Name: ['.$_PATIENT_LNAME.']</br/>'.chr(13).chr(10)); }
+            if ($DBG>0) { echo('- First Name: ['.$_PATIENT_FNAME.']</br/>'.chr(13).chr(10)); }
+            if ($DBG>0) { echo('- Birth Date: ['.$PATIENT_DOB.']</br/>'.chr(13).chr(10)); }
+
+            $aryPatients[$RAW_NAME]=$PATIENT_ID;
+        } else {
+            // Mark Failure
+            if ($DBG>0) { echo('- MARKING FAILURE ['.$RAW_NAME.']</br/>'.chr(13).chr(10)); }
+            $aryFail[$RAW_NAME]=1;
+        }
+
+    } else {
+        if (intval('0'.$aryFail[$RAW_NAME])<1) {
+            $PATIENT_ID = intval("0".$aryPatients[$RAW_NAME]);
+            if ($DBG>0) { echo($line.')- Patient #'.$PATIENT_ID.' ['.$RAW_NAME.'] '); }
+        } else {
+            if ($DBG>0) {
+                echo('.');
+                $DOTS++;
+                if ($DOTS>100) {
+                    echo('<br/>'.chr(13).chr(10));
+                    $DOTS=0;
+                }
+            }
+        }
+    }
+
+    if ($PATIENT_ID>0) {
+
+        $RX_PATIENT = $aryRow[1];
+        $DRUG_NDC = trim($aryRow[7]);
+        $ADMIN_DATE = trim($aryRow[8]);
+        $ADMIN_TIME = $aryRow[9];
+        $DRUG_NAME = $aryRow[15];
+        $DRUG_GENERIC = $aryRow[16];
+        $DRUG_BRAND = $aryRow[20];
+
+        if (strlen(trim($aryNDC[$DRUG_NDC]))<1) {
+            //$aryNDC[$DRUG_NDC] = $DRUG_NAME."^".$DRUG_GENERIC."^".$DRUG_BRAND;
+            $aryNDC[$DRUG_NDC] = $DRUG_NAME;
+        }
+
+        $aryPRX[$PATIENT_ID][$DRUG_NDC] .= $ADMIN_TIME."^";
+        if ($DBG>0) { echo('-- adding Drug ['.$DRUG_NAME.']['.$DRUG_NDC.'] at ['.$ADMIN_TIME.']</br/>'.chr(13).chr(10)); }
+    }
+
+
+
+
+
+
+    // if ($DBG>0) { echo('<br/>'.chr(13).chr(10)); }
+
+    $line++;
+
+    
+
+
+
+
+}
+fclose($handle);
+
+
+// TEST makeMEDTIME
+// echo('*** TESTING makeMEDTIME ***<br/>'.chr(13).chr(10));
+// $test = makeMEDTIME('0900^2000');
+// echo('X ['.$test.']<br/>'.chr(13).chr(10));
+// echo('Y [000000000100000000001000]<br/><br/>'.chr(13).chr(10));
+
+
+// UNWINDING PATIENTS AND TIMES
+// $aryPRX[$PATIENT_ID][$ADMIN_TIME]
+// $aryPRX[$PATIENT_ID][$DRUG_NDC] .= $ADMIN_TIME."^";
+echo('<h2>Unwinding aryPRX</h2>'.chr(13).chr(10));
+
+foreach($aryPRX as $keyP => $aryRX) {
+    echo('-- working on Patient #'.$keyP.' <br/>'.chr(13).chr(10));
+
+    // *** CLEAR PREVIOUS MEDS ***
+    $sql = "delete from PATIENTS_MEDS where PATIENT_ID='".$keyP."' ";
+    echo('---- CLEARING PREVIOUS MEDS ['.$sql.'] <br/>'.chr(13).chr(10));
+    $action = $conn->query($sql);
+
+
+    $MEDCOUNT=0;
+    foreach($aryRX as $keyR => $valR) {
+        $NICE_RX = $aryNDC[$keyR];
+
+        echo('--- keyR ['.$keyR.']['.$NICE_RX.'] <br/>'.chr(13).chr(10));
+        echo('--- valR ['.$valR.'] <br/>'.chr(13).chr(10));
+        $aryTEMP = explode("^",$valR);
+        $aryUNQ = array_unique($aryTEMP);
+        $newT = implode(",",$aryUNQ);
+        $newT = rtrim($newT,",");
+        $MEDTIMES = makeMEDTIME($newT);
+        echo('---- newT ['.$newT.'] <br/>'.chr(13).chr(10));
+        echo('---- MEDTIMES ['.$MEDTIMES.'] <br/>'.chr(13).chr(10));
+
+        $aryCLEAN = explode(",",$newT);
+        foreach ($aryCLEAN as $keyC=>$valC) {
+            $aryTEMP2 = explode("^",$aryNDC[$valC]);
+
+            $sql = "insert ignore into PATIENTS_MEDS (PATIENT_ID,MED_NAME,TIME_OF_DAY) values (";
+            $sql .= "'".$keyP."',";
+            $sql .= "'".$NICE_RX."',";
+            $sql .= "'".$MEDTIMES."'"; //
+            $sql .= ")";
+            echo ('test SQL ['.$sql.']<br/>'.chr(13).chr(10));
+            $action = $conn->query($sql);
+            $MEDCOUNT++;
+        }
+
+    }
+
+
+
+}
+
+5 – move finished local file to local archives
+6 – loop to step 4 until completed
+7 – rest until next CRON interval

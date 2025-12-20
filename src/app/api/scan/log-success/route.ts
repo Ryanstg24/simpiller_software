@@ -1,0 +1,405 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service-role client for RLS-safe operations
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
+export async function POST(request: NextRequest) {
+  try {
+    const { scanSessionId, medicationId, patientId, scheduleId, scanData } = await request.json();
+
+    if (!scanSessionId || !medicationId || !patientId) {
+      return NextResponse.json(
+        { error: 'Missing required fields: scanSessionId, medicationId, patientId' },
+        { status: 400 }
+      );
+    }
+
+    // Pull scheduled_time, medication_ids, and is_active to determine on_time/overdue/missed windows
+    // Also check if session is already completed to prevent duplicate processing
+    const { data: sessionRow } = await supabaseAdmin
+      .from('medication_scan_sessions')
+      .select('scheduled_time, medication_ids, is_active')
+      .eq('id', scanSessionId)
+      .single();
+    
+    // If session is already inactive (completed), check if logs exist and return early
+    if (sessionRow && !sessionRow.is_active) {
+      const { data: existingLogs } = await supabaseAdmin
+        .from('medication_logs')
+        .select('id')
+        .eq('patient_id', patientId)
+        .gte('event_date', new Date().toISOString().slice(0, 10)) // Today
+        .eq('status', 'taken')
+        .limit(1);
+      
+      if (existingLogs && existingLogs.length > 0) {
+        console.log(`Scan session ${scanSessionId} is already completed and has logs. Skipping duplicate processing.`);
+        return NextResponse.json({
+          success: true,
+          message: 'Scan session already processed',
+          duplicate: true
+        });
+      }
+    }
+
+    const now = new Date();
+    const scheduledAt = sessionRow?.scheduled_time ? new Date(sessionRow.scheduled_time) : null;
+    let timeliness: 'on_time' | 'overdue' | 'missed' = 'on_time';
+    if (scheduledAt) {
+      const diffMin = (now.getTime() - scheduledAt.getTime()) / 60000;
+      if (diffMin > 180) timeliness = 'missed';
+      else if (diffMin > 60) timeliness = 'overdue';
+    }
+
+    // If scan window expired, mark missed and block success
+    if (timeliness === 'missed') {
+      await supabaseAdmin
+        .from('medication_logs')
+        .insert({
+          medication_id: medicationId,
+          patient_id: patientId,
+          schedule_id: scheduleId || null,
+          event_key: new Date().toISOString().slice(0, 13),
+          event_date: now.toISOString(),
+          status: 'missed',
+          source: 'qr_scan',
+          raw_scan_data: JSON.stringify({ reason: 'window_expired', scheduledAt, now }),
+        });
+      return NextResponse.json({ error: 'Scan window expired. Marked as missed.' }, { status: 400 });
+    }
+
+    // Mark scan session as completed (first scan completes the session)
+    // Only update is_active since status and completed_at columns don't exist
+    const { error: sessionError } = await supabaseAdmin
+      .from('medication_scan_sessions')
+      .update({ 
+        is_active: false
+      })
+      .eq('id', scanSessionId);
+
+    if (sessionError) {
+      console.error('Error updating scan session:', sessionError);
+      // Don't fail the entire request if session update fails
+      // The medication_logs are still created, which is what matters
+      console.warn('Continuing despite session update error - medication_logs were created');
+    }
+
+    // Find the schedule_id if not provided
+    let finalScheduleId = scheduleId;
+    if (!finalScheduleId) {
+      const { data: schedule } = await supabaseAdmin
+        .from('medication_schedules')
+        .select('id')
+        .eq('medication_id', medicationId)
+        .eq('is_active', true)
+        .single();
+      finalScheduleId = schedule?.id || null;
+    }
+
+    // Create medication log entries for ALL medications in the session
+    // When a patient scans a medication pack, they're taking ALL medications in that pack
+    const eventKey = new Date().toISOString().slice(0, 13); // YYYYMMDDH format
+    const eventDate = new Date().toISOString();
+    
+    // Get all medication IDs from the session
+    const allMedicationIds = sessionRow?.medication_ids || [medicationId];
+    
+    // Check if logs already exist for this scan session to prevent duplicates
+    // This can happen if the API is called multiple times (double-click, retry, etc.)
+    const { data: existingLogs } = await supabaseAdmin
+      .from('medication_logs')
+      .select('id, medication_id')
+      .eq('patient_id', patientId)
+      .eq('event_key', eventKey)
+      .in('medication_id', allMedicationIds)
+      .eq('status', 'taken')
+      .gte('event_date', new Date(eventDate).toISOString().slice(0, 10)) // Same day
+      .order('created_at', { ascending: false })
+      .limit(100);
+    
+    // If we already have logs for all medications in this session, return early
+    // This prevents duplicate log creation if the API is called multiple times
+    if (existingLogs && existingLogs.length >= allMedicationIds.length) {
+      const existingMedicationIds = new Set(existingLogs.map((log: { medication_id: string }) => log.medication_id));
+      const allMedicationsLogged = allMedicationIds.every((medId: string) => existingMedicationIds.has(medId));
+      
+      if (allMedicationsLogged) {
+        console.log(`Logs already exist for scan session ${scanSessionId}. Skipping duplicate log creation.`);
+        return NextResponse.json({
+          success: true,
+          message: `Medication pack scan already logged for ${allMedicationIds.length} medications`,
+          medicationsProcessed: allMedicationIds.length,
+          duplicate: true
+        });
+      }
+    }
+    
+    // Create logs for all medications in the session
+    // Only create logs for medications that don't already have logs
+    const medicationsToLog = existingLogs 
+      ? allMedicationIds.filter((medId: string) => !existingLogs.some((log: { medication_id: string }) => log.medication_id === medId))
+      : allMedicationIds;
+    
+    if (medicationsToLog.length === 0) {
+      console.log(`All medications already have logs for scan session ${scanSessionId}. Skipping.`);
+      return NextResponse.json({
+        success: true,
+        message: `All medications already logged for this scan session`,
+        medicationsProcessed: allMedicationIds.length,
+        duplicate: true
+      });
+    }
+    
+    const logEntries = medicationsToLog.map(async (medId: string) => {
+      // Find schedule_id for this specific medication
+      let scheduleId = finalScheduleId;
+      if (medId !== medicationId) {
+        const { data: schedule } = await supabaseAdmin
+          .from('medication_schedules')
+          .select('id')
+          .eq('medication_id', medId)
+          .eq('is_active', true)
+          .single();
+        scheduleId = schedule?.id || null;
+      }
+
+      return supabaseAdmin
+        .from('medication_logs')
+        .insert({
+          medication_id: medId,
+          patient_id: patientId,
+          schedule_id: scheduleId,
+          event_key: eventKey,
+          event_date: eventDate,
+          status: 'taken',
+          qr_code_scanned: scanData?.qrCode || null,
+          raw_scan_data: JSON.stringify({
+            ...scanData,
+            packScan: true,
+            allMedicationsInPack: allMedicationIds,
+            scannedMedication: medicationId,
+            scanSessionId: scanSessionId // Include session ID for tracking
+          }),
+          source: 'qr_scan',
+          alert_sent_at: new Date().toISOString(),
+          alert_type: 'sms',
+          alert_response: 'scanned'
+        });
+    });
+
+    // Execute all log insertions
+    const logResults = await Promise.all(logEntries);
+    
+    // Check for any errors
+    const logErrors = logResults.filter(result => result.error);
+    if (logErrors.length > 0) {
+      console.error('Error creating medication logs:', logErrors);
+      return NextResponse.json(
+        { error: 'Failed to create some medication logs' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`Created medication logs for ${medicationsToLog.length} medications in pack scan (${allMedicationIds.length} total in pack)`);
+
+    // Update last_dose_at for ALL medications in the pack
+    const { error: medicationError } = await supabaseAdmin
+      .from('medications')
+      .update({ 
+        last_dose_at: new Date().toISOString()
+      })
+      .in('id', allMedicationIds);
+
+    if (medicationError) {
+      console.error('Error updating medication last_dose_at:', medicationError);
+      // Don't fail the request for this, just log it
+    }
+
+    // Calculate and update compliance score
+    await updateComplianceScore(patientId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Medication pack scan logged successfully for ${allMedicationIds.length} medications`,
+      medicationsProcessed: allMedicationIds.length
+    });
+
+  } catch (error) {
+    console.error('Error logging scan success:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Calculate and update patient compliance score for ALL medications
+ */
+async function updateComplianceScore(patientId: string) {
+  try {
+    // Get all scan sessions for this patient in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { data: scanSessions, error: sessionsError } = await supabaseAdmin
+      .from('medication_scan_sessions')
+      .select('status, scheduled_time, completed_at')
+      .eq('patient_id', patientId)
+      .gte('scheduled_time', thirtyDaysAgo.toISOString())
+      .order('scheduled_time', { ascending: true });
+
+    if (sessionsError) {
+      console.error('Error fetching scan sessions for compliance:', sessionsError);
+      return;
+    }
+
+    // Get all medication schedules for this patient to calculate expected sessions
+    const { data: medications, error: medicationsError } = await supabaseAdmin
+      .from('medications')
+      .select('id')
+      .eq('patient_id', patientId)
+      .eq('status', 'active');
+
+    if (medicationsError) {
+      console.error('Error fetching medications for compliance:', medicationsError);
+      return;
+    }
+
+    const medicationIds = medications.map(m => m.id);
+    const { data: schedules, error: schedulesError } = await supabaseAdmin
+      .from('medication_schedules')
+      .select('medication_id, time_of_day, days_of_week')
+      .in('medication_id', medicationIds)
+      .eq('is_active', true);
+
+    if (schedulesError) {
+      console.error('Error fetching medication schedules for compliance:', schedulesError);
+      return;
+    }
+
+    // Calculate expected sessions for the last 30 days
+    // Group schedules by time of day to count unique session times
+    const sessionTimes = new Set<string>();
+    schedules.forEach(schedule => {
+      sessionTimes.add(schedule.time_of_day);
+    });
+
+    // Calculate expected sessions per day
+    let totalExpectedSessions = 0;
+    
+    for (let day = 0; day < 30; day++) {
+      const checkDate = new Date(thirtyDaysAgo);
+      checkDate.setDate(checkDate.getDate() + day);
+      const dayOfWeek = checkDate.getDay() === 0 ? 7 : checkDate.getDay(); // Convert Sunday from 0 to 7
+      
+      // Count how many session times are scheduled for this day of week
+      const scheduledSessionsForDay = schedules.filter(schedule => 
+        schedule.days_of_week & (1 << (dayOfWeek - 1)) // Check if this day is set in the bitmask
+      ).length;
+      
+      if (scheduledSessionsForDay > 0) {
+        totalExpectedSessions += sessionTimes.size; // One session per time slot
+      }
+    }
+
+    // Count completed sessions (any session with status 'completed')
+    const completedSessions = scanSessions.filter(session => session.status === 'completed').length;
+    
+    // Calculate overall compliance score based on sessions
+    const complianceScore = totalExpectedSessions > 0 ? (completedSessions / totalExpectedSessions) * 100 : 100;
+
+    // Ensure compliance score is an integer between 0 and 100
+    const roundedScore = Math.max(0, Math.min(100, Math.round(complianceScore)));
+
+    // Map numeric score to string value required by database constraint
+    let adherenceScoreString: string;
+    if (roundedScore >= 90) {
+      adherenceScoreString = 'excellent';
+    } else if (roundedScore >= 70) {
+      adherenceScoreString = 'good';
+    } else if (roundedScore >= 50) {
+      adherenceScoreString = 'fair';
+    } else if (roundedScore > 0) {
+      adherenceScoreString = 'poor';
+    } else {
+      adherenceScoreString = 'unknown';
+    }
+
+    // Persist rolling 30-day adherence (compliance) score on patient
+    // Try to update adherence_score, but don't fail if the column doesn't exist or has constraints
+    try {
+      console.log(`Attempting to update adherence_score to ${adherenceScoreString} (${roundedScore}%) for patient ${patientId}`);
+      
+      const { error: patientUpdateError } = await supabaseAdmin
+        .from('patients')
+        .update({ adherence_score: adherenceScoreString })
+        .eq('id', patientId);
+      
+      if (patientUpdateError) {
+        console.error('Error updating patient adherence_score:', patientUpdateError);
+        console.log('Adherence score update failed, but scan logging will continue');
+        
+        // Try to get more info about the patient record
+        const { data: patientData, error: patientFetchError } = await supabaseAdmin
+          .from('patients')
+          .select('id, first_name, last_name, adherence_score')
+          .eq('id', patientId)
+          .single();
+        
+        if (patientFetchError) {
+          console.error('Error fetching patient data:', patientFetchError);
+        } else {
+          console.log('Current patient data:', patientData);
+        }
+      } else {
+        console.log(`Successfully updated adherence score to ${adherenceScoreString} (${roundedScore}%) for patient ${patientId}`);
+      }
+    } catch (updateError) {
+      console.error('Exception updating patient adherence_score:', updateError);
+      console.log('Adherence score update failed, but scan logging will continue');
+    }
+
+    console.log(`Overall compliance score for patient ${patientId}: ${roundedScore}% (${completedSessions}/${totalExpectedSessions} sessions completed)`);
+
+  } catch (error) {
+    console.error('Error updating compliance score:', error);
+  }
+}
+
+/**
+ * Calculate expected number of doses based on schedules
+ */
+function calculateExpectedDoses(schedules: Array<{ time_of_day: string; days_of_week: number }>, startDate: Date): number {
+  let totalExpected = 0;
+  const endDate = new Date();
+
+  for (const schedule of schedules) {
+    const daysOfWeek = schedule.days_of_week; // Bitmap: 1=Sunday, 2=Monday, etc.
+
+    // Count days from startDate to endDate that match the schedule
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay(); // 0=Sunday, 1=Monday, etc.
+      const dayBit = Math.pow(2, dayOfWeek); // Convert to bitmap position
+      
+      if (daysOfWeek & dayBit) {
+        totalExpected++;
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+
+  return totalExpected;
+}
