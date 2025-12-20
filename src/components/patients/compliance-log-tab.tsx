@@ -186,25 +186,17 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           });
         }
         
-        // CRITICAL RLS FIX: For patients who transitioned from "On Track" to "Needs Attention"
-        // The RLS policy is blocking access. Use API endpoint with service role to bypass RLS
-        // This ensures organization admins can always see logs for patients in their organization
-        let logsData: any[] | null = null;
+        // CRITICAL RLS FIX: For organization admins, always use API endpoint to bypass RLS
+        // The RLS policy is blocking access for patients who transitioned from "On Track" to "Needs Attention"
+        // Using the API endpoint with service role ensures organization admins can always see logs
+        // for patients in their organization, regardless of rtm_status transitions
+        let logsData: any[] = [];
         let logsError: any = null;
         
-        // Try direct query first (works for most patients)
-        const directQuery = await supabase
-          .from('medication_logs')
-          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
-          .eq('patient_id', patient.id)
-          .gte('event_date', dateStart.toISOString())
-          .lte('event_date', dateEnd.toISOString())
-          .order('event_date', { ascending: false })
-          .limit(1000);
-        
-        // If direct query fails or returns empty (RLS blocking), use API endpoint
-        if (directQuery.error || !directQuery.data || directQuery.data.length === 0) {
-          console.log('[Adherence] Direct query blocked or empty, trying API endpoint...');
+        // For organization admins, use API endpoint to bypass RLS issues
+        // For Simpiller admins, use direct query (RLS allows them access)
+        if (isOrganizationAdmin && !isSimpillerAdmin) {
+          console.log('[Adherence] Using API endpoint for organization admin to bypass RLS...');
           try {
             const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}`;
             const apiResponse = await fetch(apiUrl);
@@ -213,15 +205,26 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               logsData = apiData.logs || [];
               console.log('[Adherence] API endpoint returned', logsData.length, 'logs');
             } else {
-              logsError = { code: 'API_ERROR', message: `API returned ${apiResponse.status}` };
-              console.error('[Adherence] API endpoint error:', apiResponse.status);
+              const errorData = await apiResponse.json().catch(() => ({}));
+              logsError = { code: 'API_ERROR', message: `API returned ${apiResponse.status}`, details: errorData };
+              console.error('[Adherence] API endpoint error:', apiResponse.status, errorData);
             }
           } catch (apiErr) {
             logsError = apiErr;
             console.error('[Adherence] API endpoint exception:', apiErr);
           }
         } else {
-          logsData = directQuery.data;
+          // Simpiller admins can use direct query (RLS allows them)
+          const directQuery = await supabase
+            .from('medication_logs')
+            .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
+            .eq('patient_id', patient.id)
+            .gte('event_date', dateStart.toISOString())
+            .lte('event_date', dateEnd.toISOString())
+            .order('event_date', { ascending: false })
+            .limit(1000);
+          
+          logsData = directQuery.data || [];
           logsError = directQuery.error;
         }
         
