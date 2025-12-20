@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/hooks/use-patients';
 import { Activity, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
-import { useAuthV2 } from '@/contexts/auth-context-v2';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -89,7 +88,6 @@ interface GroupedLog {
 }
 
 export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
-  const { user, isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuthV2();
   const [logs, setLogs] = useState<MedicationLogData[]>([]);
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,20 +137,15 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         if (logsError) {
           console.error('[Adherence] Error fetching medication logs:', logsError);
-        }
-        
-        
-        // If we have logs, fetch medication details separately
-        if (logsData && logsData.length > 0) {
-          const medicationIds = [...new Set(logsData.map((log: { medication_id: string }) => log.medication_id))];
-          console.log('[Adherence] Fetching details for', medicationIds.length, 'unique medications');
+          setLogs([]);
+        } else if (logsData && logsData.length > 0) {
+          // Fetch medication details separately
+          const medicationIds = [...new Set(logsData.map((log: RawMedicationLogResponse) => log.medication_id))];
           
           const { data: medicationsData } = await supabase
             .from('medications')
             .select('id, name, strength, format')
             .in('id', medicationIds);
-          
-          console.log('[Adherence] Medications fetched:', medicationsData?.length);
           
           // Map medications to a lookup object
           const medicationsMap = new Map<string, { id: string; name: string; strength: string; format: string }>(
@@ -166,14 +159,11 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               log.medications = med;
             }
           });
-
+          
           // Fetch schedules separately by schedule_id to ensure we get the correct schedule
-          // This is critical: we need to match by schedule_id, not medication_id
-          const scheduleIds = [...new Set(logsData.map((log: { schedule_id?: string }) => log.schedule_id).filter(Boolean))];
+          const scheduleIds = [...new Set(logsData.map((log: RawMedicationLogResponse) => log.schedule_id).filter(Boolean))];
           
           if (scheduleIds.length > 0) {
-            console.log('[Adherence] Fetching schedules for', scheduleIds.length, 'unique schedule IDs');
-            
             const { data: schedulesData, error: schedulesError } = await supabase
               .from('medication_schedules')
               .select('id, time_of_day')
@@ -182,8 +172,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             if (schedulesError) {
               console.error('[Adherence] Error fetching schedules:', schedulesError);
             } else {
-              console.log('[Adherence] Schedules fetched:', schedulesData?.length);
-              
               // Map schedules to a lookup object by schedule_id
               const schedulesMap = new Map<string, { time_of_day: string }>(
                 schedulesData?.map((sched: { id: string; time_of_day: string }) => [sched.id, { time_of_day: sched.time_of_day }]) || []
@@ -196,74 +184,13 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                   if (sched) {
                     log.medication_schedules = sched;
                   }
-                } else if (log.schedule_id) {
-                  console.warn('[Adherence] Log has schedule_id but schedule not found:', {
-                    logId: log.id,
-                    scheduleId: log.schedule_id,
-                    medicationId: log.medication_id
-                  });
                 }
               });
-            }
-          } else {
-            console.log('[Adherence] No schedule_ids found in logs - all logs may be missing schedule_id');
-          }
-        }
-        
-          // Fetch medication details separately
-          if (logsData && logsData.length > 0) {
-            const medicationIds = [...new Set(logsData.map((log: RawMedicationLogResponse) => log.medication_id))];
-            
-            const { data: medicationsData } = await supabase
-              .from('medications')
-              .select('id, name, strength, format')
-              .in('id', medicationIds);
-            
-            // Map medications to a lookup object
-            const medicationsMap = new Map<string, { id: string; name: string; strength: string; format: string }>(
-              medicationsData?.map((med: { id: string; name: string; strength: string; format: string }) => [med.id, med]) || []
-            );
-            
-            // Attach medication details to logs
-            logsData.forEach((log: RawMedicationLogResponse) => {
-              const med = medicationsMap.get(log.medication_id);
-              if (med) {
-                log.medications = med;
-              }
-            });
-            
-            // Fetch schedules separately by schedule_id to ensure we get the correct schedule
-            const scheduleIds = [...new Set(logsData.map((log: RawMedicationLogResponse) => log.schedule_id).filter(Boolean))];
-            
-            if (scheduleIds.length > 0) {
-              const { data: schedulesData, error: schedulesError } = await supabase
-                .from('medication_schedules')
-                .select('id, time_of_day')
-                .in('id', scheduleIds);
-              
-              if (schedulesError) {
-                console.error('[Adherence] Error fetching schedules:', schedulesError);
-              } else {
-                // Map schedules to a lookup object by schedule_id
-                const schedulesMap = new Map<string, { time_of_day: string }>(
-                  schedulesData?.map((sched: { id: string; time_of_day: string }) => [sched.id, { time_of_day: sched.time_of_day }]) || []
-                );
-                
-                // Attach schedule details to logs by matching schedule_id
-                logsData.forEach((log: RawMedicationLogResponse) => {
-                  if (log.schedule_id && schedulesMap.has(log.schedule_id)) {
-                    const sched = schedulesMap.get(log.schedule_id);
-                    if (sched) {
-                      log.medication_schedules = sched;
-                    }
-                  }
-                });
-              }
             }
           }
           
           // Map the data to handle Supabase join structure
-          const mappedLogs: MedicationLogData[] = (logsData || []).map((log: RawMedicationLogResponse) => ({
+          const mappedLogs: MedicationLogData[] = logsData.map((log: RawMedicationLogResponse) => ({
             id: log.id,
             medication_id: log.medication_id,
             patient_id: log.patient_id,
@@ -276,6 +203,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           }));
           
           setLogs(mappedLogs);
+        } else {
+          setLogs([]);
         }
       } catch (error) {
         console.error('Exception fetching medication logs:', error);
