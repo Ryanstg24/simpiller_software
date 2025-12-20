@@ -103,7 +103,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
     
     try {
@@ -118,23 +118,43 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         console.log('[Adherence] Fetching logs for patient:', patient.id, 'Name:', patient.first_name, patient.last_name);
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:128',message:'Before medication_logs query',data:{patientId:patient.id,patientOrgId:patient.organization_id,userOrgId:userOrganizationId,orgMatch:patient.organization_id===userOrganizationId,queryType:'left_join'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:128',message:'Before medication_logs query',data:{patientId:patient.id,patientOrgId:patient.organization_id,userOrgId:userOrganizationId,orgMatch:patient.organization_id===userOrganizationId,selectedMonth,queryType:'optimized'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
         // #endregion
         
         // Fetch logs WITHOUT the schedule join to avoid incorrect joins
         // We'll fetch schedules separately by schedule_id to ensure correctness
-        // Increased limit from 100 to 1000 to ensure we capture all historical logs
-        // (Some patients may have more than 100 logs, causing older logs to be excluded)
+        // PERFORMANCE FIX: Add date range filter to prevent statement timeouts
+        // For patients with thousands of logs, fetching all logs causes timeouts
+        // If a month is selected, query only that month. Otherwise, default to last 12 months.
+        let dateStart: Date;
+        let dateEnd: Date;
+        
+        if (selectedMonth) {
+          // Query only the selected month
+          const [year, month] = selectedMonth.split('-').map(Number);
+          dateStart = new Date(year, month - 1, 1); // First day of month
+          dateEnd = new Date(year, month, 0, 23, 59, 59, 999); // Last day of month
+        } else {
+          // Default to last 12 months
+          dateStart = new Date();
+          dateStart.setFullYear(dateStart.getFullYear() - 1);
+          dateEnd = new Date(); // Today
+        }
+        
         // CRITICAL FIX: Remove patients join - it causes 500 errors for some patients
         // The RLS policy on medication_logs can check organization access through
         // the patient_id foreign key relationship without needing an explicit join
-        // This matches how the schedule page queries medication_logs successfully
-        const { data: logsData, error: logsError } = await supabase
+        // Select only needed columns instead of * for better performance
+        let query = supabase
           .from('medication_logs')
-          .select('*')
+          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
           .eq('patient_id', patient.id)
+          .gte('event_date', dateStart.toISOString())
+          .lte('event_date', dateEnd.toISOString())
           .order('event_date', { ascending: false })
           .limit(1000);
+        
+        const { data: logsData, error: logsError } = await query;
         
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:134',message:'After medication_logs query',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorDetails:logsError?.details,logsCount:logsData?.length||0,sampleLog:logsData?.[0]?{id:logsData[0].id,patient_id:logsData[0].patient_id}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
@@ -230,7 +250,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         console.log('[Adherence] Query completed. Error:', logsError, 'Data count:', logsData?.length || 0);
         
-        // Enhanced error logging for 500 errors
+        // Enhanced error logging for 500 errors and timeouts
         if (logsError) {
           console.error('[Adherence] Error fetching medication logs:', {
             code: logsError.code,
@@ -243,6 +263,11 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
             isSimpillerAdmin,
             isOrganizationAdmin
           });
+          
+          // Handle timeout errors specifically
+          if (logsError.code === '57014') {
+            console.warn('[Adherence] Query timeout - patient may have very large number of logs. Consider adding more restrictive date filtering.');
+          }
         }
 
         // #region agent log
@@ -375,7 +400,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [patient.id, patient.first_name, patient.last_name]);
+  }, [patient.id, patient.first_name, patient.last_name, selectedMonth, user?.id, isSimpillerAdmin, isOrganizationAdmin, userOrganizationId]);
 
   useEffect(() => {
     if (patient) {
