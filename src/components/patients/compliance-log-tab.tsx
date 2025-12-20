@@ -106,6 +106,22 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:104',message:'fetchComplianceData entry',data:{patientId:patient.id,patientName:`${patient.first_name} ${patient.last_name}`,patientOrgId:patient.organization_id,userId:user?.id,isSimpillerAdmin,isOrganizationAdmin,userOrganizationId,selectedMonth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
     
+    // RLS FIX: Verify organization access before querying
+    // If user is an organization admin (not Simpiller admin), ensure patient is in their organization
+    // This helps RLS policies evaluate correctly by ensuring we only query for accessible patients
+    if (isOrganizationAdmin && !isSimpillerAdmin && userOrganizationId) {
+      if (patient.organization_id !== userOrganizationId) {
+        console.warn('[Adherence] Patient organization mismatch - user cannot access this patient\'s logs', {
+          patientOrgId: patient.organization_id,
+          userOrgId: userOrganizationId
+        });
+        setLogs([]);
+        setComplianceScores([]);
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
       setLoading(true);
 
@@ -141,13 +157,14 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           dateEnd = new Date(); // Today
         }
         
-        // CRITICAL FIX: Remove patients join - it causes 500 errors for some patients
-        // The RLS policy on medication_logs can check organization access through
-        // the patient_id foreign key relationship without needing an explicit join
-        // Select only needed columns instead of * for better performance
+        // RLS FIX: Use inner join with patients to help RLS policy evaluate organization access
+        // The RLS policy needs to check patient.organization_id, and an inner join ensures
+        // the policy can access this information efficiently
+        // For organization admins, the RLS policy should allow access if patient.organization_id
+        // matches the user's organization_id from their role
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
-          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
+          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id, patients!inner(id, organization_id)')
           .eq('patient_id', patient.id)
           .gte('event_date', dateStart.toISOString())
           .lte('event_date', dateEnd.toISOString())
