@@ -188,7 +188,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         // Query medication_logs directly - RLS should allow access if patient is visible
         // If organization admin can see the patient, they should be able to see the logs
-        let { data: logsData, error: logsError } = await supabase
+        const { data: initialLogsData, error: logsError } = await supabase
           .from('medication_logs')
           .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
           .eq('patient_id', patient.id)
@@ -199,7 +199,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         
         // If direct query returns empty and user is organization admin, try API endpoint as fallback
         // This handles cases where RLS policy blocks access for certain patients
-        if ((!logsData || logsData.length === 0) && isOrganizationAdmin && !isSimpillerAdmin && user?.id) {
+        let logsData = initialLogsData || [];
+        if (logsData.length === 0 && isOrganizationAdmin && !isSimpillerAdmin && user?.id) {
           console.log('[Adherence] Direct query returned empty, trying API endpoint fallback...');
           try {
             const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}&userId=${user.id}`;
