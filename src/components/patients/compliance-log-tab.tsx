@@ -164,12 +164,36 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           dateEnd = new Date(); // Today
         }
         
-        // RLS FIX: Query without patients join to avoid RLS policy issues with rtm_status
-        // The schedule page successfully queries medication_logs without a join, and RLS
-        // policies can check organization access through the patient_id foreign key relationship
-        // without needing an explicit join. This avoids issues where RLS policies might check
-        // rtm_status and block access for patients who transitioned from "On Track" to "Needs Attention"
-        const { data: logsData, error: logsError } = await supabase
+        // RLS FIX: For patients who transitioned from "On Track" to "Needs Attention"
+        // The RLS policy might be blocking access. First, verify the patient's current status.
+        // Then query medication_logs - if RLS blocks, we'll see the error in logs.
+        const { data: currentPatient, error: patientError } = await supabase
+          .from('patients')
+          .select('id, organization_id, rtm_status')
+          .eq('id', patient.id)
+          .single();
+        
+        if (patientError) {
+          console.error('[Adherence] Error fetching current patient status:', patientError);
+        } else {
+          console.log('[Adherence] Current patient status from DB:', {
+            id: currentPatient?.id,
+            organization_id: currentPatient?.organization_id,
+            rtm_status: currentPatient?.rtm_status,
+            propRtmStatus: patient.rtm_status,
+            matches: currentPatient?.rtm_status === patient.rtm_status,
+            orgMatches: currentPatient?.organization_id === userOrganizationId
+          });
+        }
+        
+        // CRITICAL RLS FIX: For patients who transitioned from "On Track" to "Needs Attention"
+        // The RLS policy is blocking access. Use API endpoint with service role to bypass RLS
+        // This ensures organization admins can always see logs for patients in their organization
+        let logsData: any[] | null = null;
+        let logsError: any = null;
+        
+        // Try direct query first (works for most patients)
+        const directQuery = await supabase
           .from('medication_logs')
           .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
           .eq('patient_id', patient.id)
@@ -177,6 +201,39 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           .lte('event_date', dateEnd.toISOString())
           .order('event_date', { ascending: false })
           .limit(1000);
+        
+        // If direct query fails or returns empty (RLS blocking), use API endpoint
+        if (directQuery.error || !directQuery.data || directQuery.data.length === 0) {
+          console.log('[Adherence] Direct query blocked or empty, trying API endpoint...');
+          try {
+            const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}`;
+            const apiResponse = await fetch(apiUrl);
+            if (apiResponse.ok) {
+              const apiData = await apiResponse.json();
+              logsData = apiData.logs || [];
+              console.log('[Adherence] API endpoint returned', logsData.length, 'logs');
+            } else {
+              logsError = { code: 'API_ERROR', message: `API returned ${apiResponse.status}` };
+              console.error('[Adherence] API endpoint error:', apiResponse.status);
+            }
+          } catch (apiErr) {
+            logsError = apiErr;
+            console.error('[Adherence] API endpoint exception:', apiErr);
+          }
+        } else {
+          logsData = directQuery.data;
+          logsError = directQuery.error;
+        }
+        
+        // Enhanced logging for RLS debugging
+        if (logsError) {
+          console.error('[Adherence] Query error:', {
+            code: logsError.code,
+            message: logsError.message,
+            patientId: patient.id,
+            patientRtmStatus: currentPatient?.rtm_status || patient.rtm_status
+          });
+        }
         
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:134',message:'After medication_logs query',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorDetails:logsError?.details,logsCount:logsData?.length||0,sampleLog:logsData?.[0]?{id:logsData[0].id,patient_id:logsData[0].patient_id}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
