@@ -40,7 +40,7 @@ interface MedicationLogData {
 }
 
 // Type for raw Supabase response (before mapping)
-// Includes patients join to allow RLS policies to check organization access
+// Note: We removed patients join to avoid 500 errors - RLS handles organization access via patient_id FK
 interface RawMedicationLogResponse {
   id: string;
   medication_id: string;
@@ -62,13 +62,6 @@ interface RawMedicationLogResponse {
     time_of_day: string;
   } | Array<{
     time_of_day: string;
-  }>;
-  patients?: {
-    id: string;
-    organization_id: string;
-  } | Array<{
-    id: string;
-    organization_id: string;
   }>;
 }
 
@@ -132,18 +125,19 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         // We'll fetch schedules separately by schedule_id to ensure correctness
         // Increased limit from 100 to 1000 to ensure we capture all historical logs
         // (Some patients may have more than 100 logs, causing older logs to be excluded)
-        // Use left join with patients to allow RLS policies to check organization access
-        // without filtering out logs if the patient join is restricted
-        // The RLS policy on medication_logs should handle organization filtering
+        // CRITICAL FIX: Remove patients join - it causes 500 errors for some patients
+        // The RLS policy on medication_logs can check organization access through
+        // the patient_id foreign key relationship without needing an explicit join
+        // This matches how the schedule page queries medication_logs successfully
         const { data: logsData, error: logsError } = await supabase
           .from('medication_logs')
-          .select('*, patients(id, organization_id)')
+          .select('*')
           .eq('patient_id', patient.id)
           .order('event_date', { ascending: false })
           .limit(1000);
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:134',message:'After medication_logs query',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorDetails:logsError?.details,logsCount:logsData?.length||0,firstLogPatientsStructure:logsData?.[0]?.patients?Array.isArray(logsData[0].patients)?'array':'object':'missing',sampleLog:logsData?.[0]?{id:logsData[0].id,patient_id:logsData[0].patient_id,hasPatients:!!logsData[0].patients}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:134',message:'After medication_logs query',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorDetails:logsError?.details,logsCount:logsData?.length||0,sampleLog:logsData?.[0]?{id:logsData[0].id,patient_id:logsData[0].patient_id}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
         // #endregion
         
         console.log('[Adherence] Raw query without join - Count:', logsData?.length);
@@ -151,10 +145,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         // #region agent log
         if (logsData && logsData.length > 0) {
           const sampleLog = logsData[0] as RawMedicationLogResponse;
-          const patientsData = sampleLog.patients;
-          const patientsIsArray = Array.isArray(patientsData);
-          const patientsOrgId = patientsIsArray ? patientsData[0]?.organization_id : (patientsData as {organization_id?:string})?.organization_id;
-          fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:138',message:'Sample log patients join analysis',data:{patientsIsArray,patientsOrgId,patientOrgId:patient.organization_id,userOrgId:userOrganizationId,orgIdsMatch:patientsOrgId===patient.organization_id,userOrgMatches:patientsOrgId===userOrganizationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C,E'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:138',message:'Sample log analysis',data:{logId:sampleLog.id,logPatientId:sampleLog.patient_id,patientOrgId:patient.organization_id,userOrgId:userOrganizationId,orgIdsMatch:patient.organization_id===userOrganizationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
         }
         // #endregion
         
@@ -188,7 +179,10 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           
           // Attach medication details to logs
           logsData.forEach((log: { medication_id: string; medications?: { name: string; strength: string; format: string } }) => {
-            log.medications = medicationsMap.get(log.medication_id);
+            const med = medicationsMap.get(log.medication_id);
+            if (med) {
+              log.medications = med;
+            }
           });
 
           // Fetch schedules separately by schedule_id to ensure we get the correct schedule
@@ -216,7 +210,10 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               // Attach schedule details to logs by matching schedule_id
               logsData.forEach((log: { id: string; medication_id: string; schedule_id?: string; medication_schedules?: { time_of_day: string } }) => {
                 if (log.schedule_id && schedulesMap.has(log.schedule_id)) {
-                  log.medication_schedules = schedulesMap.get(log.schedule_id);
+                  const sched = schedulesMap.get(log.schedule_id);
+                  if (sched) {
+                    log.medication_schedules = sched;
+                  }
                 } else if (log.schedule_id) {
                   console.warn('[Adherence] Log has schedule_id but schedule not found:', {
                     logId: log.id,
@@ -232,13 +229,27 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         }
         
         console.log('[Adherence] Query completed. Error:', logsError, 'Data count:', logsData?.length || 0);
+        
+        // Enhanced error logging for 500 errors
+        if (logsError) {
+          console.error('[Adherence] Error fetching medication logs:', {
+            code: logsError.code,
+            message: logsError.message,
+            details: logsError.details,
+            hint: logsError.hint,
+            patientId: patient.id,
+            patientOrgId: patient.organization_id,
+            userOrgId: userOrganizationId,
+            isSimpillerAdmin,
+            isOrganizationAdmin
+          });
+        }
 
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:210',message:'Query completion status',data:{hasError:!!logsError,errorCode:logsError?.code,errorMessage:logsError?.message,errorHint:logsError?.hint,logsCount:logsData?.length||0,willSetLogs:!logsError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,D'})}).catch(()=>{});
         // #endregion
 
         if (logsError) {
-          console.error('Error fetching medication logs:', logsError);
           // #region agent log
           fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:213',message:'Query error branch',data:{errorCode:logsError.code,errorMessage:logsError.message,errorDetails:logsError.details,errorHint:logsError.hint},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
           // #endregion
@@ -248,8 +259,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           if (logsData && logsData.length > 0) {
             // Show date range
             const dates = logsData.map((l: { event_date: string }) => new Date(l.event_date));
-            const newest = new Date(Math.max(...dates.map(d => d.getTime())));
-            const oldest = new Date(Math.min(...dates.map(d => d.getTime())));
+            const newest = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
+            const oldest = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
             console.log('[Adherence] Date range:', {
               newest: newest.toLocaleString(),
               oldest: oldest.toLocaleString(),
@@ -266,13 +277,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           // #region agent log
           if (logsData && logsData.length > 0) {
             const firstLog = logsData[0] as RawMedicationLogResponse;
-            fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:238',message:'Before mapping logs',data:{totalLogs:logsData.length,firstLogHasPatients:!!firstLog.patients,patientsIsArray:Array.isArray(firstLog.patients),patientsType:typeof firstLog.patients},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/56e1ceca-9416-49c9-bfb7-8110a59a2a0a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'compliance-log-tab.tsx:238',message:'Before mapping logs',data:{totalLogs:logsData.length,firstLogId:firstLog.id,firstLogPatientId:firstLog.patient_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
           }
           // #endregion
           
-          // Map the data to handle Supabase join structure (medications, schedules, and patients may be arrays with one item)
-          // The patients join is included to allow RLS policies to check organization access
-          // Note: We don't use the patients data directly, but the join is required for RLS to work correctly
+          // Map the data to handle Supabase join structure (medications and schedules may be arrays with one item)
+          // Note: We removed the patients join to avoid 500 errors - RLS handles organization access via patient_id FK
           const mappedLogs: MedicationLogData[] = (logsData || []).map((log: RawMedicationLogResponse) => ({
             id: log.id,
             medication_id: log.medication_id,
