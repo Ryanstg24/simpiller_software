@@ -190,8 +190,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         // The RLS policy is blocking access for patients who transitioned from "On Track" to "Needs Attention"
         // Using the API endpoint with service role ensures organization admins can always see logs
         // for patients in their organization, regardless of rtm_status transitions
-        let logsData: any[] = [];
-        let logsError: any = null;
+        let logsData: RawMedicationLogResponse[] = [];
+        let logsError: { code?: string; message?: string; details?: unknown; hint?: string } | null = null;
         
         // For organization admins, use API endpoint to bypass RLS issues
         // For Simpiller admins, use direct query (RLS allows them access)
@@ -210,7 +210,9 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               console.error('[Adherence] API endpoint error:', apiResponse.status, errorData);
             }
           } catch (apiErr) {
-            logsError = apiErr;
+            logsError = apiErr instanceof Error 
+              ? { code: 'API_EXCEPTION', message: apiErr.message, details: apiErr }
+              : { code: 'API_EXCEPTION', message: 'Unknown error', details: apiErr };
             console.error('[Adherence] API endpoint exception:', apiErr);
           }
         } else {
@@ -280,7 +282,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           );
           
           // Attach medication details to logs
-          logsData.forEach((log: { medication_id: string; medications?: { name: string; strength: string; format: string } }) => {
+          logsData.forEach((log: RawMedicationLogResponse) => {
             const med = medicationsMap.get(log.medication_id);
             if (med) {
               log.medications = med;
@@ -310,7 +312,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
               );
               
               // Attach schedule details to logs by matching schedule_id
-              logsData.forEach((log: { id: string; medication_id: string; schedule_id?: string; medication_schedules?: { time_of_day: string } }) => {
+              logsData.forEach((log: RawMedicationLogResponse) => {
                 if (log.schedule_id && schedulesMap.has(log.schedule_id)) {
                   const sched = schedulesMap.get(log.schedule_id);
                   if (sched) {
