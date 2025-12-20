@@ -186,48 +186,34 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
           });
         }
         
-        // CRITICAL RLS FIX: For organization admins, always use API endpoint to bypass RLS
-        // The RLS policy is blocking access for patients who transitioned from "On Track" to "Needs Attention"
-        // Using the API endpoint with service role ensures organization admins can always see logs
-        // for patients in their organization, regardless of rtm_status transitions
-        let logsData: RawMedicationLogResponse[] = [];
-        let logsError: { code?: string; message?: string; details?: unknown; hint?: string } | null = null;
+        // Query medication_logs directly - RLS should allow access if patient is visible
+        // If organization admin can see the patient, they should be able to see the logs
+        let { data: logsData, error: logsError } = await supabase
+          .from('medication_logs')
+          .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
+          .eq('patient_id', patient.id)
+          .gte('event_date', dateStart.toISOString())
+          .lte('event_date', dateEnd.toISOString())
+          .order('event_date', { ascending: false })
+          .limit(1000);
         
-        // For organization admins, use API endpoint to bypass RLS issues
-        // For Simpiller admins, use direct query (RLS allows them access)
-        if (isOrganizationAdmin && !isSimpillerAdmin) {
-          console.log('[Adherence] Using API endpoint for organization admin to bypass RLS...');
+        // If direct query returns empty and user is organization admin, try API endpoint as fallback
+        // This handles cases where RLS policy blocks access for certain patients
+        if ((!logsData || logsData.length === 0) && isOrganizationAdmin && !isSimpillerAdmin && user?.id) {
+          console.log('[Adherence] Direct query returned empty, trying API endpoint fallback...');
           try {
-            const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}&userId=${user?.id || ''}`;
+            const apiUrl = `/api/patients/adherence-logs?patientId=${patient.id}&startDate=${dateStart.toISOString()}&endDate=${dateEnd.toISOString()}&userId=${user.id}`;
             const apiResponse = await fetch(apiUrl);
             if (apiResponse.ok) {
               const apiData = await apiResponse.json();
               logsData = apiData.logs || [];
-              console.log('[Adherence] API endpoint returned', logsData.length, 'logs');
+              console.log('[Adherence] API endpoint fallback returned', logsData.length, 'logs');
             } else {
-              const errorData = await apiResponse.json().catch(() => ({}));
-              logsError = { code: 'API_ERROR', message: `API returned ${apiResponse.status}`, details: errorData };
-              console.error('[Adherence] API endpoint error:', apiResponse.status, errorData);
+              console.warn('[Adherence] API endpoint fallback failed:', apiResponse.status);
             }
           } catch (apiErr) {
-            logsError = apiErr instanceof Error 
-              ? { code: 'API_EXCEPTION', message: apiErr.message, details: apiErr }
-              : { code: 'API_EXCEPTION', message: 'Unknown error', details: apiErr };
-            console.error('[Adherence] API endpoint exception:', apiErr);
+            console.error('[Adherence] API endpoint fallback exception:', apiErr);
           }
-        } else {
-          // Simpiller admins can use direct query (RLS allows them)
-          const directQuery = await supabase
-            .from('medication_logs')
-            .select('id, medication_id, patient_id, event_date, status, qr_code_scanned, schedule_id')
-            .eq('patient_id', patient.id)
-            .gte('event_date', dateStart.toISOString())
-            .lte('event_date', dateEnd.toISOString())
-            .order('event_date', { ascending: false })
-            .limit(1000);
-          
-          logsData = directQuery.data || [];
-          logsError = directQuery.error;
         }
         
         // Enhanced logging for RLS debugging
