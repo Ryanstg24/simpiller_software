@@ -8,6 +8,9 @@
     },
     "src/app/api/cron/process-chautauqua-sftp/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/drx-medication-sync/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -22,6 +25,10 @@
     {
       "path": "/api/cron/process-chautauqua-sftp",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/drx-medication-sync",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

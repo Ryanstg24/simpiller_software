@@ -8,7 +8,7 @@ import { Plus, Search, Building2, Phone, Mail, MapPin, Shield } from "lucide-rea
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useUserDisplay } from "@/hooks/use-user-display";
 import { useAuthV2 } from "@/contexts/auth-context-v2";
-import { usePharmacies } from "@/hooks/use-pharmacies";
+import { usePharmacies, PARTNERED_PHARMACY_NAME } from "@/hooks/use-pharmacies";
 import { useState, useMemo } from "react";
 import { PharmacyModal } from "@/components/pharmacies/pharmacy-modal";
 import { Pharmacy } from "@/hooks/use-pharmacies";
@@ -243,8 +243,15 @@ export default function PharmaciesPage() {
 
             {/* Pharmacies Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPharmacies.map((pharmacy) => (
-                <Card key={pharmacy.id} className="hover:shadow-lg transition-shadow">
+              {filteredPharmacies.map((pharmacy) => {
+                const isPartneredPharmacy = pharmacy.name === PARTNERED_PHARMACY_NAME;
+                return (
+                  <Card 
+                  key={pharmacy.id} 
+                  className={`hover:shadow-lg transition-shadow ${
+                    isPartneredPharmacy ? 'border-2 border-blue-500 bg-blue-50' : ''
+                  }`}
+                >
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
@@ -298,6 +305,16 @@ export default function PharmaciesPage() {
                           <span>Simpiller Partner Pharmacy</span>
                         </div>
                       )}
+                      {isPartneredPharmacy && (
+                        <div className="flex items-center text-sm text-blue-600 font-semibold">
+                          <span>⭐ Our Partnered Pharmacy - DRx Integration Enabled</span>
+                        </div>
+                      )}
+                      {pharmacy.integration_enabled && (
+                        <div className="flex items-center text-sm text-green-600">
+                          <span>✓ Integration Active</span>
+                        </div>
+                      )}
                       {pharmacy.phone && (
                         <div className="flex items-center text-sm text-gray-600">
                           <Phone className="h-4 w-4 mr-2" />
@@ -338,7 +355,8 @@ export default function PharmaciesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
 
             {filteredPharmacies.length === 0 && (

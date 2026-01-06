@@ -6,7 +6,8 @@ import { Patient, usePatients } from '@/hooks/use-patients';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 import { MedicationModal } from '@/components/medications/medication-modal';
-import { usePharmacies } from '@/hooks/use-pharmacies';
+import { usePharmacies, PARTNERED_PHARMACY_NAME } from '@/hooks/use-pharmacies';
+import { useDRxSyncStatus } from '@/hooks/use-drx-sync-status';
 import { ComplianceLogTab } from './compliance-log-tab';
 import { TimeLogTab } from './time-log-tab';
 import { HybridTimeInput } from '@/components/ui/hybrid-time-input';
@@ -78,6 +79,7 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
   const { isSimpillerAdmin, isOrganizationAdmin, userOrganizationId } = useAuthV2();
   const { pharmacies, loading: pharmaciesLoading } = usePharmacies();
   const { invalidatePatients } = usePatients();
+  const { syncStatus: drxSyncStatus, loading: drxSyncLoading } = useDRxSyncStatus(patient?.id || null);
   
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
@@ -420,6 +422,31 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
       } else {
         // Call the update callback to refresh parent data
         onPatientUpdated();
+        
+        // Check if pharmacy was changed to partnered pharmacy and sync to DRx
+        const newPharmacyId = updateData.assigned_pharmacy_id;
+        if (newPharmacyId) {
+          const selectedPharmacy = pharmacies.find(p => p.id === newPharmacyId);
+          if (selectedPharmacy?.name === PARTNERED_PHARMACY_NAME || selectedPharmacy?.is_partner) {
+            // Sync patient to DRx in the background (don't await to avoid blocking UI)
+            fetch('/api/pharmacy/drx/sync-patient', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ patientId: patient.id, pharmacyId: newPharmacyId }),
+            })
+              .then(async (response) => {
+                const result = await response.json();
+                if (result.success) {
+                  console.log('[DRx] Patient synced successfully:', result);
+                } else {
+                  console.error('[DRx] Sync failed:', result.error);
+                }
+              })
+              .catch((error) => {
+                console.error('[DRx] Sync error:', error);
+              });
+          }
+        }
         
         // Auto-populate medication schedules in the background (don't await)
         // This prevents blocking the UI if time preferences changed
@@ -823,16 +850,70 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                               pharmacies.map((pharmacy) => (
                                 <option key={pharmacy.id} value={pharmacy.id}>
                                   {pharmacy.name}
-                                  {pharmacy.is_partner && ' (Partner)'}
+                                  {pharmacy.name === PARTNERED_PHARMACY_NAME && ' ⭐'}
+                                  {pharmacy.is_partner && pharmacy.name !== PARTNERED_PHARMACY_NAME && ' (Partner)'}
                                   {pharmacy.is_default && ' (Default)'}
                                 </option>
                               ))
                             )}
                           </select>
                         ) : (
-                          <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-md">
-                            {patient.pharmacies ? patient.pharmacies.name : 'Not assigned'}
-                          </p>
+                          <div>
+                            <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-md">
+                              {patient.pharmacies ? (
+                                <>
+                                  {patient.pharmacies.name}
+                                  {patient.pharmacies.name === PARTNERED_PHARMACY_NAME && (
+                                    <span className="ml-2 text-blue-600">⭐ Partnered Pharmacy</span>
+                                  )}
+                                </>
+                              ) : (
+                                'Not assigned'
+                              )}
+                            </p>
+                            {/* DRx Sync Status */}
+                            {patient.assigned_pharmacy_id && 
+                             pharmacies.find(p => p.id === patient.assigned_pharmacy_id)?.name === PARTNERED_PHARMACY_NAME && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded-md border border-blue-200">
+                                {drxSyncLoading ? (
+                                  <p className="text-sm text-gray-600">Loading sync status...</p>
+                                ) : drxSyncStatus ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                        drxSyncStatus.last_sync_status === 'success' 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : drxSyncStatus.last_sync_status === 'failed'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                        {drxSyncStatus.last_sync_status === 'success' ? '✓ Synced' : 
+                                         drxSyncStatus.last_sync_status === 'failed' ? '✗ Sync Failed' : 
+                                         '⏳ Pending'}
+                                      </span>
+                                    </div>
+                                    {drxSyncStatus.synced_at && (
+                                      <p className="text-xs text-gray-600">
+                                        Last synced: {new Date(drxSyncStatus.synced_at).toLocaleString()}
+                                      </p>
+                                    )}
+                                    {drxSyncStatus.error_message && (
+                                      <p className="text-xs text-red-600">
+                                        Error: {drxSyncStatus.error_message}
+                                      </p>
+                                    )}
+                                    {drxSyncStatus.last_medication_sync_at && (
+                                      <p className="text-xs text-gray-500">
+                                        Medications last synced: {new Date(drxSyncStatus.last_medication_sync_at).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-600">Not yet synced to DRx</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

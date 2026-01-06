@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthV2 } from '@/contexts/auth-context-v2';
 
+export const PARTNERED_PHARMACY_NAME = "Our Partnered Pharmacy";
+
 export interface Pharmacy {
   id: string;
   organization_id: string;
@@ -24,6 +26,7 @@ export interface Pharmacy {
   api_key?: string;
   integration_enabled: boolean;
   is_active: boolean;
+  drx_group_name?: string;
   created_at: string;
   updated_at: string;
   organizations?: {
@@ -86,7 +89,33 @@ export function usePharmacies() {
         return;
       }
 
-      setPharmacies(data || []);
+      let pharmaciesList = data || [];
+      
+      // Ensure "Our Partnered Pharmacy" exists and appears first
+      const partneredPharmacy = pharmaciesList.find(p => p.name === PARTNERED_PHARMACY_NAME);
+      
+      if (!partneredPharmacy) {
+        // Create a virtual/hardcoded partnered pharmacy entry
+        const hardcodedPharmacy: Pharmacy = {
+          id: 'partnered-pharmacy-hardcoded',
+          organization_id: '',
+          name: PARTNERED_PHARMACY_NAME,
+          is_partner: true,
+          is_default: false,
+          integration_enabled: true,
+          is_active: true,
+          drx_group_name: 'Simpiller',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        pharmaciesList = [hardcodedPharmacy, ...pharmaciesList];
+      } else {
+        // Move partnered pharmacy to the front
+        pharmaciesList = pharmaciesList.filter(p => p.name !== PARTNERED_PHARMACY_NAME);
+        pharmaciesList = [partneredPharmacy, ...pharmaciesList];
+      }
+
+      setPharmacies(pharmaciesList);
     } catch (err) {
       console.error('Error in fetchPharmacies:', err);
       setError('Failed to fetch pharmacies');
