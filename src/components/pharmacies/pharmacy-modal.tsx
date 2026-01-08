@@ -408,15 +408,6 @@ export function PharmacyModal({
                         />
                         <span className="text-sm text-gray-700">Default Pharmacy</span>
                       </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={formData.integration_enabled}
-                          onChange={(e) => handleInputChange('integration_enabled', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">Integration Enabled</span>
-                      </label>
                     </div>
                   </div>
                 </div>
@@ -444,35 +435,6 @@ export function PharmacyModal({
                           Selected: {organizations.find(org => org.id === selectedOrganizationId)?.name}
                         </p>
                       )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Integration Settings */}
-                {formData.integration_enabled && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Integration Settings</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">API Endpoint</label>
-                        <input
-                          type="url"
-                          value={formData.api_endpoint}
-                          onChange={(e) => handleInputChange('api_endpoint', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          placeholder="https://api.pharmacy.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-                        <input
-                          type="password"
-                          value={formData.api_key}
-                          onChange={(e) => handleInputChange('api_key', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                          placeholder="API Key"
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -577,9 +539,6 @@ export function PharmacyModal({
                       </span>
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${pharmacy?.is_default ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
                         {pharmacy?.is_default ? 'Default Pharmacy' : 'Not Default'}
-                      </span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${pharmacy?.integration_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {pharmacy?.integration_enabled ? 'Integration Enabled' : 'Integration Disabled'}
                       </span>
                     </div>
                     {pharmacy?.organizations && (
