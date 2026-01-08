@@ -15,12 +15,14 @@ DRX_GROUP_NAME=Simpiller
 
 ## API Key
 
-Your DRx API key is: `ab746ed68d92a5b4507dd6940f02ce6f159528b8`
+Your DRx API key is: `DRXbeb4f7986e6d4fd6bb146f246c3b0cb0`
 
 This key should be:
 - Added to `.env.local` for local development
 - Added to Vercel environment variables for production
 - Kept secure and never committed to version control
+
+**Note:** You've already set this correctly in both `.env.local` and Vercel environment variables.
 
 ## API Documentation
 

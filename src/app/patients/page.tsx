@@ -54,6 +54,7 @@ export default function PatientsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialTab, setInitialTab] = useState<'details' | 'medications' | 'compliance' | 'timeLog'>('details');
   const [showAddModal, setShowAddModal] = useState(false);
   const [progressByPatientId, setProgressByPatientId] = useState<Record<string, PatientCycleProgress>>({});
   const [progressLoading, setProgressLoading] = useState(false);
@@ -133,6 +134,7 @@ export default function PatientsPage() {
 
   const handleViewDetails = (patient: Patient) => {
     setSelectedPatient(patient);
+    setInitialTab('details');
     setIsModalOpen(true);
   };
 
@@ -859,12 +861,8 @@ export default function PatientsPage() {
                                   size="sm"
                                   onClick={() => {
                                     setSelectedPatient(patient);
+                                    setInitialTab('timeLog');
                                     setIsModalOpen(true);
-                                    // open directly to Time Log tab
-                                    setTimeout(() => {
-                                      const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
-                                      el?.click();
-                                    }, 0);
                                   }}
                                 >
                                   Add Time Log
@@ -952,12 +950,8 @@ export default function PatientsPage() {
                                   size="sm"
                                   onClick={() => {
                                     setSelectedPatient(patient);
+                                    setInitialTab('timeLog');
                                     setIsModalOpen(true);
-                                    // open directly to Time Log tab
-                                    setTimeout(() => {
-                                      const el = document.querySelector('[data-time-log-tab]') as HTMLButtonElement | null;
-                                      el?.click();
-                                    }, 0);
                                   }}
                                 >
                                   Add Time Log
@@ -992,7 +986,7 @@ export default function PatientsPage() {
           setSelectedPatient(null);
         }}
         onPatientUpdated={handlePatientUpdated}
-        initialTab={'timeLog'}
+        initialTab={initialTab}
       />
 
       <AddPatientModal

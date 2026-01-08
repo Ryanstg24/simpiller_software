@@ -371,6 +371,15 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
         const oldValue = patient[key];
         // Only include changed fields; treat undefined as omit
         if (newValue !== undefined && newValue !== oldValue) {
+          // Validate UUID format for pharmacy_id
+          if (key === 'assigned_pharmacy_id' && newValue) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(newValue as string)) {
+              alert(`Invalid pharmacy selection. Please ensure "Our Partnered Pharmacy" exists in the database.`);
+              setLoading(false);
+              return;
+            }
+          }
           (updateData as unknown as Record<string, unknown>)[key as string] = newValue as unknown;
         }
       }
@@ -847,14 +856,21 @@ export function PatientDetailsModal({ patient, isOpen, onClose, onPatientUpdated
                             ) : pharmacies.length === 0 ? (
                               <option value="" disabled>No pharmacies available</option>
                             ) : (
-                              pharmacies.map((pharmacy) => (
-                                <option key={pharmacy.id} value={pharmacy.id}>
-                                  {pharmacy.name}
-                                  {pharmacy.name === PARTNERED_PHARMACY_NAME && ' ⭐'}
-                                  {pharmacy.is_partner && pharmacy.name !== PARTNERED_PHARMACY_NAME && ' (Partner)'}
-                                  {pharmacy.is_default && ' (Default)'}
-                                </option>
-                              ))
+                              pharmacies
+                                .filter((pharmacy) => {
+                                  // Filter out hardcoded pharmacies that aren't real database records
+                                  // UUIDs are 36 characters with hyphens, so check if it's a valid UUID format
+                                  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                                  return uuidRegex.test(pharmacy.id);
+                                })
+                                .map((pharmacy) => (
+                                  <option key={pharmacy.id} value={pharmacy.id}>
+                                    {pharmacy.name}
+                                    {pharmacy.name === PARTNERED_PHARMACY_NAME && ' ⭐'}
+                                    {pharmacy.is_partner && pharmacy.name !== PARTNERED_PHARMACY_NAME && ' (Partner)'}
+                                    {pharmacy.is_default && ' (Default)'}
+                                  </option>
+                                ))
                             )}
                           </select>
                         ) : (

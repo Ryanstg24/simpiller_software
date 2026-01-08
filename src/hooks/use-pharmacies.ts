@@ -6,7 +6,7 @@ export const PARTNERED_PHARMACY_NAME = "Our Partnered Pharmacy";
 
 export interface Pharmacy {
   id: string;
-  organization_id: string;
+  organization_id: string | null; // Can be null for partner pharmacies
   name: string;
   npi?: string;
   street1?: string;
