@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/hooks/use-patients';
-import { Activity, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Activity, Calendar } from 'lucide-react';
 
 interface ComplianceLogTabProps {
   patient: Patient;
@@ -92,7 +92,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
   const [complianceScores, setComplianceScores] = useState<ComplianceScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const fetchComplianceData = useCallback(async () => {
     if (!patient?.id) {
@@ -392,17 +391,6 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
     }).sort((a, b) => new Date(b.scheduledTime).getTime() - new Date(a.scheduledTime).getTime());
   };
 
-  const toggleGroup = (scheduledTime: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(scheduledTime)) {
-        newSet.delete(scheduledTime);
-      } else {
-        newSet.add(scheduledTime);
-      }
-      return newSet;
-    });
-  };
 
   const getGroupStatusBadge = (group: GroupedLog) => {
     if (group.status === 'taken') {
@@ -608,16 +596,12 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
         ) : (
           <div className="space-y-3">
             {groupedLogs.map((group) => {
-              const isExpanded = expandedGroups.has(group.scheduledTime);
               const badge = getGroupStatusBadge(group);
               
               return (
                 <div key={group.scheduledTime} className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* Group Header - Clickable */}
-                  <button
-                    onClick={() => toggleGroup(group.scheduledTime)}
-                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-                  >
+                  {/* Group Header - Non-clickable, simplified */}
+                  <div className="w-full flex items-center justify-between p-4 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${badge.color}`}>
                         {badge.icon} {badge.text}
@@ -633,90 +617,7 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                         </div>
                       </div>
                     </div>
-                    <div className="text-gray-400">
-                      {isExpanded ? (
-                        <ChevronDown className="h-5 w-5" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5" />
-                      )}
-                    </div>
-                  </button>
-                  
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="bg-white border-t border-gray-200">
-                      <div className="p-4 space-y-3">
-                        {group.logs.map((log) => {
-                          // Calculate timing details if medication was taken
-                          let timingDetails = null;
-                          if (log.status === 'taken' && log.medication_schedules?.time_of_day) {
-                            const scheduledTime = new Date(group.scheduledTime).getTime();
-                            const actualTime = new Date(log.event_date).getTime();
-                            const diffMinutes = Math.round((actualTime - scheduledTime) / (1000 * 60));
-                            
-                            if (diffMinutes <= 60) {
-                              if (diffMinutes < 0) {
-                                timingDetails = `${Math.abs(diffMinutes)} min early`;
-                              } else if (diffMinutes === 0) {
-                                timingDetails = 'On time';
-                              } else {
-                                timingDetails = `${diffMinutes} min after scheduled`;
-                              }
-                            } else {
-                              const hours = Math.floor(diffMinutes / 60);
-                              const minutes = diffMinutes % 60;
-                              timingDetails = `${hours}h ${minutes}m late`;
-                            }
-                          }
-                          
-                          return (
-                            <div key={log.id} className="flex items-start space-x-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)} mt-0.5`}>
-                                {log.status === 'taken' ? '✅' : 
-                                 log.status === 'missed' ? '❌' : 
-                                 log.status === 'skipped' ? '⊘' :
-                                 '?'}
-                              </span>
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">
-                                  {log.medications?.name || 'Unknown Medication'}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  {log.medications?.strength} {log.medications?.format}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Scanned at {new Date(log.event_date).toLocaleString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  })}
-                                  {timingDetails && (
-                                    <span className={`ml-2 ${
-                                      timingDetails.includes('late') ? 'text-yellow-600' : 'text-green-600'
-                                    }`}>
-                                      ({timingDetails})
-                                    </span>
-                                  )}
-                                </div>
-                                {log.qr_code_scanned && (
-                                  <div className="text-xs text-green-600 mt-1">
-                                    📱 Scanned via QR code
-                                  </div>
-                                )}
-                              </div>
-                              <div className={`text-xs font-medium ${
-                                log.status === 'taken' ? 'text-green-600' :
-                                log.status === 'missed' ? 'text-red-600' :
-                                'text-yellow-600'
-                              }`}>
-                                {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
