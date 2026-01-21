@@ -114,7 +114,7 @@ export interface DRxSyncResult {
   success: boolean;
   drxPatientId?: string;
   drxGroupId?: string;
-  drxAppointmentId?: string;
+  drxAppointmentId?: string | null;
   error?: string;
 }
 
@@ -490,7 +490,7 @@ export class DRxIntegrationService {
         success: true,
         drxPatientId,
         drxGroupId,
-        drxAppointmentId,
+        drxAppointmentId: drxAppointmentId || undefined,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
