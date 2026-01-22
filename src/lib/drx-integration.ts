@@ -19,7 +19,7 @@ const supabaseAdmin = createClient(
 const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://digitalrx.io/drx-connect';
 const DRX_API_KEY = process.env.DRX_API_KEY || '';
 const DRX_GROUP_NAME = process.env.DRX_GROUP_NAME || 'Simpiller';
-const DRX_DOCTOR_ID = process.env.DRX_DOCTOR_ID || 'DRX545'; // Default doctor ID for appointments
+const DRX_DOCTOR_ID = process.env.DRX_DOCTOR_ID || 'DRX0000545'; // Format: DRX + 7 digits with leading zeros
 
 // Types for DRx API
 export interface DRxPatient {
@@ -399,6 +399,7 @@ export class DRxIntegrationService {
       // Create appointment in DRx (this will create the patient if they don't exist)
       // Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
       const appointmentTime = new Date();
+      appointmentTime.setHours(appointmentTime.getHours() + 1); // Add 1 hour to ensure it's in the future
       const startOnUtc = appointmentTime.toISOString();
 
       // Format dateOfBirth to YYYY-MM-DD format (DateOnly) as required by DRX API
@@ -428,7 +429,7 @@ export class DRxIntegrationService {
       }
 
       const appointmentResponse = await this.retryRequest(async () => {
-        return await this.makeDRxRequest('/appointment/bookappointment', 'POST', {
+        const requestBody = {
           startOnUtc: startOnUtc,
           doctor_id: doctorId,
           patient: {
@@ -438,11 +439,30 @@ export class DRxIntegrationService {
             phoneNumber: drxPatient.phone || null,
             email: drxPatient.email || null,
           },
-        });
+        };
+        
+        console.log('[DRx Integration] Creating appointment with:', JSON.stringify(requestBody, null, 2));
+        
+        return await this.makeDRxRequest('/appointment/bookappointment', 'POST', requestBody);
       });
 
       if (!appointmentResponse.ok) {
-        const errorData = await appointmentResponse.json().catch(() => ({}));
+        const errorText = await appointmentResponse.text();
+        let errorData = {};
+        if (errorText) {
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { message: errorText };
+          }
+        }
+        console.error('[DRx Integration] Appointment creation failed:', {
+          status: appointmentResponse.status,
+          statusText: appointmentResponse.statusText,
+          url: `${this.apiEndpoint}/appointment/bookappointment`,
+          error: errorData,
+          errorText: errorText
+        });
         throw new Error(`DRx API error creating appointment: ${appointmentResponse.status} - ${JSON.stringify(errorData)}`);
       }
 
