@@ -19,6 +19,7 @@ const supabaseAdmin = createClient(
 const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://digitalrx.io/drx-connect';
 const DRX_API_KEY = process.env.DRX_API_KEY || '';
 const DRX_GROUP_NAME = process.env.DRX_GROUP_NAME || 'Simpiller';
+const DRX_DOCTOR_ID = process.env.DRX_DOCTOR_ID || 'DRX545'; // Default doctor ID for appointments
 
 // Types for DRx API
 export interface DRxPatient {
@@ -392,8 +393,8 @@ export class DRxIntegrationService {
       // Map patient to DRx format
       const drxPatient = this.mapSimpillerPatientToDRx(patient as SimpillerPatient);
 
-      // Get first available doctor from DRx
-      const doctorId = await this.getDRxDoctors();
+      // Use hardcoded doctor ID for appointments
+      const doctorId = DRX_DOCTOR_ID;
 
       // Create appointment in DRx (this will create the patient if they don't exist)
       // Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
