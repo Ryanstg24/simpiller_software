@@ -616,8 +616,8 @@ export function ComplianceLogTab({ patient }: ComplianceLogTabProps) {
                           {group.totalCount} medication{group.totalCount > 1 ? 's' : ''}
                         </div>
                       </div>
+                      </div>
                     </div>
-                  </div>
                 </div>
               );
             })}

@@ -13,10 +13,10 @@ const supabaseAdmin = createClient(
 );
 
 // DRx API Configuration
-// Base URL: https://digitalrx.io/drx-connect
+// Base URL: https://derosa.drx.com/drx-connect
 // API Key should be set in environment variable DRX_API_KEY
 // Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
-const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://digitalrx.io/drx-connect';
+const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://derosa.drx.com/drx-connect';
 const DRX_API_KEY = process.env.DRX_API_KEY || '';
 const DRX_GROUP_NAME = process.env.DRX_GROUP_NAME || 'Simpiller';
 const DRX_DOCTOR_ID = process.env.DRX_DOCTOR_ID || 'DRX0000545'; // Format: DRX + 7 digits with leading zeros
