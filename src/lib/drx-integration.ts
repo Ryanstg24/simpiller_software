@@ -291,7 +291,7 @@ export class DRxIntegrationService {
   async getDRxDoctors(): Promise<string> {
     try {
       const response = await this.retryRequest(async () => {
-        return await this.makeDRxRequest('/doctor/getall', 'GET');
+        return await this.makeDRxRequest('/doctor/GetAll', 'GET');
       });
 
       if (!response.ok) {
