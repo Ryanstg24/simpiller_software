@@ -13,10 +13,10 @@ const supabaseAdmin = createClient(
 );
 
 // DRx API Configuration
-// Base URL: https://derosa.drx.com/drx-connect
+// Base URL: https://staging.drxapp.com/external_api/v1
 // API Key should be set in environment variable DRX_API_KEY
-// Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
-const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://derosa.drx.com/drx-connect';
+// Uses X-DRX-Key header for authentication
+const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://staging.drxapp.com/external_api/v1';
 const DRX_API_KEY = process.env.DRX_API_KEY || '';
 const DRX_GROUP_NAME = process.env.DRX_GROUP_NAME || 'Simpiller';
 const DRX_DOCTOR_ID = process.env.DRX_DOCTOR_ID || 'DRX0000545'; // Format: DRX + 7 digits with leading zeros
@@ -63,7 +63,10 @@ export interface SimpillerPatient {
   first_name: string;
   last_name: string;
   date_of_birth?: string;
+  gender?: string;
+  race?: string;
   phone1?: string;
+  phone2?: string;
   email?: string;
   street1?: string;
   street2?: string;
@@ -147,8 +150,7 @@ export class DRxIntegrationService {
 
   /**
    * Make authenticated request to DRx API
-   * Uses 'api-key' header as per DRX Connect API documentation
-   * Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
+   * Uses 'X-DRX-Key' header for authentication
    */
   private async makeDRxRequest(
     endpoint: string,
@@ -159,7 +161,8 @@ export class DRxIntegrationService {
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'api-key': this.apiKey, // DRX Connect API uses 'api-key' header
+      'accept': 'application/json',
+      'X-DRX-Key': this.apiKey, // DRX API uses 'X-DRX-Key' header
       'Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://app.simpiller.com',
     };
 
@@ -360,9 +363,8 @@ export class DRxIntegrationService {
   }
 
   /**
-   * Sync patient to DRx API by creating an appointment
-   * DRX doesn't have a direct patient creation endpoint, so we create an appointment
-   * which automatically creates the patient if they don't exist
+   * Sync patient to DRx API by creating a patient directly
+   * Uses POST /external_api/v1/patients endpoint
    */
   async syncPatientToDRx(patientId: string, pharmacyId?: string): Promise<DRxSyncResult> {
     try {
@@ -390,23 +392,11 @@ export class DRxIntegrationService {
         }
       }
 
-      // Map patient to DRx format
-      const drxPatient = this.mapSimpillerPatientToDRx(patient as SimpillerPatient);
-
-      // Use hardcoded doctor ID for appointments
-      const doctorId = DRX_DOCTOR_ID;
-
-      // Create appointment in DRx (this will create the patient if they don't exist)
-      // Documentation: https://admin.digitalrx.io/drx-connect/documentation.htm
-      const appointmentTime = new Date();
-      appointmentTime.setHours(appointmentTime.getHours() + 1); // Add 1 hour to ensure it's in the future
-      const startOnUtc = appointmentTime.toISOString();
-
-      // Format dateOfBirth to YYYY-MM-DD format (DateOnly) as required by DRX API
-      let formattedDateOfBirth: string | null = null;
-      if (drxPatient.dateOfBirth) {
+      // Format dateOfBirth to YYYY-MM-DD format (ISO format) as required by DRX API
+      let formattedDateOfBirth: string | undefined = undefined;
+      if (patient.date_of_birth) {
         try {
-          const date = new Date(drxPatient.dateOfBirth);
+          const date = new Date(patient.date_of_birth);
           if (!isNaN(date.getTime())) {
             // Extract YYYY-MM-DD from date
             formattedDateOfBirth = date.toISOString().split('T')[0];
@@ -416,38 +406,89 @@ export class DRxIntegrationService {
         }
       }
 
-      // Map gender format: M -> Male, F -> Female, etc.
-      let formattedGender: string | null = null;
-      if (patient.gender) {
-        const genderMap: Record<string, string> = {
-          'M': 'Male',
-          'F': 'Female',
-          'X': 'Other',
-          'U': 'Unknown',
-        };
-        formattedGender = genderMap[patient.gender.toUpperCase()] || patient.gender;
+      // Validate required fields
+      if (!patient.first_name || !patient.last_name) {
+        throw new Error('Patient first_name and last_name are required');
       }
 
-      const appointmentResponse = await this.retryRequest(async () => {
-        const requestBody = {
-          startOnUtc: startOnUtc,
-          doctor_id: doctorId,
-          patient: {
-            patientName: `${drxPatient.firstName} ${drxPatient.lastName}`,
-            gender: formattedGender,
-            dateOfBirth: formattedDateOfBirth,
-            phoneNumber: drxPatient.phone || null,
-            email: drxPatient.email || null,
-          },
-        };
-        
-        console.log('[DRx Integration] Creating appointment with:', JSON.stringify(requestBody, null, 2));
-        
-        return await this.makeDRxRequest('/appointment/bookappointment', 'POST', requestBody);
+      if (!formattedDateOfBirth) {
+        throw new Error('Patient date_of_birth is required');
+      }
+
+      // Map gender: must be 'M' or 'F' for DRX API
+      let formattedGender: string | undefined = undefined;
+      if (patient.gender) {
+        const genderUpper = patient.gender.toUpperCase();
+        if (genderUpper === 'M' || genderUpper === 'F') {
+          formattedGender = genderUpper;
+        } else {
+          // Default to 'M' if gender is not M or F
+          console.warn(`[DRx Integration] Gender '${patient.gender}' is not M or F, defaulting to M`);
+          formattedGender = 'M';
+        }
+      } else {
+        // Default to 'M' if gender is not provided
+        formattedGender = 'M';
+      }
+
+      // Build phone_numbers array
+      const phoneNumbers: Array<{ phone_type: string; number: string }> = [];
+      if (patient.phone1) {
+        // Remove any non-digit characters from phone number
+        const cleanedPhone1 = patient.phone1.replace(/\D/g, '');
+        if (cleanedPhone1) {
+          phoneNumbers.push({
+            phone_type: 'cell',
+            number: cleanedPhone1
+          });
+        }
+      }
+      if (patient.phone2) {
+        const cleanedPhone2 = patient.phone2.replace(/\D/g, '');
+        if (cleanedPhone2) {
+          phoneNumbers.push({
+            phone_type: 'home',
+            number: cleanedPhone2
+          });
+        }
+      }
+
+      // Build addresses array
+      const addresses: Array<{ street: string; city: string; state: string; zip: string; type_: string }> = [];
+      if (patient.street1 && patient.city && patient.state && patient.postal_code) {
+        addresses.push({
+          street: patient.street1,
+          city: patient.city,
+          state: patient.state,
+          zip: patient.postal_code,
+          type_: 'default'
+        });
+      }
+
+      // Build request body according to new DRX API format
+      const requestBody = {
+        patient: {
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          dob: formattedDateOfBirth,
+          gender: formattedGender,
+          delivery_method: 'Ship', // As specified by user
+          notify_method: '0', // Default notify method
+          race: patient.race || 'Human' // Default to 'Human' if not provided
+        },
+        phone_numbers: phoneNumbers,
+        addresses: addresses,
+        allergies: [] // Empty array for now, can be populated later if needed
+      };
+
+      console.log('[DRx Integration] Creating patient with:', JSON.stringify(requestBody, null, 2));
+
+      const patientResponse = await this.retryRequest(async () => {
+        return await this.makeDRxRequest('/patients', 'POST', requestBody);
       });
 
-      if (!appointmentResponse.ok) {
-        const errorText = await appointmentResponse.text();
+      if (!patientResponse.ok) {
+        const errorText = await patientResponse.text();
         let errorData = {};
         if (errorText) {
           try {
@@ -456,31 +497,38 @@ export class DRxIntegrationService {
             errorData = { message: errorText };
           }
         }
-        console.error('[DRx Integration] Appointment creation failed:', {
-          status: appointmentResponse.status,
-          statusText: appointmentResponse.statusText,
-          url: `${this.apiEndpoint}/appointment/bookappointment`,
+        console.error('[DRx Integration] Patient creation failed:', {
+          status: patientResponse.status,
+          statusText: patientResponse.statusText,
+          url: `${this.apiEndpoint}/patients`,
           error: errorData,
           errorText: errorText
         });
-        throw new Error(`DRx API error creating appointment: ${appointmentResponse.status} - ${JSON.stringify(errorData)}`);
+        throw new Error(`DRx API error creating patient: ${patientResponse.status} - ${JSON.stringify(errorData)}`);
       }
 
-      const appointmentData: DRxAppointment = await appointmentResponse.json();
+      const patientData = await patientResponse.json();
       
-      // Extract appointment ID
-      const drxAppointmentId = appointmentData.uid || appointmentData.appointmentUniqueId || null;
-      
-      // Extract or find patient ID
-      let drxPatientId = appointmentData.patientId;
-      
-      // If patient ID not in appointment response, try to find it by querying patients
+      // Extract patient ID from response
+      // The response format may vary, so we try multiple possible fields
+      let drxPatientId: string | undefined = undefined;
+      if (patientData.id) {
+        drxPatientId = String(patientData.id);
+      } else if (patientData.patient_id) {
+        drxPatientId = String(patientData.patient_id);
+      } else if (patientData.patientId) {
+        drxPatientId = String(patientData.patientId);
+      } else if (patientData.data?.id) {
+        drxPatientId = String(patientData.data.id);
+      }
+
       if (!drxPatientId) {
-        const patientName = `${drxPatient.firstName} ${drxPatient.lastName}`;
-        drxPatientId = await this.getDRxPatientId(patientName, drxPatient.phone || undefined) || undefined;
-        
-        if (!drxPatientId) {
-          console.warn('[DRx Integration] Could not find patient ID after appointment creation. Patient may need to be queried later.');
+        console.warn('[DRx Integration] Could not extract patient ID from response:', patientData);
+        // Try to find patient by querying
+        const patientName = `${patient.first_name} ${patient.last_name}`;
+        const foundPatientId = await this.getDRxPatientId(patientName, patient.phone1 || undefined);
+        if (foundPatientId) {
+          drxPatientId = foundPatientId;
         }
       }
       
@@ -493,7 +541,7 @@ export class DRxIntegrationService {
           patient_id: patientId,
           drx_patient_id: drxPatientId,
           drx_group_id: drxGroupId,
-          drx_appointment_id: drxAppointmentId,
+          drx_appointment_id: null, // No longer using appointments
           last_sync_status: 'success',
           synced_at: new Date().toISOString(),
           error_message: null,
@@ -511,7 +559,7 @@ export class DRxIntegrationService {
         success: true,
         drxPatientId,
         drxGroupId,
-        drxAppointmentId: drxAppointmentId || undefined,
+        drxAppointmentId: undefined, // No longer using appointments
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
