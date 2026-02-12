@@ -2,6 +2,53 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import TwilioService from '@/lib/twilio';
 
+/**
+ * Get current local time parts in a given IANA timezone (DST-safe).
+ * Uses Intl.DateTimeFormat so EST/EDT and other zones are correct.
+ */
+function getLocalTimeInZone(utcDate: Date, timeZone: string): { hour: number; minute: number; second: number; year: number; month: number; day: number } {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(utcDate);
+  const get = (type: string) => {
+    const p = parts.find((x) => x.type === type);
+    return p ? parseInt(p.value, 10) : 0;
+  };
+  return {
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+  };
+}
+
+/**
+ * Compute UTC ISO string for "today at HH:MM" in the patient's timezone (DST-safe).
+ * Uses the fact that (current UTC - local ms since midnight) + scheduled ms since midnight = scheduled UTC.
+ */
+function scheduledLocalToUtcIso(
+  utcNow: Date,
+  timeZone: string,
+  scheduleHour: number,
+  scheduleMinute: number
+): string {
+  const local = getLocalTimeInZone(utcNow, timeZone);
+  const currentLocalMsSinceMidnight = local.hour * 3600000 + local.minute * 60000 + local.second * 1000;
+  const scheduledMsSinceMidnight = scheduleHour * 3600000 + scheduleMinute * 60000;
+  const scheduledUtcMs = utcNow.getTime() - currentLocalMsSinceMidnight + scheduledMsSinceMidnight;
+  return new Date(scheduledUtcMs).toISOString();
+}
+
 // Ensure Node.js runtime (not Edge) and disable caching
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -152,12 +199,11 @@ export async function GET(request: Request) {
         if (!patient || !patient.phone1) continue;
         if (patient.rtm_status && patient.rtm_status !== 'active') continue;
 
-        // Determine patient's local time (defaults to America/New_York if missing)
+        // Determine patient's local time (DST-safe via Intl; defaults to America/New_York if missing)
         const timeZone = patient.timezone || 'America/New_York';
-        const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
-        const localNow = new Date(localNowStr);
-        const localHour = localNow.getHours();
-        const localMinute = localNow.getMinutes();
+        const local = getLocalTimeInZone(now, timeZone);
+        const localHour = local.hour;
+        const localMinute = local.minute;
 
         // Check if this schedule should trigger an alert now based on patient's local time
         const advance = schedule.alert_advance_minutes ?? 15;
@@ -170,7 +216,6 @@ export async function GET(request: Request) {
           patientId: patient.id,
           timezone: timeZone,
           scheduleTime: schedule.time_of_day,
-          localNowIso: localNow.toISOString(),
           localHour,
           localMinute,
           advance,
@@ -184,10 +229,9 @@ export async function GET(request: Request) {
         
         if (!shouldSendAlert) continue;
 
-        // Create a unique key for this patient and scheduled time
+        // Create a unique key for this patient and scheduled time (use local date + schedule time)
         const [hh, mm] = String(schedule.time_of_day).split(':').map(Number);
-        const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
-        const groupKey = `${patient.id}-${scheduledLocal.toISOString()}`;
+        const groupKey = `${patient.id}-${local.year}-${local.month}-${local.day}-${hh || 0}-${mm || 0}`;
         
         if (!scheduleGroups.has(groupKey)) {
           scheduleGroups.set(groupKey, []);
@@ -232,10 +276,9 @@ export async function GET(request: Request) {
         if (!patient || !patient.phone1) continue;
         if (patient.rtm_status && patient.rtm_status !== 'active') continue;
 
-        // Determine patient's local time (defaults to America/New_York if missing)
+        // Patient's local time (DST-safe via Intl)
         const timeZone = patient.timezone || 'America/New_York';
-        const localNowStr = now.toLocaleString('en-US', { timeZone, hour12: false });
-        const localNow = new Date(localNowStr);
+        const local = getLocalTimeInZone(now, timeZone);
 
         // Get the current schedule from the group
         const currentSchedule = groupSchedules[0]; // All schedules in group have same time_of_day
@@ -249,7 +292,7 @@ export async function GET(request: Request) {
             medicationName: medication.name,
             scheduledTime: currentSchedule.time_of_day,
             timezone: timeZone,
-            localTime: localNowStr
+            localTime: `${local.hour}:${String(local.minute).padStart(2, '0')}:${String(local.second).padStart(2, '0')}`
           }));
         }
 
@@ -266,18 +309,15 @@ export async function GET(request: Request) {
           }
         }
 
-        // Compute the scheduled time for TODAY in the patient's timezone, then convert to UTC ISO
+        // Compute the scheduled time for TODAY in the patient's timezone, then convert to UTC ISO (DST-safe)
         const [hh, mm] = String(firstSchedule.time_of_day).split(':').map(Number);
-        const tzOffsetMs = localNow.getTime() - now.getTime();
-        const scheduledLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate(), hh || 0, mm || 0, 0, 0);
-        const scheduledUtcIso = new Date(scheduledLocal.getTime() - tzOffsetMs).toISOString();
-        console.log('[CRON] Creating scan session for group', { 
-          groupKey, 
-          patientId: patient.id, 
+        const scheduledUtcIso = scheduledLocalToUtcIso(now, timeZone, hh || 0, mm || 0);
+        console.log('[CRON] Creating scan session for group', {
+          groupKey,
+          patientId: patient.id,
           medicationCount: medicationIds.length,
           medicationIds,
-          scheduledLocal: scheduledLocal.toISOString(), 
-          scheduledUtcIso 
+          scheduledUtcIso
         });
 
         // Create scan session with all medications
