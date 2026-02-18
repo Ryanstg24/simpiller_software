@@ -666,7 +666,7 @@ export class MedicationAdder {
   /** Normalize time string to HH:MM:SS for medication_schedules.time_of_day */
   private normalizeTimeToHHMMSS(timeStr: string): string {
     if (!timeStr || !timeStr.trim()) return '';
-    let t = timeStr.trim();
+    const t = timeStr.trim();
     if (!t.includes(':')) return `${t}:00:00`;
     const parts = t.split(':').map((x) => x.padStart(2, '0'));
     if (parts.length === 2) return `${parts[0]}:${parts[1]}:00`;
