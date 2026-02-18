@@ -484,8 +484,9 @@ export class MedicationAdder {
   }
 
   /**
-   * Create medication schedules for the patient based on their time preferences
-   * Supports multiple time slots - uses the most recent time from the array
+   * Create medication schedules for the patient based on their time preferences.
+   * Creates one schedule per time in the patient's category (e.g. both 12:15 and 14:15 for afternoon).
+   * Supports medication.time_of_day as single category ("afternoon") or comma-separated ("afternoon_0,afternoon_1").
    */
   async createMedicationSchedules(patientId: string, medicationId: string): Promise<void> {
     try {
@@ -516,60 +517,160 @@ export class MedicationAdder {
         return;
       }
 
-      // Create schedule based on medication's time_of_day
-      const timeOfDay = medication.time_of_day;
-      let scheduledTime = '';
+      const timeOfDayRaw = (medication.time_of_day || '').trim();
+      if (!timeOfDayRaw) {
+        console.warn('[Medication Adder] Medication has no time_of_day, skipping schedule creation');
+        return;
+      }
 
-      // Helper function to get the latest time from array or fallback to single field
-      const getLatestTime = (
-        timesArray: string[] | null, 
-        singleTime: string | null, 
-        defaultTime: string
-      ): string => {
-        if (timesArray && timesArray.length > 0) {
-          // Return the last (most recent) time from the array
-          return timesArray[timesArray.length - 1];
+      // Resolve all times to schedule: one per patient time in the category (or per comma-separated slot)
+      const timesToSchedule = this.resolveScheduleTimes(patient, timeOfDayRaw);
+      if (timesToSchedule.length === 0) {
+        console.warn('[Medication Adder] No times resolved for time_of_day:', timeOfDayRaw);
+        return;
+      }
+
+      // Normalize to HH:MM:SS and dedupe
+      const normalized = new Set<string>();
+      for (const t of timesToSchedule) {
+        const n = this.normalizeTimeToHHMMSS(t);
+        if (n) normalized.add(n);
+      }
+
+      let created = 0;
+      for (const timeStr of normalized) {
+        const { error: scheduleError } = await supabaseAdmin
+          .from('medication_schedules')
+          .insert({
+            medication_id: medicationId,
+            patient_id: patientId,
+            scheduled_time: timeStr,
+            time_of_day: timeStr,
+            is_active: true,
+            alert_sms: true,
+            alert_advance_minutes: 15,
+            days_of_week: 127, // All days (bitmap: 1=Sun, 2=Mon, ... 64=Sat)
+            created_at: new Date().toISOString()
+          });
+
+        if (scheduleError) {
+          console.error('[Medication Adder] Error creating medication schedule:', scheduleError);
+        } else {
+          created++;
+          console.log(`[Medication Adder] Created schedule for medication ${medicationId} at ${timeStr}`);
         }
-        return singleTime || defaultTime;
-      };
-
-      switch (timeOfDay) {
-        case 'morning':
-          scheduledTime = getLatestTime(patient.morning_times, patient.morning_time, '08:00');
-          break;
-        case 'afternoon':
-          scheduledTime = getLatestTime(patient.afternoon_times, patient.afternoon_time, '14:00');
-          break;
-        case 'evening':
-          scheduledTime = getLatestTime(patient.evening_times, patient.evening_time, '18:00');
-          break;
-        case 'bedtime':
-          scheduledTime = getLatestTime(patient.bedtime_times, patient.bedtime, '22:00');
-          break;
-        default:
-          scheduledTime = '08:00';
       }
 
-      // Create medication schedule
-      const { error: scheduleError } = await supabaseAdmin
-        .from('medication_schedules')
-        .insert({
-          medication_id: medicationId,
-          patient_id: patientId,
-          scheduled_time: scheduledTime,
-          time_of_day: timeOfDay,
-          is_active: true,
-          created_at: new Date().toISOString()
-        });
-
-      if (scheduleError) {
-        console.error('[Medication Adder] Error creating medication schedule:', scheduleError);
-      } else {
-        console.log(`[Medication Adder] Created schedule for medication ${medicationId} at ${scheduledTime}`);
+      if (created > 0) {
+        console.log(`[Medication Adder] Created ${created} schedule(s) for medication ${medicationId}`);
       }
-
     } catch (error) {
       console.error('[Medication Adder] Error creating medication schedules:', error);
     }
+  }
+
+  /**
+   * Resolve medication time_of_day to a list of actual time strings using patient preferences.
+   * - Single category "afternoon" -> all patient.afternoon_times (or [afternoon_time])
+   * - Comma-separated "afternoon_0,afternoon_1" -> time at index 0, time at index 1
+   */
+  private resolveScheduleTimes(
+    patient: {
+      morning_time?: string | null;
+      afternoon_time?: string | null;
+      evening_time?: string | null;
+      bedtime?: string | null;
+      morning_times?: string[] | null;
+      afternoon_times?: string[] | null;
+      evening_times?: string[] | null;
+      bedtime_times?: string[] | null;
+    },
+    timeOfDayRaw: string
+  ): string[] {
+    const getTimesForCategory = (
+      timesArray: string[] | null | undefined,
+      singleTime: string | null | undefined,
+      defaultTime: string
+    ): string[] => {
+      if (timesArray && timesArray.length > 0) return [...timesArray];
+      if (singleTime) return [singleTime];
+      return [defaultTime];
+    };
+
+    const getTimeAtIndex = (
+      timesArray: string[] | null | undefined,
+      singleTime: string | null | undefined,
+      defaultTime: string,
+      index: number
+    ): string => {
+      if (timesArray && timesArray.length > index) return timesArray[index];
+      if (index === 0 && singleTime) return singleTime;
+      if (timesArray && timesArray.length > 0) return timesArray[0];
+      return defaultTime;
+    };
+
+    const parts = timeOfDayRaw.split(',').map((p) => p.trim()).filter(Boolean);
+    const out: string[] = [];
+
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      const [periodName, indexStr] = lower.split('_');
+      const index = indexStr !== undefined && indexStr !== '' ? parseInt(indexStr, 10) : undefined;
+
+      if (index !== undefined && !Number.isNaN(index)) {
+        // e.g. afternoon_0, afternoon_1 -> one time per index
+        let time = '';
+        switch (periodName) {
+          case 'morning':
+            time = getTimeAtIndex(patient.morning_times, patient.morning_time, '08:00', index);
+            break;
+          case 'afternoon':
+            time = getTimeAtIndex(patient.afternoon_times, patient.afternoon_time, '14:00', index);
+            break;
+          case 'evening':
+            time = getTimeAtIndex(patient.evening_times, patient.evening_time, '18:00', index);
+            break;
+          case 'bedtime':
+            time = getTimeAtIndex(patient.bedtime_times, patient.bedtime, '22:00', index);
+            break;
+          default:
+            break;
+        }
+        if (time) out.push(time);
+      } else {
+        // single category: use all times in that category
+        let times: string[] = [];
+        switch (periodName) {
+          case 'morning':
+            times = getTimesForCategory(patient.morning_times, patient.morning_time, '08:00');
+            break;
+          case 'afternoon':
+            times = getTimesForCategory(patient.afternoon_times, patient.afternoon_time, '14:00');
+            break;
+          case 'evening':
+            times = getTimesForCategory(patient.evening_times, patient.evening_time, '18:00');
+            break;
+          case 'bedtime':
+            times = getTimesForCategory(patient.bedtime_times, patient.bedtime, '22:00');
+            break;
+          default:
+            break;
+        }
+        out.push(...times);
+      }
+    }
+
+    return out;
+  }
+
+  /** Normalize time string to HH:MM:SS for medication_schedules.time_of_day */
+  private normalizeTimeToHHMMSS(timeStr: string): string {
+    if (!timeStr || !timeStr.trim()) return '';
+    let t = timeStr.trim();
+    if (!t.includes(':')) return `${t}:00:00`;
+    const parts = t.split(':').map((x) => x.padStart(2, '0'));
+    if (parts.length === 2) return `${parts[0]}:${parts[1]}:00`;
+    if (parts.length >= 3) return `${parts[0]}:${parts[1]}:${parts[2]}`;
+    return '';
   }
 }
