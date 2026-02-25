@@ -13,7 +13,8 @@ const supabaseAdmin = createClient(
 );
 
 // DRx API Configuration
-// Base URL: https://staging.drxapp.com/external_api/v1
+// Staging: https://staging.drxapp.com/external_api/v1
+// Production: set DRX_API_ENDPOINT (e.g. https://derosa.drxapp.com/external_api/v1 if that is your production base)
 // API Key should be set in environment variable DRX_API_KEY
 // Uses X-DRX-Key header for authentication
 const DRX_API_ENDPOINT = process.env.DRX_API_ENDPOINT || 'https://staging.drxapp.com/external_api/v1';
